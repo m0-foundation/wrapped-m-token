@@ -1,0 +1,51 @@
+{
+  "name": "@mzero-labs/foundry-template",
+  "version": "1.0.0",
+  "description": "Template to kickstart a Foundry project",
+  "main": "index.js",
+  "author": "M^0 Labs <contact@m0.xyz>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MZero-Labs/foundry-template.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MZero-Labs/foundry-template/issues"
+  },
+  "homepage": "https://github.com/MZero-Labs/foundry-template#readme",
+  "scripts": {
+    "build": "make -B build",
+    "clean": "make -B clean",
+    "compile": "forge compile",
+    "coverage": "make -B coverage",
+    "deploy-local": "make -B deploy-local",
+    "deploy-sepolia": "make -B deploy-sepolia",
+    "doc": "forge doc --serve --port 4000",
+    "lint-staged": "lint-staged",
+    "prepack": "npm run clean && npm run build",
+    "prepare": "husky",
+    "prettier": "prettier --write 'script/**/*.sol' 'src/**/*.sol' 'test/**/*.sol'",
+    "slither": "forge build --build-info --skip '*/test/**' --skip '*/script/**' --force && slither --compile-force-framework foundry --ignore-compile --config-file slither.config.json --fail-high .",
+    "solhint": "solhint -f stylish 'src/**/*.sol'",
+    "solhint-fix": "solhint --fix 'src/**/*.sol'",
+    "test": "make -B test",
+    "test-gas": "make -B gas-report",
+    "test-fuzz": "make -B fuzz",
+    "test-integration": "make -B integration",
+    "test-invariant": "make -B invariant"
+  },
+  "devDependencies": {
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
+    "prettier": "^3.2.5",
+    "prettier-plugin-solidity": "^1.3.1",
+    "solhint": "^4.5.2",
+    "solhint-plugin-prettier": "^0.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "src/**",
+    "out/**"
+  ]
+}
