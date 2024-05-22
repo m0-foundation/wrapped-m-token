@@ -23,7 +23,7 @@
     "lint-staged": "lint-staged",
     "prepack": "npm run clean && npm run build",
     "prepare": "husky",
-    "prettier": "prettier --write 'script/**/*.sol' 'src/**/*.sol' 'test/**/*.sol'",
+    "prettier": "prettier --write 'src/**/*.sol' 'test/**/*.sol'",
     "slither": "forge build --build-info --skip '*/test/**' --skip '*/script/**' --force && slither --compile-force-framework foundry --ignore-compile --config-file slither.config.json --fail-high .",
     "solhint": "solhint -f stylish 'src/**/*.sol'",
     "solhint-fix": "solhint --fix 'src/**/*.sol'",
