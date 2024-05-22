@@ -2,8 +2,6 @@
 
 pragma solidity 0.8.23;
 
-import {ERC20Extended} from "../../lib/common/src/ERC20Extended.sol";
-
 import {ERC20} from "../../lib/solmate/src/tokens/ERC20.sol";
 
 import {IMToken} from "../../lib/protocol/src/interfaces/IMToken.sol";
@@ -23,6 +21,14 @@ contract wM is ERC20 {
     mapping(address earner => EarnerBalance balance) public earningSuppliers;
 
     error InsufficientBalance(address account, uint256 rawBalance, uint256 amount);
+    error NotEarner();
+    error NoEarnerPosition();
+
+    modifier onlyEarner() {
+        if (!IMToken(mToken).isEarning(msg.sender)) revert NotEarner();
+
+        _;
+    }
 
     constructor(address mToken_) ERC20("Wrapped M Token", "wM", 18) {
         mToken = mToken_;
@@ -30,53 +36,60 @@ contract wM is ERC20 {
         nonEarnerPosition = address(new MPosition(address(this), mToken_));
     }
 
-    function wrap(uint256 amount) external {
-        if (IMToken(mToken).isEarning(msg.sender)) {
-            (uint256 initialBalance_, uint256 interest_) = _getAccruedInterestAndInitialBalance(msg.sender);
-            if (interest_ > 0) {
-                MPosition(earnerPosition).withdraw(interest_, msg.sender); // withdraw M interest
-            }
+    function wrapForEarner(uint256 amount) external onlyEarner {
+        (uint256 initialBalance_, uint256 interest_, uint256 currentIndex_) = _getEarnerData(msg.sender);
 
-            uint256 currentIndex_ = IMToken(mToken).currentIndex();
-            earningSuppliers[msg.sender] = EarnerBalance(currentIndex_, (initialBalance_ + amount) / currentIndex_);
-            IMToken(mToken).transferFrom(msg.sender, earnerPosition, amount);
-        } else {
-            IMToken(mToken).transferFrom(msg.sender, nonEarnerPosition, amount);
+        // Withdraw accrued M interest
+        if (interest_ > 0) {
+            MPosition(earnerPosition).withdraw(interest_, msg.sender);
         }
 
-        _mint(msg.sender, amount); // mint wM tokens
+        earningSuppliers[msg.sender] = EarnerBalance(currentIndex_, (initialBalance_ + amount) / currentIndex_);
+
+        // Supply M tokens to the earner position that continue to accrue earner rate.
+        IMToken(mToken).transferFrom(msg.sender, earnerPosition, amount);
+
+        // Mint wM tokens.
+        _mint(msg.sender, amount);
     }
 
-    function unwrap(uint256 amount_) external {
-        // if earner or used to be an earner
-        if (earningSuppliers[msg.sender].principal != 0) {
-            uint256 currentIndex_ = IMToken(mToken).currentIndex();
-            EarnerBalance storage earnerBalance_ = earningSuppliers[msg.sender];
-            uint256 initialBalance_ = earnerBalance_.principal * earnerBalance_.lastIndex;
-            if (amount_ > initialBalance_) revert InsufficientBalance(msg.sender, initialBalance_, amount_);
+    function wrap(uint256 amount) external {
+        // Supply M tokens to the non-earner position.
+        IMToken(mToken).transferFrom(msg.sender, nonEarnerPosition, amount);
 
-            uint256 currentBalance_ = earnerBalance_.principal * currentIndex_;
-            uint256 mInterest_ = currentBalance_ - initialBalance_;
+        // Mint wM tokens.
+        _mint(msg.sender, amount);
+    }
 
-            // Withdraw interest and required amount
-            MPosition(earnerPosition).withdraw(amount_ + mInterest_, msg.sender);
+    function unwrapForEarner(uint256 amount_) external {
+        // If earner or used to be an earner
+        if (earningSuppliers[msg.sender].principal == 0) revert NoEarnerPosition();
 
-            earnerBalance_.principal = (initialBalance_ - amount_) / currentIndex_;
-            earnerBalance_.lastIndex = currentIndex_;
-        } else {
-            // non-earner
-            MPosition(nonEarnerPosition).withdraw(amount_, msg.sender);
-        }
+        (uint256 initialBalance_, uint256 interest_, uint256 currentIndex_) = _getEarnerData(msg.sender);
+
+        if (amount_ > initialBalance_) revert InsufficientBalance(msg.sender, initialBalance_, amount_);
+
+        // Withdraw interest and required amount
+        MPosition(earnerPosition).withdraw(amount_ + interest_, msg.sender);
+
+        earningSuppliers[msg.sender] = EarnerBalance(currentIndex_, (initialBalance_ - amount_) / currentIndex_);
 
         _burn(msg.sender, amount_); // burn wM tokens
     }
 
-    function _getAccruedInterestAndInitialBalance(address earner) internal view returns (uint256, uint256) {
+    function unwrap(uint256 amount_) external {
+        // Withdraw M tokens from non-earner position.
+        MPosition(nonEarnerPosition).withdraw(amount_, msg.sender);
+
+        _burn(msg.sender, amount_); // burn wM tokens
+    }
+
+    function _getEarnerData(address earner) internal view returns (uint256, uint256, uint256) {
         uint256 currentIndex_ = IMToken(mToken).currentIndex();
         EarnerBalance storage earnerBalance_ = earningSuppliers[earner];
         uint256 initialBalance_ = earnerBalance_.principal * earnerBalance_.lastIndex;
         uint256 currentBalance_ = earnerBalance_.principal * currentIndex_;
 
-        return (initialBalance_, currentBalance_ - initialBalance_);
+        return (initialBalance_, currentBalance_ - initialBalance_, currentIndex_);
     }
 }
