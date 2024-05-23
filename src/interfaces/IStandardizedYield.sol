@@ -2,9 +2,41 @@
 
 pragma solidity 0.8.23;
 
-import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.sol";
+interface IStandardizedYield {
+    /* ============ Custom Errors ============ */
 
-interface IStandardizedYield is IERC20Extended {
+    /**
+     * @notice Emitted if the amount of shares minted is lower than the minimum required.
+     * @param  amountSharesOut Amount of shares minted.
+     * @param  minSharesOut    Minimum amount of shares required.
+     */
+    error InsufficientSharesOut(uint256 amountSharesOut, uint256 minSharesOut);
+
+    /**
+     * @notice Emitted if the amount of token redeemed is lower than the minimum required.
+     * @param  amountTokenOut Amount of token redeemed.
+     * @param  minTokenOut    Minimum amount of token required.
+     */
+    error InsufficientTokenOut(uint256 amountTokenOut, uint256 minTokenOut);
+
+    /**
+     * @notice Emitted if `tokenIn` is unsupported by the WM token wrapper.
+     * @param  tokenIn Address of the unsupported token.
+     */
+    error InvalidTokenIn(address tokenIn);
+
+    /**
+     * @notice Emitted if `tokenOut` is unsupported by the WM token wrapper.
+     * @param  tokenOut Address of the unsupported token.
+     */
+    error InvalidTokenOut(address tokenOut);
+
+    /// @notice Emitted if `amountTokenToDeposit` is 0.
+    error ZeroDeposit();
+
+    /// @notice Emitted if `amountSharesToRedeem` is 0.
+    error ZeroRedeem();
+
     /* ============ Events ============ */
 
     /**
