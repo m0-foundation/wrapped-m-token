@@ -96,11 +96,8 @@ interface IWM is IERC20Extended, IStandardizedYield {
      */
     function isEarning(address account) external view returns (bool);
 
-    /// @notice The total supply of WM tokens that are earning.
-    function totalEarningSupply() external view returns (uint240);
-
-    /// @notice The total supply of WM tokens that are not earning.
-    function totalNonEarningSupply() external view returns (uint240);
+    /// @notice The total amount of M earned by the earning accounts.
+    function totalEarnedM() external view returns (uint256);
 
     /// @notice The address of the TTG Registrar contract.
     function ttgRegistrar() external view returns (address);

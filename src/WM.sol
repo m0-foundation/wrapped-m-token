@@ -29,12 +29,15 @@ contract WM is IWM, ERC20Extended {
      * @param  isEarning   True if the account is earning, false otherwise.
      * @param  latestIndex Latest recorded index of account. 0 for a non earning account.
      *                     The latest M token index at the time the balance of an earning account was last updated.
-     * @param  rawBalance  Balance (for a non earning account) or balance principal (for an earning account).
+     * @param  balance     Balance of MW tokens.
+     * @param  earned      Earned WM tokens for a currently earning account or an account that was earning in the past.
+     *                     This amount is stored at the current exchange rate between M and WM when the interest is captured.
      */
     struct WMBalance {
         bool isEarning;
         uint128 latestIndex;
-        uint256 rawBalance;
+        uint256 balance;
+        uint256 earned;
     }
 
     /* ============ Variables ============ */
@@ -42,8 +45,11 @@ contract WM is IWM, ERC20Extended {
     /// @inheritdoc IWM
     uint128 public latestIndex;
 
+    /// @inheritdoc IERC20
+    uint256 public totalSupply;
+
     /// @inheritdoc IWM
-    uint240 public totalNonEarningSupply;
+    uint256 public totalEarnedM;
 
     /// @inheritdoc IStandardizedYield
     address public immutable yieldToken;
@@ -54,8 +60,11 @@ contract WM is IWM, ERC20Extended {
     // @notice The total principal balance of earning supply.
     uint112 internal _principalOfTotalEarningSupply;
 
+    /// @notice M token decimals.
+    uint8 private constant _DECIMALS = 6;
+
     /// @notice Underlying yield token unit.
-    uint256 private immutable _yieldTokenUnit;
+    uint256 private constant _YIELD_TOKEN_UNIT = 10 ** _DECIMALS;
 
     /// @notice WM token balances.
     mapping(address account => WMBalance balance) internal _balances;
@@ -64,14 +73,14 @@ contract WM is IWM, ERC20Extended {
 
     /**
      * @notice Constructs the WM token contract.
-     * @param  mToken_ Address of the underlying yield token.
+     * @param  mToken_       Address of the underlying yield token.
+     * @param  ttgRegistrar_ Address of the TTG Registrar contract.
      */
-    constructor(address mToken_, address ttgRegistrar_) ERC20Extended("WM by M^0", "M", IERC20(mToken_).decimals()) {
+    constructor(address mToken_, address ttgRegistrar_) ERC20Extended("WM by M^0", "M", _DECIMALS) {
         if ((yieldToken = mToken_) == address(0)) revert ZeroMToken();
         if ((ttgRegistrar = ttgRegistrar_) == address(0)) revert ZeroTTGRegistrar();
 
         latestIndex = IContinuousIndexing(mToken_).currentIndex();
-        _yieldTokenUnit = 10 ** IERC20(mToken_).decimals();
     }
 
     /* ============ Interactive Functions ============ */
@@ -126,10 +135,7 @@ contract WM is IWM, ERC20Extended {
 
         IMToken mToken_ = IMToken(yieldToken);
 
-        uint256 excessEarnedM = mToken_.isEarning(address(this))
-            ? mToken_.principalBalanceOf(address(this)) - totalNonEarningSupply
-            : mToken_.balanceOf(address(this)) - totalNonEarningSupply;
-
+        uint256 excessEarnedM = mToken_.balanceOf(address(this)) - totalEarnedM;
         minAmount_ = minAmount_ > excessEarnedM ? excessEarnedM : minAmount_;
 
         _mint(ITTGRegistrar(ttgRegistrar).vault(), minAmount_);
@@ -160,17 +166,7 @@ contract WM is IWM, ERC20Extended {
 
     /// @inheritdoc IERC20
     function balanceOf(address account) external view returns (uint256) {
-        WMBalance storage accountBalance_ = _balances[account];
-
-        // If account is earning, return the principal balance + the earned M amount
-        return
-            accountBalance_.isEarning
-                ? accountBalance_.rawBalance +
-                    _getPresentAmountRoundedDown(
-                        uint112(accountBalance_.rawBalance),
-                        IContinuousIndexing(yieldToken).currentIndex() - accountBalance_.latestIndex
-                    )
-                : accountBalance_.rawBalance;
+        return _balances[account].balance;
     }
 
     /// @inheritdoc IWM
@@ -192,13 +188,11 @@ contract WM is IWM, ERC20Extended {
 
     /// @inheritdoc IStandardizedYield
     function exchangeRate() public view returns (uint256) {
-        uint256 totalSupply_ = totalSupply();
-
         // exchangeRate = (yieldTokenUnit * wrapperBalanceOfYieldToken) / totalSupply
         return
-            totalSupply_ == 0
-                ? _yieldTokenUnit
-                : (_yieldTokenUnit * IERC20(yieldToken).balanceOf(address(this))) / totalSupply_;
+            totalSupply == 0
+                ? _YIELD_TOKEN_UNIT
+                : (_YIELD_TOKEN_UNIT * IERC20(yieldToken).balanceOf(address(this))) / totalSupply;
     }
 
     /// @inheritdoc IStandardizedYield
@@ -225,25 +219,6 @@ contract WM is IWM, ERC20Extended {
         return token_ == yieldToken;
     }
 
-    /// @inheritdoc IWM
-    function totalEarningSupply() public view returns (uint240) {
-        // Can't underflow since `currentIndex` is after or at `latestIndex`.
-        unchecked {
-            return
-                _getPresentAmountRoundedDown(
-                    _principalOfTotalEarningSupply,
-                    IContinuousIndexing(yieldToken).currentIndex() - latestIndex
-                );
-        }
-    }
-
-    /// @inheritdoc IERC20
-    function totalSupply() public view returns (uint256) {
-        unchecked {
-            return totalNonEarningSupply + totalEarningSupply();
-        }
-    }
-
     /* ============ Internal Interactive Functions ============ */
 
     /**
@@ -268,40 +243,52 @@ contract WM is IWM, ERC20Extended {
      * @dev   Internal ERC20 transfer function.
      * @param sender_    The sender's address.
      * @param receiver_  The receiver's address.
-     * @param amount_    The amount to be transferred.
+     * @param shares_    The amount of shares to be transferred.
      */
-    function _transfer(address sender_, address receiver_, uint256 amount_) internal override {
+    function _transfer(address sender_, address receiver_, uint256 shares_) internal override {
         uint128 currentYieldTokenIndex_ = IContinuousIndexing(yieldToken).currentIndex();
+        uint256 totalEarnedMToBurn_;
 
         // TODO: implement unchecked maths and rounding
-        // TODO: safe cast amount_ to uint240 or uint112
+        // TODO: safe cast shares_ to uint240 or uint112
         if (sender_ != address(0)) {
             WMBalance storage senderBalance_ = _balances[sender_];
 
             // If sender is earning, capture the earned M tokens and update the index
             if (senderBalance_.isEarning) {
                 uint240 senderEarnedM = _getPresentAmountRoundedDown(
-                    uint112(senderBalance_.rawBalance),
+                    uint112(senderBalance_.balance),
                     currentYieldTokenIndex_ - senderBalance_.latestIndex
                 );
 
-                senderBalance_.rawBalance += senderEarnedM;
+                senderBalance_.earned += _previewDeposit(senderEarnedM);
                 senderBalance_.latestIndex = currentYieldTokenIndex_;
 
-                _principalOfTotalEarningSupply += uint112(senderEarnedM);
-            }
+                totalEarnedM += senderEarnedM;
 
-            // Check if sender has enough balance
-            if (senderBalance_.rawBalance < amount_) {
-                revert InsufficientBalance(sender_, senderBalance_.rawBalance, amount_);
-            }
+                uint256 totalBalance_ = senderBalance_.balance + senderBalance_.earned;
+                _hasEnoughBalance(sender_, totalBalance_, shares_);
 
-            senderBalance_.rawBalance -= amount_;
+                if (shares_ > senderBalance_.earned) {
+                    uint256 balanceDiff_ = shares_ - senderBalance_.earned;
+                    senderBalance_.balance -= balanceDiff_;
 
-            if (senderBalance_.isEarning) {
-                _principalOfTotalEarningSupply -= uint112(amount_);
+                    if (receiver_ == address(0)) {
+                        totalEarnedMToBurn_ = senderBalance_.earned;
+                        totalSupply -= balanceDiff_;
+                    }
+
+                    delete senderBalance_.earned;
+                } else {
+                    senderBalance_.earned -= shares_;
+
+                    if (receiver_ == address(0)) {
+                        totalSupply -= shares_;
+                    }
+                }
             } else {
-                totalNonEarningSupply -= uint240(amount_);
+                _hasEnoughBalance(sender_, senderBalance_.balance, shares_);
+                senderBalance_.balance -= shares_;
             }
         }
 
@@ -311,26 +298,21 @@ contract WM is IWM, ERC20Extended {
             // If receiver is earning, capture the earned M tokens and update the index
             if (receiverBalance_.isEarning) {
                 uint240 receiverEarnedM = _getPresentAmountRoundedDown(
-                    uint112(receiverBalance_.rawBalance),
+                    uint112(receiverBalance_.balance),
                     currentYieldTokenIndex_ - receiverBalance_.latestIndex
                 );
 
-                receiverBalance_.rawBalance += receiverEarnedM;
+                receiverBalance_.earned += _previewDeposit(receiverEarnedM);
                 receiverBalance_.latestIndex = currentYieldTokenIndex_;
 
-                _principalOfTotalEarningSupply += uint112(receiverEarnedM);
+                totalEarnedM += receiverEarnedM;
             }
 
-            receiverBalance_.rawBalance += amount_;
-
-            if (receiverBalance_.isEarning) {
-                _principalOfTotalEarningSupply += uint112(amount_);
-            } else {
-                totalNonEarningSupply += uint240(amount_);
-            }
+            receiverBalance_.balance += shares_;
+            totalSupply += shares_;
         }
 
-        emit Transfer(sender_, receiver_, amount_);
+        emit Transfer(sender_, receiver_, shares_);
 
         latestIndex = currentYieldTokenIndex_;
     }
@@ -389,7 +371,7 @@ contract WM is IWM, ERC20Extended {
         return
             amountTokenToDeposit_ == 0
                 ? amountTokenToDeposit_
-                : (amountTokenToDeposit_ * _yieldTokenUnit) / exchangeRate();
+                : (amountTokenToDeposit_ * _YIELD_TOKEN_UNIT) / exchangeRate();
     }
 
     /**
@@ -402,7 +384,17 @@ contract WM is IWM, ERC20Extended {
         return
             amountSharesToRedeem_ == 0
                 ? amountSharesToRedeem_
-                : (amountSharesToRedeem_ * exchangeRate()) / _yieldTokenUnit;
+                : (amountSharesToRedeem_ * exchangeRate()) / _YIELD_TOKEN_UNIT;
+    }
+
+    /**
+     * @notice Checks if account has enough balance to transfer.
+     * @param  account_ Address to check.
+     * @param  balance_ Current balance of account. May account for the earned amount if account is earning.
+     * @param  amount_  Amount to transfer.
+     */
+    function _hasEnoughBalance(address account_, uint256 balance_, uint256 amount_) internal view {
+        if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
     }
 
     /**

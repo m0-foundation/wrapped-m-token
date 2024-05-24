@@ -11,6 +11,9 @@ import { ITTGRegistrar } from "../../../lib/protocol/src/interfaces/ITTGRegistra
 library TTGRegistrarReader {
     /* ============ Variables ============ */
 
+    /// @notice The name of parameter in TTG that defines the earner rate model contract.
+    bytes32 internal constant EARNER_RATE_MODEL = "earner_rate_model";
+
     /// @notice The parameter name in TTG that defines the earners list.
     bytes32 internal constant EARNERS_LIST = "earners";
 
