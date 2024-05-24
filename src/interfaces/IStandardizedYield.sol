@@ -37,40 +37,6 @@ interface IStandardizedYield {
     /// @notice Emitted if `amountSharesToRedeem` is 0.
     error ZeroRedeem();
 
-    /* ============ Events ============ */
-
-    /**
-     * @notice Emitted when any base tokens is deposited to mint shares.
-     * @param  caller          Address which deposited the base tokens.
-     * @param  receiver        Address which received the shares.
-     * @param  tokenIn         Address of the base token deposited.
-     * @param  amountDeposited Amount of base tokens deposited.
-     * @param  amountSyOut     Amount of shares minted.
-     */
-    event Deposit(
-        address indexed caller,
-        address indexed receiver,
-        address indexed tokenIn,
-        uint256 amountDeposited,
-        uint256 amountSyOut
-    );
-
-    /**
-     * @notice Emitted when any shares are redeemed for base tokens.
-     * @param  caller            Address which redeemed the shares.
-     * @param  receiver          Address which received the base tokens.
-     * @param  tokenOut          Address of the base token redeemed.
-     * @param  amountSyToRedeem  Amount of shares redeemed.
-     * @param  amountTokenOut    Amount of base tokens received.
-     */
-    event Redeem(
-        address indexed caller,
-        address indexed receiver,
-        address indexed tokenOut,
-        uint256 amountSyToRedeem,
-        uint256 amountTokenOut
-    );
-
     /* ============ Interactive Functions ============ */
 
     /**
@@ -125,16 +91,6 @@ interface IStandardizedYield {
      * @return The current exchange rate.
      */
     function exchangeRate() external view returns (uint256);
-
-    /**
-     * @notice Returns the address of the underlying yield token.
-     * @dev    MUST return a token address that conforms to the ERC-20 interface, or zero address.
-     *         MUST NOT revert.
-     *         MUST reflect the exact underlying yield-bearing token address if the SY token is a wrapped token.
-     *         MAY return 0x or zero address if the SY token is natively implemented, and not from wrapping.
-     * @return Address of the underlying yield token.
-     */
-    function yieldToken() external view returns (address);
 
     /**
      * @notice Returns all tokens that can mint this SY.

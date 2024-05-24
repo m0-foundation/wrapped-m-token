@@ -5,17 +5,10 @@ pragma solidity 0.8.23;
 import { WM } from "../../src/WM.sol";
 
 contract WMHarness is WM {
-    constructor(address mToken, address registrar) WM(mToken, registrar) {}
+    constructor(address mToken_, address yMToken_, address registrar_) WM(mToken_, yMToken_, registrar_) {}
 
-    function setIsEarning(address account_, bool isEarning_) external {
-        _balances[account_].isEarning = isEarning_;
-    }
-
-    function setLatestIndex(address account_, uint128 latestIndex_) external {
-        _balances[account_].latestIndex = latestIndex_;
-    }
-
-    function setBalance(address account_, uint256 balance_) external {
-        _balances[account_].balance = balance_;
+    function increaseBalanceOf(address account_, uint256 balance_) external {
+        _balances[account_] += balance_;
+        totalSupply += balance_;
     }
 }

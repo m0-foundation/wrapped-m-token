@@ -5,14 +5,10 @@ pragma solidity 0.8.23;
 import { IERC20 } from "../lib/common/src/interfaces/IERC20.sol";
 import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 
-import { IContinuousIndexing } from "../lib/protocol/src/interfaces/IContinuousIndexing.sol";
-import { ITTGRegistrar } from "../lib/protocol/src/interfaces/ITTGRegistrar.sol";
 import { IMToken } from "../lib/protocol/src/interfaces/IMToken.sol";
 
-import { ContinuousIndexingMath } from "../lib/protocol/src/libs/ContinuousIndexingMath.sol";
-
-import { IStandardizedYield } from "./interfaces/IStandardizedYield.sol";
 import { IWM } from "./interfaces/IWM.sol";
+import { IYM } from "./interfaces/IYM.sol";
 
 import { TTGRegistrarReader } from "./libs/TTGRegistrarReader.sol";
 
@@ -22,207 +18,101 @@ import { TTGRegistrarReader } from "./libs/TTGRegistrarReader.sol";
  * @notice ERC5115 WM token.
  */
 contract WM is IWM, ERC20Extended {
-    /* ============ Structs ============ */
-
-    /**
-     * @notice WM token balance struct.
-     * @param  isEarning   True if the account is earning, false otherwise.
-     * @param  latestIndex Latest recorded index of account. 0 for a non earning account.
-     *                     The latest M token index at the time the balance of an earning account was last updated.
-     * @param  balance     Balance of MW tokens.
-     * @param  earned      Earned WM tokens for a currently earning account or an account that was earning in the past.
-     *                     This amount is stored at the current exchange rate between M and WM when the interest is captured.
-     */
-    struct WMBalance {
-        bool isEarning;
-        uint128 latestIndex;
-        uint256 balance;
-        uint256 earned;
-    }
-
     /* ============ Variables ============ */
-
-    /// @inheritdoc IWM
-    uint128 public latestIndex;
 
     /// @inheritdoc IERC20
     uint256 public totalSupply;
-
     /// @inheritdoc IWM
-    uint256 public totalEarnedM;
-
-    /// @inheritdoc IStandardizedYield
-    address public immutable yieldToken;
+    address public immutable mToken;
 
     /// @inheritdoc IWM
     address public immutable ttgRegistrar;
 
-    // @notice The total principal balance of earning supply.
-    uint112 internal _principalOfTotalEarningSupply;
+    /// @inheritdoc IWM
+    address public immutable yMToken;
 
-    /// @notice M token decimals.
-    uint8 private constant _DECIMALS = 6;
-
-    /// @notice Underlying yield token unit.
-    uint256 private constant _YIELD_TOKEN_UNIT = 10 ** _DECIMALS;
+    /// @notice Dead address to send YM tokens to if caller is not on the earners list.
+    address private constant _DEAD_ADDRESS = address(0x000000000000000000000000000000000000dEaD);
 
     /// @notice WM token balances.
-    mapping(address account => WMBalance balance) internal _balances;
+    mapping(address account => uint256 balance) internal _balances;
 
     /* ============ Constructor ============ */
 
     /**
      * @notice Constructs the WM token contract.
-     * @param  mToken_       Address of the underlying yield token.
+     * @param  mToken_       Address of the underlying M token.
+     * @param  yMToken_      Address of the Yield M token.
      * @param  ttgRegistrar_ Address of the TTG Registrar contract.
      */
-    constructor(address mToken_, address ttgRegistrar_) ERC20Extended("WM by M^0", "M", _DECIMALS) {
-        if ((yieldToken = mToken_) == address(0)) revert ZeroMToken();
+    constructor(address mToken_, address yMToken_, address ttgRegistrar_) ERC20Extended("WM by M^0", "WM", 6) {
+        if ((mToken = mToken_) == address(0)) revert ZeroMToken();
+        if ((yMToken = yMToken_) == address(0)) revert ZeroYMToken();
         if ((ttgRegistrar = ttgRegistrar_) == address(0)) revert ZeroTTGRegistrar();
-
-        latestIndex = IContinuousIndexing(mToken_).currentIndex();
     }
 
     /* ============ Interactive Functions ============ */
 
-    /// @inheritdoc IStandardizedYield
-    function deposit(
-        address receiver_,
-        address tokenIn_,
-        uint256 amountTokenToDeposit_,
-        uint256 minSharesOut_
-    ) external payable returns (uint256 amountSharesOut_) {
-        // TODO: handle deposit from non earner
-        _isValidTokenIn(tokenIn_);
-        if (amountTokenToDeposit_ == 0) revert ZeroDeposit();
+    /// @inheritdoc IWM
+    function deposit(address receiver_, uint256 amount_) external payable returns (uint256) {
+        if (amount_ == 0) revert ZeroDeposit();
 
-        IERC20(tokenIn_).transferFrom(msg.sender, address(this), amountTokenToDeposit_);
+        IERC20(mToken).transferFrom(msg.sender, address(this), amount_);
 
-        amountSharesOut_ = _previewDeposit(amountTokenToDeposit_);
-        if (amountSharesOut_ < minSharesOut_) revert InsufficientSharesOut(amountSharesOut_, minSharesOut_);
+        bool isEarning_ = _isEarning(msg.sender);
 
-        _mint(receiver_, amountSharesOut_);
-        emit Deposit(msg.sender, receiver_, tokenIn_, amountTokenToDeposit_, amountSharesOut_);
-    }
+        // WM shares are minted 1:1 to the amount of M tokens deposited.
+        _mint(receiver_, amount_);
 
-    /// @inheritdoc IStandardizedYield
-    function redeem(
-        address receiver_,
-        uint256 amountSharesToRedeem_,
-        address tokenOut_,
-        uint256 minTokenOut_,
-        bool burnFromInternalBalance_
-    ) external returns (uint256 amountTokenOut_) {
-        _isValidTokenOut(tokenOut_);
-        if (amountSharesToRedeem_ == 0) revert ZeroRedeem();
+        IYM(yMToken).mint(isEarning_ ? receiver_ : _DEAD_ADDRESS, amount_);
 
-        if (burnFromInternalBalance_) {
-            _burn(address(this), amountSharesToRedeem_);
-        } else {
-            _burn(msg.sender, amountSharesToRedeem_);
-        }
+        emit Deposit(msg.sender, receiver_, amount_, amount_, isEarning_);
 
-        amountTokenOut_ = _previewRedeem(amountSharesToRedeem_);
-        if (amountTokenOut_ < minTokenOut_) revert InsufficientTokenOut(amountTokenOut_, minTokenOut_);
-
-        emit Redeem(msg.sender, receiver_, tokenOut_, amountSharesToRedeem_, amountTokenOut_);
+        return amount_;
     }
 
     /// @inheritdoc IWM
-    function distributeExcessEarnedM(uint256 minAmount_) external {
-        if (!TTGRegistrarReader.isApprovedLiquidator(ttgRegistrar, msg.sender))
-            revert NotApprovedLiquidator(msg.sender);
+    function redeem(address receiver_, uint256 shares_) external returns (uint256) {
+        if (shares_ == 0) revert ZeroRedeem();
 
-        IMToken mToken_ = IMToken(yieldToken);
+        IYM yMToken_ = IYM(yMToken);
 
-        uint256 excessEarnedM = mToken_.balanceOf(address(this)) - totalEarnedM;
-        minAmount_ = minAmount_ > excessEarnedM ? excessEarnedM : minAmount_;
+        uint256 balanceOfEarnedM_ = yMToken_.balanceOfEarnedM(msg.sender);
 
-        _mint(ITTGRegistrar(ttgRegistrar).vault(), minAmount_);
+        // WM shares are burned 1:1 to the amount of M tokens withdrawn.
+        _burn(msg.sender, shares_);
+        yMToken_.burn(msg.sender, shares_);
 
-        emit ExcessEarnedMDistributed(msg.sender, minAmount_);
-    }
+        uint256 redeemAmount_ = shares_ + (balanceOfEarnedM_ - yMToken_.balanceOfEarnedM(msg.sender));
 
-    /// @inheritdoc IWM
-    function startEarning() external {
-        if (!_isApprovedEarner(msg.sender)) revert NotApprovedEarner(msg.sender);
+        IERC20(mToken).transfer(receiver_, redeemAmount_);
 
-        _startEarning(msg.sender);
-    }
+        emit Redeem(msg.sender, receiver_, shares_, redeemAmount_);
 
-    /// @inheritdoc IWM
-    function stopEarning() external {
-        _stopEarning(msg.sender);
-    }
-
-    /// @inheritdoc IWM
-    function stopEarning(address account_) external {
-        if (_isApprovedEarner(account_)) revert IsApprovedEarner(account_);
-
-        _stopEarning(account_);
+        return redeemAmount_;
     }
 
     /* ============ View/Pure Functions ============ */
 
-    /// @inheritdoc IERC20
-    function balanceOf(address account) external view returns (uint256) {
-        return _balances[account].balance;
-    }
-
     /// @inheritdoc IWM
-    function isEarning(address account_) external view returns (bool) {
-        return _balances[account_].isEarning;
+    function totalEarnedM() external view returns (uint256) {
+        // Safe to use unchecked here since the balance of M tokens
+        // will always be greater than or equal to the amount of WM tokens minted.
+        unchecked {
+            return IERC20(mToken).balanceOf(address(this)) - totalSupply;
+        }
     }
 
-    /// @inheritdoc IStandardizedYield
-    function previewDeposit(address tokenIn_, uint256 amountTokenToDeposit_) external view returns (uint256) {
-        _isValidTokenIn(tokenIn_);
-        return _previewDeposit(amountTokenToDeposit_);
-    }
-
-    /// @inheritdoc IStandardizedYield
-    function previewRedeem(address tokenOut, uint256 amountSharesToRedeem) external view returns (uint256) {
-        _isValidTokenOut(tokenOut);
-        return _previewRedeem(amountSharesToRedeem);
-    }
-
-    /// @inheritdoc IStandardizedYield
-    function exchangeRate() public view returns (uint256) {
-        // exchangeRate = (yieldTokenUnit * wrapperBalanceOfYieldToken) / totalSupply
-        return
-            totalSupply == 0
-                ? _YIELD_TOKEN_UNIT
-                : (_YIELD_TOKEN_UNIT * IERC20(yieldToken).balanceOf(address(this))) / totalSupply;
-    }
-
-    /// @inheritdoc IStandardizedYield
-    function getTokensIn() public view override returns (address[] memory) {
-        address[] memory tokensIn_ = new address[](1);
-        tokensIn_[0] = yieldToken;
-        return tokensIn_;
-    }
-
-    /// @inheritdoc IStandardizedYield
-    function getTokensOut() public view override returns (address[] memory) {
-        address[] memory tokensOut_ = new address[](1);
-        tokensOut_[0] = yieldToken;
-        return tokensOut_;
-    }
-
-    /// @inheritdoc IStandardizedYield
-    function isValidTokenIn(address token_) public view override returns (bool) {
-        return token_ == yieldToken;
-    }
-
-    /// @inheritdoc IStandardizedYield
-    function isValidTokenOut(address token_) public view override returns (bool) {
-        return token_ == yieldToken;
+    /// @inheritdoc IERC20
+    function balanceOf(address account_) public view returns (uint256) {
+        return _balances[account_];
     }
 
     /* ============ Internal Interactive Functions ============ */
 
     /**
      * @dev   Burns `shares_` amount from `account_`.
+     * @dev   WM shares are burned 1:1 to the amount of M tokens withdrawn.
      * @param account_ Address to burn from.
      * @param shares_  Amount of shares to burn.
      */
@@ -232,6 +122,7 @@ contract WM is IWM, ERC20Extended {
 
     /**
      * @dev   Mints `shares_` amount to `receiver_`.
+     * @dev   WM shares are minted 1:1 to the amount of M tokens deposited.
      * @param receiver_ Address to mint to.
      * @param shares_   Amount of shares to mint.
      */
@@ -246,181 +137,38 @@ contract WM is IWM, ERC20Extended {
      * @param shares_    The amount of shares to be transferred.
      */
     function _transfer(address sender_, address receiver_, uint256 shares_) internal override {
-        uint128 currentYieldTokenIndex_ = IContinuousIndexing(yieldToken).currentIndex();
-        uint256 totalEarnedMToBurn_;
-
-        // TODO: implement unchecked maths and rounding
-        // TODO: safe cast shares_ to uint240 or uint112
         if (sender_ != address(0)) {
-            WMBalance storage senderBalance_ = _balances[sender_];
+            if (balanceOf(sender_) < shares_) revert InsufficientBalance(sender_, balanceOf(sender_), shares_);
 
-            // If sender is earning, capture the earned M tokens and update the index
-            if (senderBalance_.isEarning) {
-                uint240 senderEarnedM = _getPresentAmountRoundedDown(
-                    uint112(senderBalance_.balance),
-                    currentYieldTokenIndex_ - senderBalance_.latestIndex
-                );
-
-                senderBalance_.earned += _previewDeposit(senderEarnedM);
-                senderBalance_.latestIndex = currentYieldTokenIndex_;
-
-                totalEarnedM += senderEarnedM;
-
-                uint256 totalBalance_ = senderBalance_.balance + senderBalance_.earned;
-                _hasEnoughBalance(sender_, totalBalance_, shares_);
-
-                if (shares_ > senderBalance_.earned) {
-                    uint256 balanceDiff_ = shares_ - senderBalance_.earned;
-                    senderBalance_.balance -= balanceDiff_;
-
-                    if (receiver_ == address(0)) {
-                        totalEarnedMToBurn_ = senderBalance_.earned;
-                        totalSupply -= balanceDiff_;
-                    }
-
-                    delete senderBalance_.earned;
-                } else {
-                    senderBalance_.earned -= shares_;
-
-                    if (receiver_ == address(0)) {
-                        totalSupply -= shares_;
-                    }
-                }
-            } else {
-                _hasEnoughBalance(sender_, senderBalance_.balance, shares_);
-                senderBalance_.balance -= shares_;
+            // Safe to use unchecked here since we check above that the sender has enough balance.
+            unchecked {
+                _balances[sender_] -= shares_;
             }
-        }
-
-        if (receiver_ != address(0)) {
-            WMBalance storage receiverBalance_ = _balances[receiver_];
-
-            // If receiver is earning, capture the earned M tokens and update the index
-            if (receiverBalance_.isEarning) {
-                uint240 receiverEarnedM = _getPresentAmountRoundedDown(
-                    uint112(receiverBalance_.balance),
-                    currentYieldTokenIndex_ - receiverBalance_.latestIndex
-                );
-
-                receiverBalance_.earned += _previewDeposit(receiverEarnedM);
-                receiverBalance_.latestIndex = currentYieldTokenIndex_;
-
-                totalEarnedM += receiverEarnedM;
-            }
-
-            receiverBalance_.balance += shares_;
+        } else {
             totalSupply += shares_;
         }
 
+        if (receiver_ != address(0)) {
+            _balances[receiver_] += shares_;
+        } else {
+            // Safe to use unchecked here since we can burn at most
+            // the balance of the sender which can't exceed the total supply.
+            unchecked {
+                totalSupply -= shares_;
+            }
+        }
+
         emit Transfer(sender_, receiver_, shares_);
-
-        latestIndex = currentYieldTokenIndex_;
-    }
-
-    /**
-     * @dev   Starts earning for account.
-     * @param account_ The account to start earning for.
-     */
-    function _startEarning(address account_) internal {
-        WMBalance storage accountBalance_ = _balances[account_];
-
-        // Account is already earning.
-        if (accountBalance_.isEarning) return;
-
-        emit StartedEarning(account_);
-
-        accountBalance_.isEarning = true;
-        accountBalance_.latestIndex = IContinuousIndexing(yieldToken).currentIndex();
-    }
-
-    /**
-     * @dev   Stops earning for account.
-     * @param account_ The account to stop earning for.
-     */
-    function _stopEarning(address account_) internal {
-        WMBalance storage accountBalance_ = _balances[account_];
-
-        // Account is currently not earning.
-        if (!accountBalance_.isEarning) return;
-
-        emit StoppedEarning(account_);
-
-        delete accountBalance_.isEarning;
-        delete accountBalance_.latestIndex;
     }
 
     /* ============ Internal View/Pure Functions ============ */
 
     /**
-     * @dev    Returns the present amount (rounded down) given the principal amount and an index.
-     * @param  principalAmount_ The principal amount.
-     * @param  index_           An index.
-     * @return The present amount rounded down.
-     */
-    function _getPresentAmountRoundedDown(uint112 principalAmount_, uint128 index_) internal pure returns (uint240) {
-        return ContinuousIndexingMath.multiplyDown(principalAmount_, index_);
-    }
-
-    /**
-     * @notice Returns the amount of shares that would be minted for a given amount of token to deposit.
-     * @param  amountTokenToDeposit_ Amount of token to deposit.
-     * @return Amount of shares that would be minted.
-     */
-    function _previewDeposit(uint256 amountTokenToDeposit_) internal view returns (uint256) {
-        // shares = (amountTokenToDeposit_ * totalSupply) / wrapperBalanceOfYieldToken
-        return
-            amountTokenToDeposit_ == 0
-                ? amountTokenToDeposit_
-                : (amountTokenToDeposit_ * _YIELD_TOKEN_UNIT) / exchangeRate();
-    }
-
-    /**
-     * @notice Returns the amount of token that would be redeemed for a given amount of shares to redeem.
-     * @param  amountSharesToRedeem_ Amount of shares to redeem.
-     * @return Amount of token that would be redeemed.
-     */
-    function _previewRedeem(uint256 amountSharesToRedeem_) internal view returns (uint256) {
-        // tokenOut = (amountSharesToRedeem_ * wrapperBalanceOfYieldToken) / totalSupply
-        return
-            amountSharesToRedeem_ == 0
-                ? amountSharesToRedeem_
-                : (amountSharesToRedeem_ * exchangeRate()) / _YIELD_TOKEN_UNIT;
-    }
-
-    /**
-     * @notice Checks if account has enough balance to transfer.
-     * @param  account_ Address to check.
-     * @param  balance_ Current balance of account. May account for the earned amount if account is earning.
-     * @param  amount_  Amount to transfer.
-     */
-    function _hasEnoughBalance(address account_, uint256 balance_, uint256 amount_) internal view {
-        if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
-    }
-
-    /**
-     * @dev    Checks if earner was approved by TTG.
+     * @dev    Checks if account is an earner.
      * @param  account_    The account to check.
-     * @return True if approved, false otherwise.
+     * @return True if earning, false otherwise.
      */
-    function _isApprovedEarner(address account_) internal view returns (bool) {
-        return
-            TTGRegistrarReader.isEarnersListIgnored(ttgRegistrar) ||
-            TTGRegistrarReader.isApprovedEarner(ttgRegistrar, account_);
-    }
-
-    /**
-     * @notice Checks if `tokenIn_` is a valid token to deposit.
-     * @param  tokenIn_ Address of the token to check.
-     */
-    function _isValidTokenIn(address tokenIn_) internal view {
-        if (!isValidTokenIn(tokenIn_)) revert InvalidTokenIn(tokenIn_);
-    }
-
-    /**
-     * @notice Checks if `tokenOut_` is a valid token to redeem.
-     * @param  tokenOut_ Address of the token to check.
-     */
-    function _isValidTokenOut(address tokenOut_) internal view {
-        if (!isValidTokenOut(tokenOut_)) revert InvalidTokenOut(tokenOut_);
+    function _isEarning(address account_) internal view returns (bool) {
+        return IMToken(mToken).isEarning(account_);
     }
 }

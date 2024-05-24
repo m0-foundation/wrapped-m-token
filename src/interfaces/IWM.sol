@@ -4,29 +4,27 @@ pragma solidity 0.8.23;
 
 import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.sol";
 
-import { IStandardizedYield } from "./IStandardizedYield.sol";
-
-interface IWM is IERC20Extended, IStandardizedYield {
+interface IWM is IERC20Extended {
     /* ============ Events ============ */
 
     /**
-     * @notice Emitted when excess earned M tokens are distributed to ZERO token holders.
-     * @param  account The account that distributed the excess earned M tokens.
-     * @param  amount  The amount of WM tokens distributed.
+     * @notice Emitted when M tokens are deposited to mint WM shares.
+     * @param  caller    Address which deposited the M tokens.
+     * @param  receiver  Address which received the WM shares.
+     * @param  amount    Amount of M tokens deposited.
+     * @param  shares    Amount of WM shares minted.
+     * @param  isEarning Whether the depositor is an earner or not.
      */
-    event ExcessEarnedMDistributed(address indexed account, uint256 amount);
+    event Deposit(address indexed caller, address indexed receiver, uint256 amount, uint256 shares, bool isEarning);
 
     /**
-     * @notice Emitted when account starts being a WM earner.
-     * @param  account The account that started earning.
+     * @notice Emitted when WM shares are redeemed for M tokens.
+     * @param  caller    Address which redeemed the WM shares.
+     * @param  receiver  Address which received the M tokens.
+     * @param  shares    Amount of WM shares redeemed.
+     * @param  amount    Amount of M tokens received.
      */
-    event StartedEarning(address indexed account);
-
-    /**
-     * @notice Emitted when account stops being a WM earner.
-     * @param  account The account that stopped earning.
-     */
-    event StoppedEarning(address indexed account);
+    event Redeem(address indexed caller, address indexed receiver, uint256 shares, uint256 amount);
 
     /* ============ Custom Errors ============ */
 
@@ -50,11 +48,11 @@ interface IWM is IERC20Extended, IStandardizedYield {
      */
     error NotApprovedEarner(address account);
 
-    /**
-     * @notice Emitted when calling `distributeExcessEarnedM` by an account not approved as liquidator by TTG.
-     * @param  account Address of the unapproved account.
-     */
-    error NotApprovedLiquidator(address account);
+    /// @notice Emitted if amount to deposit is 0.
+    error ZeroDeposit();
+
+    /// @notice Emitted if shares to redeem is 0.
+    error ZeroRedeem();
 
     /// @notice Emitted in constructor if M token is 0x0.
     error ZeroMToken();
@@ -62,43 +60,56 @@ interface IWM is IERC20Extended, IStandardizedYield {
     /// @notice Emitted in constructor if TTG Registrar is 0x0.
     error ZeroTTGRegistrar();
 
+    /// @notice Emitted in constructor if YM token is 0x0.
+    error ZeroYMToken();
+
     /* ============ Interactive Functions ============ */
 
     /**
-     * @notice Distributes excess earned M tokens to ZERO token holders.
-     * @dev    MUST revert if caller is not the approved liquidator in TTG Registrar.
-     * @param  minAmount Minimum amount of M tokens to distribute.
+     * @notice Mints an amount of WM shares by depositing M tokens.
+     * @dev    MUST emit the  `Deposit` event.
+     *         MUST support ERC-20’s `approve` / `transferFrom` flow.
+     * @param  receiver Address which will receive the WM shares.
+     * @param  amount   Amount of M tokens to deposit into the wrapper.
+     * @return Amount of WM shares minted.
      */
-    function distributeExcessEarnedM(uint256 minAmount) external;
-
-    /// @notice Starts earning for caller if allowed by TTG.
-    function startEarning() external;
-
-    /// @notice Stops earning for caller.
-    function stopEarning() external;
+    function deposit(address receiver, uint256 amount) external payable returns (uint256);
 
     /**
-     * @notice Stops earning for `account`.
-     * @dev    MUST revert if `account` is an approved earner in TTG Registrar.
-     * @param  account The account to stop earning for.
+     * @notice Redeems an amount of M tokens by burning WM shares.
+     * @dev    MUST emit the `Redeem` event.
+     *         MUST support ERC-20’s `approve` / `transferFrom` flow.
+     * @param  receiver                Address which will receive the M tokens.
+     * @param  shares                  Amount of WM shares to be burned.
+     * @return Amount of M tokens redeemed.
      */
-    function stopEarning(address account) external;
+    function redeem(address receiver, uint256 shares) external returns (uint256);
 
     /* ============ View/Pure Functions ============ */
 
-    /// @notice The M token index at deployment.
-    function latestIndex() external view returns (uint128);
+    /**
+     * @notice Returns the address of the underlying M token.
+     * @return Address of the underlying M token.
+     */
+    function mToken() external view returns (address);
 
     /**
-     * @notice Checks if account is an earner.
-     * @param  account The account to check.
-     * @return True if account is an earner, false otherwise.
+     * @notice The total amount of M earned by the WM token.
+     * @dev    Is equivalent to the total amount of M held by the WM token
+     *         minus the total supply of WM tokens since WM is minted 1:1 with M.
      */
-    function isEarning(address account) external view returns (bool);
-
-    /// @notice The total amount of M earned by the earning accounts.
     function totalEarnedM() external view returns (uint256);
 
-    /// @notice The address of the TTG Registrar contract.
+    /**
+     * @notice Returns the TTG Registrar address.
+     * @return Address of the TTG Registrar.
+     */
     function ttgRegistrar() external view returns (address);
+
+    /**
+     * @notice Returns the address of the Yield M token.
+     * @dev    This token allows the holder to claim their share of the yield generated by M in this wrapper.
+     * @return Address of the Yield M token.
+     */
+    function yMToken() external view returns (address);
 }
