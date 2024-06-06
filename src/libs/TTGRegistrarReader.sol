@@ -20,8 +20,17 @@ library TTGRegistrarReader {
     /// @notice The parameter name in TTG that defines whether to ignore the earners list or not.
     bytes32 internal constant EARNERS_LIST_IGNORED = "earners_list_ignored";
 
-    /// @notice The parameter name in TTG that defines the M wrapper liquidator address.
-    bytes32 internal constant M_WRAPPER_LIQUIDATOR = "m_wrapper_liquidator";
+    /// @notice The parameter name in TTG that defines the M wrapper claimer address.
+    bytes32 internal constant M_WRAPPER_CLAIMER = "m_wrapper_claimer";
+
+    /// @notice The parameter name in TTG that defines the M wrapper manager address.
+    bytes32 internal constant M_WRAPPER_MANAGER = "m_wrapper_manager";
+
+    /// @notice The parameter name in TTG that defines the list of addresses manage by the manager address.
+    bytes32 internal constant M_WRAPPER_MANAGER_LIST = "m_wrapper_manager_list";
+
+    /// @notice The parameter name in TTG that defines whether to ignore the manager list or not.
+    bytes32 internal constant M_WRAPPER_MANAGER_LIST_IGNORED = "m_wrapper_manager_list_ignored";
 
     /* ============ Internal View/Pure Functions ============ */
 
@@ -30,14 +39,29 @@ library TTGRegistrarReader {
         return _contains(registrar_, EARNERS_LIST, earner_);
     }
 
-    /// @notice Checks if the given account is approved to liquidate excess earned M.
-    function isApprovedLiquidator(address registrar_, address account_) internal view returns (bool) {
-        return toAddress(_get(registrar_, M_WRAPPER_LIQUIDATOR)) == account_;
+    /// @notice Checks if the given account is approved to claim earned M tokens.
+    function isApprovedClaimer(address registrar_, address account_) internal view returns (bool) {
+        return toAddress(_get(registrar_, M_WRAPPER_CLAIMER)) == account_;
+    }
+
+    /// @notice Checks if the given account is approved to manage WM.
+    function isApprovedManager(address registrar_, address account_) internal view returns (bool) {
+        return toAddress(_get(registrar_, M_WRAPPER_MANAGER)) == account_;
+    }
+
+    /// @notice Checks if the given account is on the manager list.
+    function isOnManagerList(address registrar_, address account_) internal view returns (bool) {
+        return _contains(registrar_, M_WRAPPER_MANAGER_LIST, account_);
     }
 
     /// @notice Checks if the `earners_list_ignored` exists.
     function isEarnersListIgnored(address registrar_) internal view returns (bool) {
         return _get(registrar_, EARNERS_LIST_IGNORED) != bytes32(0);
+    }
+
+    /// @notice Checks if the `m_wrapper_manager_list_ignored` exists.
+    function isManagerListIgnored(address registrar_) internal view returns (bool) {
+        return _get(registrar_, M_WRAPPER_MANAGER_LIST_IGNORED) != bytes32(0);
     }
 
     /// @notice Converts given bytes32 to address.

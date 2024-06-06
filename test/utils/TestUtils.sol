@@ -7,7 +7,7 @@ import { Test } from "../../lib/forge-std/src/Test.sol";
 import { ContinuousIndexingMath } from "../../lib/protocol/src/libs/ContinuousIndexingMath.sol";
 
 contract TestUtils is Test {
-    /* ============ index ============ */
+    /* ============ Index ============ */
     function _getContinuousIndexAt(
         uint32 rate_,
         uint128 initialIndex_,
@@ -25,8 +25,21 @@ contract TestUtils is Test {
             );
     }
 
-    /* ============ present ============ */
+    /* ============ Present ============ */
     function _getPresentAmountRoundedDown(uint112 principalAmount_, uint128 index_) internal pure returns (uint240) {
         return ContinuousIndexingMath.multiplyDown(principalAmount_, index_);
+    }
+
+    function _getPresentAmountRoundedUp(uint112 principalAmount_, uint128 index_) internal pure returns (uint240) {
+        return ContinuousIndexingMath.multiplyUp(principalAmount_, index_);
+    }
+
+    /* ============ Principal ============ */
+    function _getPrincipalAmountRoundedDown(uint240 presentAmount_, uint128 index_) internal pure returns (uint112) {
+        return ContinuousIndexingMath.divideDown(presentAmount_, index_);
+    }
+
+    function _getPrincipalAmountRoundedUp(uint240 presentAmount_, uint128 index_) internal pure returns (uint112) {
+        return ContinuousIndexingMath.divideUp(presentAmount_, index_);
     }
 }

@@ -35,13 +35,11 @@ contract MTokenHarness is MToken {
         _balances[account_].rawBalance = uint240(balance_);
     }
 
-    function increaseBalanceOf(address account_, uint256 balance_, bool isEarning_) external {
-        _balances[account_].rawBalance = uint240(balance_);
-
+    function increaseBalanceOf(address account_, uint256 amount_, bool isEarning_) external {
         if (isEarning_) {
-            principalOfTotalEarningSupply = uint112(balance_);
+            _addEarningAmount(account_, _getPrincipalAmountRoundedDown(uint240(amount_)));
         } else {
-            totalNonEarningSupply += uint240(balance_);
+            _addNonEarningAmount(account_, uint240(amount_));
         }
     }
 
