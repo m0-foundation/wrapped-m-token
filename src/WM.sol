@@ -157,6 +157,8 @@ contract WM is IERC20, ERC20Extended {
     function _startEarning(address account_) internal {
         if (_isEarning[account_]) return;
 
+        _accrueExcessOfM();
+
         _isEarning[account_] = true;
         _lastAccrueIndices[account_] = currentIndex();
 
@@ -221,6 +223,7 @@ contract WM is IERC20, ERC20Extended {
     function _transfer(address sender_, address recipient_, uint256 amount_) internal override {
         _accrueRewards(sender_);
         _accrueRewards(recipient_);
+        _accrueExcessOfM();
 
         if (_isEarning[sender_]) {
             _subtractEarningAmount(sender_, amount_);
