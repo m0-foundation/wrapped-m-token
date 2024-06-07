@@ -42,6 +42,7 @@ contract WM is IERC20, ERC20Extended {
     error ZeroMToken();
     error ZeroWrapper();
     error NotApprovedEarner();
+    error IsApprovedEarner();
     error NotWrapper();
 
     modifier onlyWrapper() {
@@ -82,7 +83,7 @@ contract WM is IERC20, ERC20Extended {
     }
 
     function stopEarning(address account_) external {
-        if (_isApprovedWEarner(account_)) revert NotApprovedEarner();
+        if (_isApprovedWEarner(account_)) revert IsApprovedEarner();
 
         _stopEarning(account_);
     }
