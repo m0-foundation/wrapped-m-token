@@ -9,7 +9,7 @@ contract Wrapper {
 
     // Excess of M claim fields
     address public immutable excessMOwner;
-    uint256 public claimedExcessM;
+    // uint256 public claimedExcessM;
 
     /* ============ Constructor ============ */
 
@@ -31,9 +31,9 @@ contract Wrapper {
 
     // Just example, excess of M goes somewhere else
     function claimExcess(uint256 amount_) external {
-        uint256 excess_ = WM(wMToken).excessOfM() - claimedExcessM;
-        claimedExcessM += excess_;
-        IMToken(mToken).transfer(excessMOwner, amount_);
+        if (amount_ <= WM(wMToken).excessOfM()) {
+            IMToken(mToken).transfer(excessMOwner, amount_);
+        }
     }
 
     function claim(uint256 amount_) external {
