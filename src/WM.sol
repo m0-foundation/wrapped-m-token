@@ -21,8 +21,6 @@ contract WM is IERC20, ERC20Extended {
     uint256 public principalOfTotalEarningSupply;
     uint256 public totalNonEarningSupply;
     uint256 public totalSupply;
-    // uint256 public totalRewards;
-    uint256 public excessOfM;
 
     // TODO: storage slots is subject to massive optimization here
     mapping(address account => uint256 balance) internal _balances; // for earners and non-earners
@@ -31,10 +29,9 @@ contract WM is IERC20, ERC20Extended {
 
     // Earners only
     mapping(address account => uint256 reward) internal _rewards;
+
     mapping(address account => uint256 principal) internal _earningPrincipals;
     mapping(address account => uint256 index) internal _lastAccrueIndices;
-
-    uint256 public _lastExcessMAccrueIndex;
 
     /* ============ Errors ============ */
 
@@ -71,11 +68,6 @@ contract WM is IERC20, ERC20Extended {
         _burn(account_, amount_);
     }
 
-    function claimExcess(address account_, uint256 amount_) external onlyWrapper {
-        excessOfM -= amount_;
-        _mint(account_, amount_);
-    }
-
     function startEarning(address account) external {
         if (!_isApprovedWEarner(account)) revert NotApprovedEarner();
 
@@ -102,6 +94,12 @@ contract WM is IERC20, ERC20Extended {
         return IMToken(mToken).currentIndex();
     }
 
+    function excessOfM() external view returns (uint256) {
+        uint256 totalSupply_ = totalNonEarningSupply + totalEarningSupply();
+
+        return IMToken(mToken).balanceOf(wrapper) - totalSupply_;
+    }
+
     /* ============ Internal Interactive Functions ============ */
 
     function _accrueRewards(address account_) internal {
@@ -115,24 +113,15 @@ contract WM is IERC20, ERC20Extended {
         }
 
         uint256 newReward_ = _earningPrincipals[account_] * (currentIndex_ - _lastAccrueIndices[account_]);
-        _rewards[account_] += newReward_;
-        // totalRewards += newReward_;
+
+        // Update only _balances[account_], do not use _mint
+        _balances[account_] += newReward_;
+
         _lastAccrueIndices[account_] = currentIndex_;
-    }
-
-    function _accrueExcessOfM() internal {
-        uint256 currentIndex_ = currentIndex();
-
-        uint256 excessSinceLastAccrue_ = principalOfTotalEarningSupply * (currentIndex_ - _lastExcessMAccrueIndex);
-        uint256 totalAdjustedSupply_ = totalNonEarningSupply + excessSinceLastAccrue_;
-        excessOfM += IMToken(mToken).balanceOf(wrapper) - totalAdjustedSupply_;
-
-        _lastExcessMAccrueIndex = currentIndex_;
     }
 
     function _mint(address recipient_, uint256 amount_) internal {
         _accrueRewards(recipient_);
-        _accrueExcessOfM();
 
         if (_isEarning[recipient_]) {
             _addEarningAmount(recipient_, amount_);
@@ -145,7 +134,6 @@ contract WM is IERC20, ERC20Extended {
 
     function _burn(address account_, uint256 amount_) internal {
         _accrueRewards(account_);
-        _accrueExcessOfM();
 
         if (_isEarning[account_]) {
             _subtractEarningAmount(account_, amount_);
@@ -157,8 +145,6 @@ contract WM is IERC20, ERC20Extended {
     function _startEarning(address account_) internal {
         if (_isEarning[account_]) return;
 
-        _accrueExcessOfM();
-
         _isEarning[account_] = true;
         _lastAccrueIndices[account_] = currentIndex();
 
@@ -169,7 +155,6 @@ contract WM is IERC20, ERC20Extended {
         if (!_isEarning[account_]) return;
 
         _accrueRewards(account_);
-        _accrueExcessOfM();
 
         // Totals update
         uint256 principalAmount_ = _earningPrincipals[account_];
@@ -223,7 +208,6 @@ contract WM is IERC20, ERC20Extended {
     function _transfer(address sender_, address recipient_, uint256 amount_) internal override {
         _accrueRewards(sender_);
         _accrueRewards(recipient_);
-        _accrueExcessOfM();
 
         if (_isEarning[sender_]) {
             _subtractEarningAmount(sender_, amount_);

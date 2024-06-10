@@ -6,7 +6,10 @@ import {WM} from "./WM.sol";
 contract Wrapper {
     address public immutable mToken;
     address public immutable wMToken;
+
+    // Excess of M claim fields
     address public immutable excessMOwner;
+    uint256 public claimedExcessM;
 
     /* ============ Constructor ============ */
 
@@ -28,7 +31,9 @@ contract Wrapper {
 
     // Just example, excess of M goes somewhere else
     function claimExcess(uint256 amount_) external {
-        WM(wMToken).claimExcess(excessMOwner, amount_);
+        uint256 excess_ = WM(wMToken).excessOfM() - claimedExcessM;
+        claimedExcessM += excess_;
+        IMToken(mToken).transfer(excessMOwner, amount_);
     }
 
     function claim(uint256 amount_) external {
