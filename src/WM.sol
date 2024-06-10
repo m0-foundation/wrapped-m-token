@@ -113,9 +113,7 @@ contract WM is IERC20, ERC20Extended {
         }
 
         uint256 newReward_ = _earningPrincipals[account_] * (currentIndex_ - _lastAccrueIndices[account_]);
-
-        // Update only _balances[account_], do not use _mint
-        _balances[account_] += newReward_;
+        _rewards[account_] += newReward_;
 
         _lastAccrueIndices[account_] = currentIndex_;
     }
@@ -175,8 +173,6 @@ contract WM is IERC20, ERC20Extended {
 
         _earningPrincipals[account_] += principalAmount_;
         principalOfTotalEarningSupply += principalAmount_;
-
-        // Update for excess of M vs wM here
     }
 
     function _addNonEarningAmount(address account_, uint256 amount_) internal {
@@ -193,8 +189,6 @@ contract WM is IERC20, ERC20Extended {
 
         // Totals update
         principalOfTotalEarningSupply -= principalAmount_;
-
-        // Update for excess of M vs wM here
     }
 
     function _subtractNonEarningAmount(address account_, uint256 amount_) internal {
@@ -221,6 +215,15 @@ contract WM is IERC20, ERC20Extended {
             _addNonEarningAmount(recipient_, amount_);
         }
     }
+
+    // function _claim(address earner_, uint256 amount_) internal {
+    //     _accrueRewards(earner_);
+
+    //     address claimer_ = _claimers[earner_];
+
+    //     // _mint(claimer_, amount_);
+    //     _balances[claimer_] += amount_; // do not update principal if claimer is an earner?
+    // }
 
     /* ============ Internal View/Pure Functions ============ */
 
