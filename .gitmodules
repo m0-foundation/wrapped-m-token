@@ -2,9 +2,6 @@
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
 	branch = v1
-[submodule "lib/protocol"]
-	path = lib/protocol
-	url = https://github.com/MZero-Labs/protocol
 [submodule "lib/common"]
 	path = lib/common
 	url = https://github.com/MZero-Labs/common

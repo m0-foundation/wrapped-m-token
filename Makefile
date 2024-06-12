@@ -18,7 +18,7 @@ profile ?=default
 build:
 	@./build.sh -p production
 
-test:
+tests:
 	@./test.sh -p $(profile)
 
 fuzz:
@@ -41,4 +41,3 @@ sizes:
 
 clean:
 	forge clean && rm -rf ./abi && rm -rf ./bytecode && rm -rf ./types
-
