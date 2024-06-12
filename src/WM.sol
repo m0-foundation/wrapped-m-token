@@ -45,7 +45,6 @@ contract WM is IERC20, ERC20Extended {
     error ZeroDistributionVault();
     error NotApprovedEarner();
     error IsApprovedEarner();
-    error NotWrapper();
 
     /* ============ Constructor ============ */
 
