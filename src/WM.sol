@@ -79,8 +79,6 @@ contract WM is IERC20, ERC20Extended {
 
     function claimRewardsForEarner(address earner) external {
         _accrueRewards(earner);
-        // OR
-        // _mint(_getClaimer(earner), claimableAmount_);
     }
 
     function claimExcessToDistributionVault() external {
