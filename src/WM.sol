@@ -8,6 +8,8 @@ import {IMToken} from "../lib/protocol/src/interfaces/IMToken.sol";
 
 interface ITTGRegistrar {
     function listContains(bytes32 list, address account) external view returns (bool);
+
+    function getClaimer(bytes32 list, address earner) external view returns (address claimer);
 }
 
 contract WM is IERC20, ERC20Extended {
@@ -16,6 +18,9 @@ contract WM is IERC20, ERC20Extended {
     address public immutable ttgRegistrar;
     address public immutable mToken;
     address public immutable distributionVault; // distribute all excess of MToken
+
+    bytes32 public constant WM_EARNERS_LIST = "wm_earners_list";
+    bytes32 public constant WM_EARNER_CLAIMER_LIST = "wm_earner_claimer_list";
 
     // Totals
     uint256 public principalOfTotalEarningSupply;
@@ -76,17 +81,16 @@ contract WM is IERC20, ERC20Extended {
         _stopEarning(account_);
     }
 
-    // TODO add claim forwarding logic instead of recipient
-    function claimRewards(address recipient) external {
-        _accrueRewards(msg.sender);
+    function claimRewardsForEarner(address earner) external {
+        _accrueRewards(earner);
 
         uint256 claimableAmount_ = _rewards[msg.sender];
 
-        if (claimableAmount_ == 0) return;
-
         _rewards[msg.sender] = 0;
 
-        IMToken(mToken).transfer(recipient, claimableAmount_);
+        IMToken(mToken).transfer(_getClaimer(earner), claimableAmount_);
+        // OR
+        // _mint(_getClaimer(earner), claimableAmount_);
     }
 
     function claimExcessToDistributionVault() external {
@@ -239,6 +243,10 @@ contract WM is IERC20, ERC20Extended {
     /* ============ Internal View/Pure Functions ============ */
 
     function _isApprovedWEarner(address account_) internal view returns (bool) {
-        return ITTGRegistrar(ttgRegistrar).listContains("wm_earners_list", account_);
+        return ITTGRegistrar(ttgRegistrar).listContains(WM_EARNERS_LIST, account_);
+    }
+
+    function _getClaimer(address earner_) internal view returns (address) {
+        return ITTGRegistrar(ttgRegistrar).getClaimer(WM_EARNER_CLAIMER_LIST, earner_);
     }
 }
