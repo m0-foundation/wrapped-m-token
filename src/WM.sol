@@ -31,10 +31,6 @@ contract WM is IERC20, ERC20Extended {
     mapping(address account => uint256 balance) internal _balances; // for earners and non-earners
 
     mapping(address account => bool isEarning) internal _isEarning;
-
-    // Earners only
-    mapping(address account => uint256 reward) internal _rewards;
-
     mapping(address account => uint256 principal) internal _earningPrincipals;
     mapping(address account => uint256 index) internal _lastAccrueIndices;
 
@@ -83,12 +79,6 @@ contract WM is IERC20, ERC20Extended {
 
     function claimRewardsForEarner(address earner) external {
         _accrueRewards(earner);
-
-        uint256 claimableAmount_ = _rewards[msg.sender];
-
-        _rewards[msg.sender] = 0;
-
-        IMToken(mToken).transfer(_getClaimer(earner), claimableAmount_);
         // OR
         // _mint(_getClaimer(earner), claimableAmount_);
     }
@@ -125,7 +115,14 @@ contract WM is IERC20, ERC20Extended {
         uint256 currentIndex_ = currentIndex();
 
         uint256 newReward_ = _earningPrincipals[account_] * (currentIndex_ - _lastAccrueIndices[account_]);
-        _rewards[account_] += newReward_;
+
+        // Update claimer balances for earner account
+        address claimer_ = _getClaimer(account_);
+
+        // Do not use _mint, do not change principal
+        _balances[claimer_] += newReward_;
+        totalSupply += newReward_;
+
         _lastAccrueIndices[account_] = currentIndex_;
     }
 
