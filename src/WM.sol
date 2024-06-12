@@ -27,9 +27,9 @@ contract WM is IERC20, ERC20Extended {
     uint256 public totalNonEarningSupply;
     uint256 public totalSupply;
 
-    // TODO: storage slots is subject to massive optimization here
     mapping(address account => uint256 balance) internal _balances; // for earners and non-earners
 
+    // Bitpack
     mapping(address account => bool isEarning) internal _isEarning;
     mapping(address account => uint256 principal) internal _earningPrincipals;
     mapping(address account => uint256 index) internal _lastAccrueIndices;
@@ -41,7 +41,6 @@ contract WM is IERC20, ERC20Extended {
     error ZeroDistributionVault();
     error NotApprovedEarner();
     error IsApprovedEarner();
-    error NotWrapper();
 
     /* ============ Constructor ============ */
 
