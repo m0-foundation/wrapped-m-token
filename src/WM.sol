@@ -15,7 +15,7 @@ contract WM is IERC20, ERC20Extended {
 
     address public immutable ttgRegistrar;
     address public immutable mToken;
-    address public immutable wrapper;
+    address public immutable distributionVault; // distribute all excess of MToken
 
     // Totals
     uint256 public principalOfTotalEarningSupply;
@@ -37,35 +37,31 @@ contract WM is IERC20, ERC20Extended {
 
     error ZeroTTGRegistrar();
     error ZeroMToken();
-    error ZeroWrapper();
+    error ZeroDistributionVault();
     error NotApprovedEarner();
     error IsApprovedEarner();
     error NotWrapper();
 
-    modifier onlyWrapper() {
-        if (msg.sender != wrapper) revert NotWrapper();
-
-        _;
-    }
-
     /* ============ Constructor ============ */
 
-    constructor(address ttgRegistrar_, address mToken_, address wrapper_) ERC20Extended("WM by M^0", "WM", 6) {
+    constructor(address ttgRegistrar_, address mToken_, address distributionVault_)
+        ERC20Extended("WM by M^0", "WM", 6)
+    {
         if ((ttgRegistrar = ttgRegistrar_) == address(0)) revert ZeroTTGRegistrar();
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
-        if ((wrapper = wrapper_) == address(0)) revert ZeroWrapper();
+        if ((distributionVault = distributionVault_) == address(0)) revert ZeroDistributionVault();
     }
 
     /* ============ Interactive Functions ============ */
 
-    /// 1:1 wrap
-    function mint(address account_, uint256 amount_) external onlyWrapper {
+    function wrap(address account_, uint256 amount_) external {
+        IMToken(mToken).transferFrom(msg.sender, address(this), amount_);
         _mint(account_, amount_);
     }
 
-    // 1:1 unwrap
-    function burn(address account_, uint256 amount_) external onlyWrapper {
-        _burn(account_, amount_);
+    function unwrap(address account_, uint256 amount_) external {
+        _burn(msg.sender, amount_);
+        IMToken(mToken).transfer(account_, amount_);
     }
 
     function startEarning(address account) external {
@@ -80,24 +76,41 @@ contract WM is IERC20, ERC20Extended {
         _stopEarning(account_);
     }
 
-    /* ============ View/Pure Functions ============ */
+    // TODO add claim forwarding logic instead of recipient
+    function claimRewards(address recipient) external {
+        _accrueRewards(msg.sender);
 
-    function totalEarningSupply() public view returns (uint256) {
-        return principalOfTotalEarningSupply * currentIndex();
+        uint256 claimableAmount_ = _rewards[msg.sender];
+
+        if (claimableAmount_ == 0) return;
+
+        _rewards[msg.sender] = 0;
+
+        IMToken(mToken).transfer(recipient, claimableAmount_);
     }
+
+    function claimExcessToDistributionVault() external {
+        IMToken(mToken).transfer(distributionVault, excessOfM());
+    }
+
+    /* ============ View/Pure Functions ============ */
 
     function balanceOf(address account_) external view returns (uint256 balance_) {
         return _balances[account_];
+    }
+
+    function totalEarningSupply() public view returns (uint256) {
+        return principalOfTotalEarningSupply * currentIndex();
     }
 
     function currentIndex() public view returns (uint128) {
         return IMToken(mToken).currentIndex();
     }
 
-    function excessOfM() external view returns (uint256) {
+    function excessOfM() public view returns (uint256) {
         uint256 totalProjectedSupply_ = totalNonEarningSupply + totalEarningSupply();
 
-        return IMToken(mToken).balanceOf(wrapper) - totalProjectedSupply_;
+        return IMToken(mToken).balanceOf(address(this)) - totalProjectedSupply_;
     }
 
     /* ============ Internal Interactive Functions ============ */
@@ -106,11 +119,6 @@ contract WM is IERC20, ERC20Extended {
         if (!_isEarning[account_]) return;
 
         uint256 currentIndex_ = currentIndex();
-
-        if (_lastAccrueIndices[account_] == 0) {
-            _lastAccrueIndices[account_] = currentIndex_;
-            return;
-        }
 
         uint256 newReward_ = _earningPrincipals[account_] * (currentIndex_ - _lastAccrueIndices[account_]);
         _rewards[account_] += newReward_;
@@ -155,7 +163,7 @@ contract WM is IERC20, ERC20Extended {
 
         // Totals update
         principalOfTotalEarningSupply += principalAmount_;
-        totalNonEarningSupply -= amount;
+        totalNonEarningSupply -= amount_;
     }
 
     function _stopEarning(address account_) internal {
@@ -185,7 +193,10 @@ contract WM is IERC20, ERC20Extended {
     }
 
     function _addNonEarningAmount(address account_, uint256 amount_) internal {
+        // Account update
         _balances[account_] += amount_;
+
+        // Totals update
         totalNonEarningSupply += amount_;
     }
 
