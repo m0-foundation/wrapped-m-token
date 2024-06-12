@@ -95,9 +95,9 @@ contract WM is IERC20, ERC20Extended {
     }
 
     function excessOfM() external view returns (uint256) {
-        uint256 totalSupply_ = totalNonEarningSupply + totalEarningSupply();
+        uint256 totalProjectedSupply_ = totalNonEarningSupply + totalEarningSupply();
 
-        return IMToken(mToken).balanceOf(wrapper) - totalSupply_;
+        return IMToken(mToken).balanceOf(wrapper) - totalProjectedSupply_;
     }
 
     /* ============ Internal Interactive Functions ============ */
@@ -114,7 +114,6 @@ contract WM is IERC20, ERC20Extended {
 
         uint256 newReward_ = _earningPrincipals[account_] * (currentIndex_ - _lastAccrueIndices[account_]);
         _rewards[account_] += newReward_;
-
         _lastAccrueIndices[account_] = currentIndex_;
     }
 
@@ -138,15 +137,25 @@ contract WM is IERC20, ERC20Extended {
         } else {
             _subtractNonEarningAmount(account_, amount_);
         }
+
+        totalSupply -= amount_;
     }
 
     function _startEarning(address account_) internal {
         if (_isEarning[account_]) return;
 
+        // Account update
         _isEarning[account_] = true;
         _lastAccrueIndices[account_] = currentIndex();
 
-        _earningPrincipals[account_] = _balances[account_] / currentIndex();
+        uint256 amount_ = _balances[account_];
+        uint256 principalAmount_ = amount_ / currentIndex();
+
+        _earningPrincipals[account_] = principalAmount_;
+
+        // Totals update
+        principalOfTotalEarningSupply += principalAmount_;
+        totalNonEarningSupply -= amount;
     }
 
     function _stopEarning(address account_) internal {
@@ -215,15 +224,6 @@ contract WM is IERC20, ERC20Extended {
             _addNonEarningAmount(recipient_, amount_);
         }
     }
-
-    // function _claim(address earner_, uint256 amount_) internal {
-    //     _accrueRewards(earner_);
-
-    //     address claimer_ = _claimers[earner_];
-
-    //     // _mint(claimer_, amount_);
-    //     _balances[claimer_] += amount_; // do not update principal if claimer is an earner?
-    // }
 
     /* ============ Internal View/Pure Functions ============ */
 
