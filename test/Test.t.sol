@@ -4,7 +4,10 @@ pragma solidity 0.8.23;
 
 import { Test, console2 } from "../lib/forge-std/src/Test.sol";
 
+import { IWrappedM } from "../src/interfaces/IWrappedM.sol";
+
 import { WrappedM } from "../src/WrappedM.sol";
+import { Proxy } from "../src/Proxy.sol";
 
 contract MockM {
     address public ttgRegistrar;
@@ -54,11 +57,38 @@ contract MockRegistrar {
     }
 }
 
+contract WrappedMV2 {
+    function foo() external pure returns (uint256) {
+        return 1;
+    }
+}
+
+contract WrappedMMigratorV1 {
+    bytes32 private constant _IMPLEMENTATION_SLOT =
+        bytes32(0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc);
+
+    address public immutable implementationV2;
+
+    constructor(address implementationV2_) {
+        implementationV2 = implementationV2_;
+    }
+
+    fallback() external virtual {
+        bytes32 slot_ = _IMPLEMENTATION_SLOT;
+        address implementationV2_ = implementationV2;
+
+        assembly {
+            sstore(slot_, implementationV2_)
+        }
+    }
+}
+
 contract Tests is Test {
     uint56 internal constant _EXP_SCALED_ONE = 1e12;
 
     bytes32 internal constant _EARNERS_LIST = "earners";
-    bytes32 internal constant _CLAIM_DESTINATION_PREFIX = "claim_destination";
+    bytes32 internal constant _CLAIM_DESTINATION_PREFIX = "wm_claim_destination";
+    bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
 
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
@@ -69,7 +99,8 @@ contract Tests is Test {
 
     MockM internal _mToken;
     MockRegistrar internal _registrar;
-    WrappedM internal _wrappedM;
+    WrappedM internal _implementation;
+    IWrappedM internal _wrappedM;
 
     function setUp() external {
         _registrar = new MockRegistrar();
@@ -79,7 +110,9 @@ contract Tests is Test {
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
         _mToken.setTtgRegistrar(address(_registrar));
 
-        _wrappedM = new WrappedM(address(_mToken));
+        _implementation = new WrappedM(address(_mToken));
+
+        _wrappedM = IWrappedM(address(new Proxy(address(_implementation))));
     }
 
     function test_story() external {
@@ -408,5 +441,22 @@ contract Tests is Test {
         assertEq(_wrappedM.totalSupply(), 4);
         assertEq(_wrappedM.totalAccruedYield(), 1);
         assertEq(_wrappedM.excess(), 6);
+    }
+
+    function test_migration() external {
+        WrappedMV2 implementationV2_ = new WrappedMV2();
+        address migrator_ = address(new WrappedMMigratorV1(address(implementationV2_)));
+
+        _registrar.set(
+            keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(_wrappedM))),
+            bytes32(uint256(uint160(migrator_)))
+        );
+
+        vm.expectRevert();
+        WrappedMV2(address(_wrappedM)).foo();
+
+        _wrappedM.migrate();
+
+        assertEq(WrappedMV2(address(_wrappedM)).foo(), 1);
     }
 }

@@ -17,11 +17,16 @@ contract WrappedM is IWrappedM, ERC20Extended {
 
     /* ============ Variables ============ */
 
+    /// @dev Storage slot with the address of the current factory. `keccak256('eip1967.proxy.implementation') - 1`.
+    bytes32 private constant _IMPLEMENTATION_SLOT =
+        bytes32(0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc);
+
     uint56 internal constant _EXP_SCALED_ONE = 1e12;
 
     bytes32 internal constant _EARNERS_LIST_IGNORED = "earners_list_ignored";
     bytes32 internal constant _EARNERS_LIST = "earners";
-    bytes32 internal constant _CLAIM_DESTINATION_PREFIX = "claim_destination";
+    bytes32 internal constant _CLAIM_DESTINATION_PREFIX = "wm_claim_destination";
+    bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
 
     address public immutable mToken;
     address public immutable registrar;
@@ -61,6 +66,20 @@ contract WrappedM is IWrappedM, ERC20Extended {
         _addAmount(destination_, UIntMath.safe240(amount_));
 
         IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
+    }
+
+    function migrate() external {
+        address migrator_ = address(
+            uint160(uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(this))))))
+        );
+
+        if (migrator_ == address(0)) revert ZeroMigrator();
+
+        address oldImplementation_ = implementation();
+
+        migrator_.delegatecall("");
+
+        emit Migrate(migrator_, oldImplementation_, implementation());
     }
 
     function startEarningFor(address account_) external {
@@ -140,6 +159,14 @@ contract WrappedM is IWrappedM, ERC20Extended {
         uint240 earmarked_ = uint240(totalSupply()) + totalAccruedYield();
 
         return balance_ > earmarked_ ? balance_ - earmarked_ : 0;
+    }
+
+    function implementation() public view returns (address implementation_) {
+        bytes32 slot_ = _IMPLEMENTATION_SLOT;
+
+        assembly {
+            implementation_ := sload(slot_)
+        }
     }
 
     function totalAccruedYield() public view returns (uint240 yield_) {
