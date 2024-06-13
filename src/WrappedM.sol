@@ -12,7 +12,9 @@ import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
 import { IWrappedM } from "./interfaces/IWrappedM.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 
-contract WrappedM is IWrappedM, ERC20Extended {
+import { Migratable } from "./Migratable.sol";
+
+contract WrappedM is IWrappedM, Migratable, ERC20Extended {
     type BalanceInfo is uint256;
 
     /* ============ Variables ============ */
@@ -21,7 +23,8 @@ contract WrappedM is IWrappedM, ERC20Extended {
 
     bytes32 internal constant _EARNERS_LIST_IGNORED = "earners_list_ignored";
     bytes32 internal constant _EARNERS_LIST = "earners";
-    bytes32 internal constant _CLAIM_DESTINATION_PREFIX = "claim_destination";
+    bytes32 internal constant _CLAIM_DESTINATION_PREFIX = "wm_claim_destination";
+    bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
 
     address public immutable mToken;
     address public immutable registrar;
@@ -316,6 +319,15 @@ contract WrappedM is IWrappedM, ERC20Extended {
             address(
                 uint160(
                     uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_DESTINATION_PREFIX, account_))))
+                )
+            );
+    }
+
+    function _getMigrator() internal view override returns (address migrator_) {
+        return
+            address(
+                uint160(
+                    uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(this)))))
                 )
             );
     }
