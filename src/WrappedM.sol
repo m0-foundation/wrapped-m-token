@@ -83,7 +83,10 @@ contract WrappedM is IWrappedM, ERC20Extended {
     }
 
     function excess() public view returns (uint256 yield_) {
-        return IMTokenLike(mToken).balanceOf(address(this)) - (totalSupply() + totalAccruedYield());
+        uint256 balance_ = IMTokenLike(mToken).balanceOf(address(this));
+        uint256 earmarked_ = totalSupply() + totalAccruedYield();
+
+        return balance_ > earmarked_ ? balance_ - earmarked_ : 0;
     }
 
     function balanceOf(address account) external view returns (uint256 balance_) {

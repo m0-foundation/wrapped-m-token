@@ -147,7 +147,7 @@ contract Tests is Test {
         assertEq(_wrappedM.totalNonEarningSupply(), 100_000000);
         assertEq(_wrappedM.totalSupply(), 300_000000);
         assertEq(_wrappedM.totalAccruedYield(), 100_000001);
-        assertEq(_wrappedM.excess(), 99_999999);
+        assertEq(_wrappedM.excess(), 99_999999); // TODO: Issue here as drop from previous
 
         vm.prank(_dave);
         _wrappedM.deposit(_dave, 100_000000);
@@ -223,7 +223,7 @@ contract Tests is Test {
         assertEq(_wrappedM.totalNonEarningSupply(), 300_000000);
         assertEq(_wrappedM.totalSupply(), 599_999999);
         assertEq(_wrappedM.totalAccruedYield(), 50_000003);
-        assertEq(_wrappedM.excess(), 249_999998);
+        assertEq(_wrappedM.excess(), 249_999998); // TODO: Issue here as drop from previous
 
         vm.prank(_dave);
         _wrappedM.transfer(_bob, 50_000000);
@@ -241,7 +241,7 @@ contract Tests is Test {
         assertEq(_wrappedM.totalNonEarningSupply(), 250_000000);
         assertEq(_wrappedM.totalSupply(), 649_999998);
         assertEq(_wrappedM.totalAccruedYield(), 5);
-        assertEq(_wrappedM.excess(), 249_999997);
+        assertEq(_wrappedM.excess(), 249_999997); // TODO: Issue here as drop from previous
 
         _mToken.setCurrentIndex(4 * _EXP_SCALED_ONE);
         _mToken.setBalanceOf(address(_wrappedM), 1_200_000000); // was 900 @ 3.0, so 1200 @ 4.0
