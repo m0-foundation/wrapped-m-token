@@ -23,6 +23,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
 
     address public immutable mToken;
     address public immutable registrar;
+    address public immutable vault;
 
     uint112 public principalOfTotalEarningSupply;
     uint128 public indexOfTotalEarningSupply;
@@ -33,9 +34,11 @@ contract WrappedM is IWrappedM, ERC20Extended {
 
     /* ============ Constructor ============ */
 
-    constructor(address mToken_, address registrar_) ERC20Extended("WrappedM by M^0", "wM", 6) {
-        mToken = mToken_;
-        registrar = registrar_;
+    constructor(address mToken_) ERC20Extended("WrappedM by M^0", "wM", 6) {
+        if ((mToken = mToken_) == address(0)) revert ZeroMToken();
+
+        registrar = IMTokenLike(mToken_).ttgRegistrar();
+        vault = IRegistrarLike(registrar).vault();
         indexOfTotalEarningSupply = currentMIndex();
     }
 
@@ -48,7 +51,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
     function claimExcess() external returns (uint240 yield_) {
         emit ExcessClaim(yield_ = excess());
 
-        IMTokenLike(mToken).transfer(IRegistrarLike(registrar).vault(), yield_);
+        IMTokenLike(mToken).transfer(vault, yield_);
     }
 
     function deposit(address destination_, uint256 amount_) external {

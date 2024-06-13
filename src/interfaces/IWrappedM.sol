@@ -17,11 +17,13 @@ interface IWrappedM is IERC20Extended {
 
     /* ============ Custom Errors ============ */
 
-    error NotApprovedEarner();
-
     error ApprovedEarner();
 
     error DivisionByZero();
+
+    error NotApprovedEarner();
+
+    error ZeroMToken();
 
     /* ============ Interactive Functions ============ */
 
@@ -58,4 +60,6 @@ interface IWrappedM is IERC20Extended {
     function totalAccruedYield() external view returns (uint240 yield);
 
     function totalEarningSupply() external view returns (uint240 totalSupply);
+
+    function vault() external view returns (address vault);
 }

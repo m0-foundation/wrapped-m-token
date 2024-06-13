@@ -7,6 +7,8 @@ import { Test, console2 } from "../lib/forge-std/src/Test.sol";
 import { WrappedM } from "../src/WrappedM.sol";
 
 contract MockM {
+    address public ttgRegistrar;
+
     uint128 public currentIndex;
 
     mapping(address account => uint256 balance) public balanceOf;
@@ -25,6 +27,10 @@ contract MockM {
 
     function setCurrentIndex(uint128 currentIndex_) external {
         currentIndex = currentIndex_;
+    }
+
+    function setTtgRegistrar(address ttgRegistrar_) external {
+        ttgRegistrar = ttgRegistrar_;
     }
 }
 
@@ -66,13 +72,14 @@ contract Tests is Test {
     WrappedM internal _wrappedM;
 
     function setUp() external {
-        _mToken = new MockM();
-        _mToken.setCurrentIndex(_EXP_SCALED_ONE);
-
         _registrar = new MockRegistrar();
         _registrar.setVault(_vault);
 
-        _wrappedM = new WrappedM(address(_mToken), address(_registrar));
+        _mToken = new MockM();
+        _mToken.setCurrentIndex(_EXP_SCALED_ONE);
+        _mToken.setTtgRegistrar(address(_registrar));
+
+        _wrappedM = new WrappedM(address(_mToken));
     }
 
     function test_story() external {
