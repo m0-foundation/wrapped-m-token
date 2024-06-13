@@ -55,11 +55,6 @@ contract WrappedM is IWrappedM, ERC20Extended {
         _addAmount(destination_, UIntMath.safe240(amount_));
     }
 
-    function withdraw(address destination_, uint256 amount_) external {
-        IMTokenLike(mToken).transfer(destination_, amount_);
-        _subtractAmount(msg.sender, UIntMath.safe240(amount_));
-    }
-
     function startEarning(address account_) external {
         if (!_isApprovedEarner(account_)) revert NotApprovedEarner();
 
@@ -72,14 +67,25 @@ contract WrappedM is IWrappedM, ERC20Extended {
         _stopEarning(account_);
     }
 
+    function withdraw(address destination_, uint256 amount_) external {
+        IMTokenLike(mToken).transfer(destination_, amount_);
+        _subtractAmount(msg.sender, UIntMath.safe240(amount_));
+    }
+
     /* ============ View/Pure Functions ============ */
 
     function accruedYieldOf(address account_) external view returns (uint256 yield_) {
-        return _accruedYield(_balances[account_]);
+        return _getAccruedYield(_balances[account_]);
     }
 
-    function totalAccruedYield() public view returns (uint256 yield_) {
-        return _getPresentAmountRoundedUp(principalOfTotalEarningSupply, currentMIndex() - indexOfTotalEarningSupply);
+    function balanceOf(address account) external view returns (uint256 balance_) {
+        (bool isEarning_, uint128 index_, uint256 rawBalance_) = _unwrap(_balances[account]);
+
+        return isEarning_ ? _getPresentAmountRoundedDown(uint112(rawBalance_), index_) : rawBalance_;
+    }
+
+    function currentMIndex() public view returns (uint128 index_) {
+        return IMTokenLike(mToken).currentIndex();
     }
 
     function excess() public view returns (uint256 yield_) {
@@ -89,10 +95,8 @@ contract WrappedM is IWrappedM, ERC20Extended {
         return balance_ > earmarked_ ? balance_ - earmarked_ : 0;
     }
 
-    function balanceOf(address account) external view returns (uint256 balance_) {
-        (bool isEarning_, uint128 index_, uint256 rawBalance_) = _unwrap(_balances[account]);
-
-        return isEarning_ ? _getPresentAmountRoundedDown(uint112(rawBalance_), index_) : rawBalance_;
+    function totalAccruedYield() public view returns (uint256 yield_) {
+        return _getPresentAmountRoundedUp(principalOfTotalEarningSupply, currentMIndex() - indexOfTotalEarningSupply);
     }
 
     function totalEarningSupply() public view returns (uint256 totalSupply_) {
@@ -103,59 +107,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
         return totalEarningSupply() + totalNonEarningSupply;
     }
 
-    function currentMIndex() public view returns (uint128 index_) {
-        return IMTokenLike(mToken).currentIndex();
-    }
-
     /* ============ Internal Interactive Functions ============ */
-
-    function _claim(address account_) internal returns (uint240 yield_) {
-        (bool isEarner_, uint128 index_, uint256 rawBalance_) = _unwrap(_balances[account_]);
-
-        if (!isEarner_) return 0;
-
-        yield_ = _accruedYield(uint112(rawBalance_), index_);
-        _balances[account_] = _wrap(true, currentMIndex(), rawBalance_);
-
-        _updateTotalEarningSupply(uint240(totalEarningSupply() + yield_), uint240(totalAccruedYield() - yield_));
-
-        address claimOverrideDestination_ = _getClaimOverrideDestination(account_);
-
-        if (claimOverrideDestination_ != address(0)) {
-            // NOTE: Watch out for a long chain of delegations.
-            // TODO: Maybe can be optimized since we know `account_` is an earner and already claimed.
-            _transfer(account_, claimOverrideDestination_, yield_);
-        }
-    }
-
-    function _subtractAmount(address account_, uint240 amount_) internal {
-        (bool isEarning_, , ) = _unwrap(_balances[account_]);
-
-        if (isEarning_) {
-            _claim(account_);
-            _subtractEarningAmount(account_, amount_);
-        } else {
-            _subtractNonEarningAmount(account_, amount_);
-        }
-    }
-
-    function _subtractNonEarningAmount(address account_, uint240 amount_) internal {
-        (, , uint256 rawBalance_) = _unwrap(_balances[account_]);
-        _balances[account_] = _wrap(false, 0, rawBalance_ - amount_);
-        totalNonEarningSupply -= amount_;
-    }
-
-    function _subtractEarningAmount(address account_, uint240 amount_) internal {
-        (, , uint256 rawBalance_) = _unwrap(_balances[account_]);
-
-        _balances[account_] = _wrap(
-            true,
-            currentMIndex(),
-            rawBalance_ - _getPrincipalAmountRoundedUp(amount_, currentMIndex())
-        );
-
-        _updateTotalEarningSupply(uint240(totalEarningSupply() - amount_));
-    }
 
     function _addAmount(address recipient_, uint240 amount_) internal {
         (bool isEarning_, , ) = _unwrap(_balances[recipient_]);
@@ -184,6 +136,25 @@ contract WrappedM is IWrappedM, ERC20Extended {
         );
 
         _updateTotalEarningSupply(uint240(totalEarningSupply() + amount_));
+    }
+
+    function _claim(address account_) internal returns (uint240 yield_) {
+        (bool isEarner_, uint128 index_, uint256 rawBalance_) = _unwrap(_balances[account_]);
+
+        if (!isEarner_) return 0;
+
+        yield_ = _getAccruedYield(uint112(rawBalance_), index_);
+        _balances[account_] = _wrap(true, currentMIndex(), rawBalance_);
+
+        _updateTotalEarningSupply(uint240(totalEarningSupply() + yield_), uint240(totalAccruedYield() - yield_));
+
+        address claimOverrideDestination_ = _getClaimOverrideDestination(account_);
+
+        if (claimOverrideDestination_ != address(0)) {
+            // NOTE: Watch out for a long chain of delegations.
+            // TODO: Maybe can be optimized since we know `account_` is an earner and already claimed.
+            _transfer(account_, claimOverrideDestination_, yield_);
+        }
     }
 
     function _startEarning(address account_) internal {
@@ -219,6 +190,35 @@ contract WrappedM is IWrappedM, ERC20Extended {
         _updateTotalEarningSupply(uint240(totalEarningSupply() - amount_));
     }
 
+    function _subtractAmount(address account_, uint240 amount_) internal {
+        (bool isEarning_, , ) = _unwrap(_balances[account_]);
+
+        if (isEarning_) {
+            _claim(account_);
+            _subtractEarningAmount(account_, amount_);
+        } else {
+            _subtractNonEarningAmount(account_, amount_);
+        }
+    }
+
+    function _subtractNonEarningAmount(address account_, uint240 amount_) internal {
+        (, , uint256 rawBalance_) = _unwrap(_balances[account_]);
+        _balances[account_] = _wrap(false, 0, rawBalance_ - amount_);
+        totalNonEarningSupply -= amount_;
+    }
+
+    function _subtractEarningAmount(address account_, uint240 amount_) internal {
+        (, , uint256 rawBalance_) = _unwrap(_balances[account_]);
+
+        _balances[account_] = _wrap(
+            true,
+            currentMIndex(),
+            rawBalance_ - _getPrincipalAmountRoundedUp(amount_, currentMIndex())
+        );
+
+        _updateTotalEarningSupply(uint240(totalEarningSupply() - amount_));
+    }
+
     function _transfer(address sender_, address recipient_, uint256 amount_) internal override {
         _claim(sender_);
         _claim(recipient_);
@@ -240,67 +240,18 @@ contract WrappedM is IWrappedM, ERC20Extended {
         }
     }
 
-    function _updateTotalEarningSupply(uint240 totalEarningSupply_) internal {
-        _updateTotalEarningSupply(totalEarningSupply_, uint240(totalAccruedYield()));
-    }
-
     function _updateTotalEarningSupply(uint240 totalEarningSupply_, uint240 accruedYieldOfEarningSupply_) internal {
-        uint128 accrualIndex_ = _accrualIndex(accruedYieldOfEarningSupply_, totalEarningSupply_);
+        uint128 accrualIndex_ = _getAccrualIndex(accruedYieldOfEarningSupply_, totalEarningSupply_);
 
         principalOfTotalEarningSupply = _getPrincipalAmountRoundedDown(totalEarningSupply_, accrualIndex_);
         indexOfTotalEarningSupply = accrualIndex_;
     }
 
+    function _updateTotalEarningSupply(uint240 totalEarningSupply_) internal {
+        _updateTotalEarningSupply(totalEarningSupply_, uint240(totalAccruedYield()));
+    }
+
     /* ============ Internal View/Pure Functions ============ */
-
-    function _accruedYield(Balance balance_) internal view returns (uint240) {
-        (bool isEarning_, uint128 index_, uint256 rawBalance_) = _unwrap(balance_);
-
-        return isEarning_ ? _accruedYield(uint112(rawBalance_), index_) : 0;
-    }
-
-    function _accruedYield(uint112 principalAmount_, uint128 index_) internal view returns (uint240) {
-        return _getPresentAmountRoundedDown(principalAmount_, currentMIndex() - index_);
-    }
-
-    function _accrualIndex(uint240 yield_, uint240 amount_) internal view returns (uint128) {
-        return
-            yield_ == 0
-                ? currentMIndex()
-                : _multiply128By128Down(currentMIndex(), _divide240by240Down(amount_, yield_ + amount_));
-    }
-
-    function _isApprovedEarner(address account_) internal view returns (bool) {
-        // TODO: Toggle boolean and/or separate list?
-        return IRegistrarLike(registrar).listContains(_EARNERS_LIST, account_);
-    }
-
-    function _getClaimOverrideDestination(address account_) internal view returns (address) {
-        return
-            address(
-                uint160(
-                    uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_DESTINATION_PREFIX, account_))))
-                )
-            );
-    }
-
-    function _multiply112By128Down(uint112 x_, uint128 y_) internal pure returns (uint240) {
-        unchecked {
-            return UIntMath.safe240((uint256(x_) * y_) / _EXP_SCALED_ONE);
-        }
-    }
-
-    function _multiply128By128Down(uint128 x_, uint128 y_) internal pure returns (uint128) {
-        unchecked {
-            return UIntMath.safe128((uint256(x_) * y_) / _EXP_SCALED_ONE);
-        }
-    }
-
-    function _multiply112By128Up(uint112 x_, uint128 y_) internal pure returns (uint240) {
-        unchecked {
-            return UIntMath.safe240(((uint256(x_) * y_) + (_EXP_SCALED_ONE - 1)) / _EXP_SCALED_ONE);
-        }
-    }
 
     function _divide240By128Down(uint240 x_, uint128 y_) internal pure returns (uint112) {
         if (y_ == 0) revert DivisionByZero();
@@ -326,6 +277,32 @@ contract WrappedM is IWrappedM, ERC20Extended {
         }
     }
 
+    function _getAccrualIndex(uint240 yield_, uint240 amount_) internal view returns (uint128) {
+        return
+            yield_ == 0
+                ? currentMIndex()
+                : _multiply128By128Down(currentMIndex(), _divide240by240Down(amount_, yield_ + amount_));
+    }
+
+    function _getAccruedYield(uint112 principalAmount_, uint128 index_) internal view returns (uint240) {
+        return _getPresentAmountRoundedDown(principalAmount_, currentMIndex() - index_);
+    }
+
+    function _getAccruedYield(Balance balance_) internal view returns (uint240) {
+        (bool isEarning_, uint128 index_, uint256 rawBalance_) = _unwrap(balance_);
+
+        return isEarning_ ? _getAccruedYield(uint112(rawBalance_), index_) : 0;
+    }
+
+    function _getClaimOverrideDestination(address account_) internal view returns (address) {
+        return
+            address(
+                uint160(
+                    uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_DESTINATION_PREFIX, account_))))
+                )
+            );
+    }
+
     function _getPresentAmountRoundedDown(uint112 principalAmount_, uint128 index_) internal pure returns (uint240) {
         return _multiply112By128Down(principalAmount_, index_);
     }
@@ -340,6 +317,29 @@ contract WrappedM is IWrappedM, ERC20Extended {
 
     function _getPrincipalAmountRoundedUp(uint240 presentAmount_, uint128 index_) internal pure returns (uint112) {
         return _divide240By128Up(presentAmount_, index_);
+    }
+
+    function _isApprovedEarner(address account_) internal view returns (bool) {
+        // TODO: Toggle boolean and/or separate list?
+        return IRegistrarLike(registrar).listContains(_EARNERS_LIST, account_);
+    }
+
+    function _multiply112By128Down(uint112 x_, uint128 y_) internal pure returns (uint240) {
+        unchecked {
+            return UIntMath.safe240((uint256(x_) * y_) / _EXP_SCALED_ONE);
+        }
+    }
+
+    function _multiply128By128Down(uint128 x_, uint128 y_) internal pure returns (uint128) {
+        unchecked {
+            return UIntMath.safe128((uint256(x_) * y_) / _EXP_SCALED_ONE);
+        }
+    }
+
+    function _multiply112By128Up(uint112 x_, uint128 y_) internal pure returns (uint240) {
+        unchecked {
+            return UIntMath.safe240(((uint256(x_) * y_) + (_EXP_SCALED_ONE - 1)) / _EXP_SCALED_ONE);
+        }
     }
 
     function _wrap(bool isEarning_, uint256 index_, uint256 amount_) internal pure returns (Balance balance_) {
