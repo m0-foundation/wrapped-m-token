@@ -17,23 +17,43 @@ interface IWrappedM is IERC20Extended {
 
     error NotApprovedEarner();
 
-    error IsApprovedEarner();
+    error ApprovedEarner();
 
     error DivisionByZero();
 
-    error NotEarning();
-
-    error NotAllocator();
-
-    error NotEarningDelegate();
-
     /* ============ Interactive Functions ============ */
 
+    function claim() external returns (uint240 yield);
+
+    function claimExcess() external returns (uint240 yield);
+
     function deposit(address destination, uint256 amount) external;
+
+    function startEarning(address account) external;
+
+    function stopEarning(address account) external;
 
     function withdraw(address destination, uint256 amount) external;
 
     /* ============ View/Pure Functions ============ */
 
-    function mToken() external view returns (address);
+    function accruedYieldOf(address account) external view returns (uint240 yield);
+
+    function currentMIndex() external view returns (uint128 index);
+
+    function excess() external view returns (uint240 yield);
+
+    function mToken() external view returns (address mToken);
+
+    function principalOfTotalEarningSupply() external view returns (uint112 principal);
+
+    function indexOfTotalEarningSupply() external view returns (uint128 index);
+
+    function totalNonEarningSupply() external view returns (uint240 totalSupply);
+
+    function registrar() external view returns (address registrar);
+
+    function totalAccruedYield() external view returns (uint240 yield);
+
+    function totalEarningSupply() external view returns (uint240 totalSupply);
 }
