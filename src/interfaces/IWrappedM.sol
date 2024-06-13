@@ -9,6 +9,8 @@ interface IWrappedM is IERC20Extended {
 
     event Claim(address indexed account, uint256 yield);
 
+    event ExcessClaim(uint256 yield);
+
     event StartEarning(address indexed account);
 
     event StopEarning(address indexed account);
