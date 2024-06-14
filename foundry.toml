@@ -3,8 +3,9 @@ gas_reports = ["*"]
 gas_reports_ignore = []
 ignored_error_codes = []
 optimizer = false
-solc_version = "0.8.25"
+solc_version = "0.8.23"
 verbosity = 3
+libs = ["node_modules", "lib"]
 
 [profile.production]
 evm_version = "cancun"
