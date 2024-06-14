@@ -42,12 +42,12 @@ contract WrappedM is IWrappedM, ERC20Extended {
 
     /* ============ Interactive Functions ============ */
 
-    function deposit(address account_, uint256 amount_) external {
+    function wrap(address account_, uint256 amount_) external {
         IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
         _mint(account_, amount_);
     }
 
-    function withdraw(address account_, uint256 amount_) external {
+    function unwrap(address account_, uint256 amount_) external {
         _burn(msg.sender, amount_);
         IMTokenLike(mToken).transfer(account_, amount_);
     }
@@ -78,10 +78,11 @@ contract WrappedM is IWrappedM, ERC20Extended {
     function accruedYieldOf(address account_) public view returns (uint256) {
         if (!_isEarning[account_]) return 0;
 
-        return _getPresentAmountRoundedDown(
-            uint112(_earningPrincipals[account_]),
-            currentIndex() - uint128(_lastAccrueIndices[account_])
-        );
+        return
+            _getPresentAmountRoundedDown(
+                uint112(_earningPrincipals[account_]),
+                currentIndex() - uint128(_lastAccrueIndices[account_])
+            );
     }
 
     function balanceOf(address account_) external view returns (uint256) {
@@ -241,11 +242,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
     function _getClaimer(address earner_) internal view returns (address) {
         return
             address(
-                uint160(
-                    uint256(
-                        IRegistrarLike(registrar).get(keccak256(abi.encode(_EARNING_CLAIMER_PREFIX, earner_)))
-                    )
-                )
+                uint160(uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_EARNING_CLAIMER_PREFIX, earner_)))))
             );
     }
 

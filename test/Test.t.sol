@@ -9,13 +9,13 @@ import { WrappedM } from "../src/WrappedM.sol";
 contract MockM {
     uint128 public currentIndex;
 
-    mapping (address account => uint256 balance) public balanceOf;
+    mapping(address account => uint256 balance) public balanceOf;
 
-    function transfer(address, uint256) external returns (bool success_) {
+    function transfer(address, uint256) external pure returns (bool success_) {
         return true;
     }
 
-    function transferFrom(address, address, uint256) external returns (bool success_) {
+    function transferFrom(address, address, uint256) external pure returns (bool success_) {
         return true;
     }
 
@@ -31,9 +31,9 @@ contract MockM {
 contract MockRegistrar {
     address public vault;
 
-    mapping (bytes32 key => bytes32 value) public get;
+    mapping(bytes32 key => bytes32 value) public get;
 
-    mapping (bytes32 list => mapping (address account => bool contains)) public listContains;
+    mapping(bytes32 list => mapping(address account => bool contains)) public listContains;
 
     function set(bytes32 key_, bytes32 value_) external {
         get[key_] = value_;
@@ -88,7 +88,7 @@ contract Tests is Test {
         _wrappedM.startEarning(_bob);
 
         vm.prank(_alice);
-        _wrappedM.deposit(_alice, 100_000000);
+        _wrappedM.wrap(_alice, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 100_000000);
 
@@ -104,7 +104,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excessOfM(), 0);
 
         vm.prank(_carol);
-        _wrappedM.deposit(_carol, 100_000000);
+        _wrappedM.wrap(_carol, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 200_000000);
 
@@ -138,7 +138,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excessOfM(), 100_000000);
 
         vm.prank(_bob);
-        _wrappedM.deposit(_bob, 100_000000);
+        _wrappedM.wrap(_bob, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 500_000000);
 
@@ -154,7 +154,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excessOfM(), 100_000000);
 
         vm.prank(_dave);
-        _wrappedM.deposit(_dave, 100_000000);
+        _wrappedM.wrap(_dave, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 600_000000);
 
@@ -330,7 +330,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excessOfM(), 600_000002);
 
         vm.prank(_alice);
-        _wrappedM.withdraw(_alice, 266_666667);
+        _wrappedM.unwrap(_alice, 266_666667);
 
         _mToken.setBalanceOf(address(_wrappedM), 1_233_333333);
 
@@ -346,7 +346,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excessOfM(), 600_000002);
 
         vm.prank(_bob);
-        _wrappedM.withdraw(_bob, 333_333332);
+        _wrappedM.unwrap(_bob, 333_333332);
 
         _mToken.setBalanceOf(address(_wrappedM), 900_000001);
 
@@ -362,7 +362,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excessOfM(), 600_000000); // TODO: This drop indicates that a claim of excess before this action will result in an underflow here.
 
         vm.prank(_carol);
-        _wrappedM.withdraw(_carol, 250_000000);
+        _wrappedM.unwrap(_carol, 250_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 650000001);
 
@@ -378,7 +378,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excessOfM(), 600_000000);
 
         vm.prank(_dave);
-        _wrappedM.withdraw(_dave, 50_000000);
+        _wrappedM.unwrap(_dave, 50_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 600_000001);
 
