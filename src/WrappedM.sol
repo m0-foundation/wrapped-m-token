@@ -6,6 +6,8 @@ import { UIntMath } from "../lib/common/src/libs/UIntMath.sol";
 
 import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 
+import { IndexingMath } from "./libs/IndexingMath.sol";
+
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
 import { IWrappedM } from "./interfaces/IWrappedM.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
@@ -69,11 +71,16 @@ contract WrappedM is IWrappedM, ERC20Extended {
 
         if (isEarning_) return;
 
-        emit StartEarning(account_);
+        emit StartedEarning(account_);
 
         uint128 currentIndex_ = currentMIndex();
 
-        _setBalanceInfo(account_, true, currentIndex_, _getPrincipalAmountRoundedDown(rawBalance_, currentIndex_));
+        _setBalanceInfo(
+            account_,
+            true,
+            currentIndex_,
+            IndexingMath.getPrincipalAmountRoundedDown(rawBalance_, currentIndex_)
+        );
 
         totalNonEarningSupply -= rawBalance_;
 
@@ -91,7 +98,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
 
         if (!isEarning_) return;
 
-        emit StopEarning(account_);
+        emit StoppedEarning(account_);
 
         uint128 currentIndex_ = currentMIndex();
 
@@ -99,7 +106,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
 
         (, uint128 index_, uint256 rawBalance_) = _getBalanceInfo(account_);
 
-        uint240 amount_ = _getPresentAmountRoundedDown(uint112(rawBalance_), index_);
+        uint240 amount_ = IndexingMath.getPresentAmountRoundedDown(uint112(rawBalance_), index_);
 
         _setBalanceInfo(account_, false, 0, amount_);
         totalNonEarningSupply += amount_;
@@ -126,7 +133,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
     function balanceOf(address account_) external view returns (uint256 balance_) {
         (bool isEarning_, uint128 index_, uint240 rawBalance_) = _getBalanceInfo(account_);
 
-        return isEarning_ ? _getPresentAmountRoundedDown(uint112(rawBalance_), index_) : rawBalance_;
+        return isEarning_ ? IndexingMath.getPresentAmountRoundedDown(uint112(rawBalance_), index_) : rawBalance_;
     }
 
     function currentMIndex() public view returns (uint128 index_) {
@@ -145,7 +152,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
     }
 
     function totalEarningSupply() public view returns (uint240 totalSupply_) {
-        return _getPresentAmountRoundedUp(principalOfTotalEarningSupply, indexOfTotalEarningSupply);
+        return IndexingMath.getPresentAmountRoundedUp(principalOfTotalEarningSupply, indexOfTotalEarningSupply);
     }
 
     function totalSupply() public view returns (uint256 totalSupply_) {
@@ -178,7 +185,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
             recipient_,
             true,
             currentIndex_,
-            rawBalance_ + _getPrincipalAmountRoundedDown(amount_, currentIndex_)
+            rawBalance_ + IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
         );
 
         _updateTotalEarningSupply(totalEarningSupply() + amount_, _getTotalAccruedYield(currentIndex_), currentIndex_);
@@ -212,10 +219,10 @@ contract WrappedM is IWrappedM, ERC20Extended {
         _transfer(account_, claimOverrideDestination_, yield_, currentIndex_);
     }
 
-    function _setBalanceInfo(address account_, bool isEarning_, uint256 index_, uint256 amount_) internal {
+    function _setBalanceInfo(address account_, bool isEarning_, uint128 index_, uint240 amount_) internal {
         _balances[account_] = isEarning_
-            ? BalanceInfo.wrap((1 << 248) | (index_ << 112) | amount_)
-            : BalanceInfo.wrap(amount_);
+            ? BalanceInfo.wrap((uint256(1) << 248) | (uint256(index_) << 112) | uint256(amount_))
+            : BalanceInfo.wrap(uint256(amount_));
     }
 
     function _subtractAmount(address account_, uint240 amount_) internal {
@@ -242,7 +249,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
             account_,
             true,
             currentIndex_,
-            rawBalance_ - _getPrincipalAmountRoundedUp(amount_, currentIndex_)
+            rawBalance_ - IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_)
         );
 
         _updateTotalEarningSupply(totalEarningSupply() - amount_, _getTotalAccruedYield(currentIndex_), currentIndex_);
@@ -277,41 +284,20 @@ contract WrappedM is IWrappedM, ERC20Extended {
     ) internal {
         uint128 accrualIndex_ = _getAccrualIndex(totalAccruedYield_, totalEarningSupply_, currentIndex_);
 
-        principalOfTotalEarningSupply = _getPrincipalAmountRoundedDown(totalEarningSupply_, accrualIndex_);
+        principalOfTotalEarningSupply = IndexingMath.getPrincipalAmountRoundedDown(totalEarningSupply_, accrualIndex_);
         indexOfTotalEarningSupply = accrualIndex_;
     }
 
     /* ============ Internal View/Pure Functions ============ */
 
-    function _divide240By128Down(uint240 x_, uint128 y_) internal pure returns (uint112) {
-        if (y_ == 0) revert DivisionByZero();
-
-        unchecked {
-            return UIntMath.safe112((uint256(x_) * _EXP_SCALED_ONE) / y_);
-        }
-    }
-
-    function _divide240by240Down(uint240 x_, uint240 y_) internal pure returns (uint128) {
-        if (y_ == 0) revert DivisionByZero();
-
-        unchecked {
-            return UIntMath.safe128((uint256(x_) * _EXP_SCALED_ONE) / y_);
-        }
-    }
-
-    function _divide240By128Up(uint240 x, uint128 y_) internal pure returns (uint112) {
-        if (y_ == 0) revert DivisionByZero();
-
-        unchecked {
-            return UIntMath.safe112(((uint256(x) * _EXP_SCALED_ONE) + y_ - 1) / y_);
-        }
-    }
-
     function _getAccrualIndex(uint240 yield_, uint240 amount_, uint128 currentIndex_) internal pure returns (uint128) {
         return
             yield_ == 0
                 ? currentIndex_
-                : _multiply128By128Down(currentIndex_, _divide240by240Down(amount_, yield_ + amount_));
+                : IndexingMath.multiply128By128Down(
+                    currentIndex_,
+                    IndexingMath.divide240by240Down(amount_, yield_ + amount_)
+                );
     }
 
     function _getAccruedYield(
@@ -319,7 +305,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
         uint128 index_,
         uint128 currentIndex_
     ) internal pure returns (uint240) {
-        return _getPresentAmountRoundedDown(principalAmount_, currentIndex_ - index_);
+        return IndexingMath.getPresentAmountRoundedDown(principalAmount_, currentIndex_ - index_);
     }
 
     function _getBalanceInfo(
@@ -342,47 +328,17 @@ contract WrappedM is IWrappedM, ERC20Extended {
             );
     }
 
-    function _getPresentAmountRoundedDown(uint112 principalAmount_, uint128 index_) internal pure returns (uint240) {
-        return _multiply112By128Down(principalAmount_, index_);
-    }
-
-    function _getPresentAmountRoundedUp(uint112 principalAmount_, uint128 index_) internal pure returns (uint240) {
-        return _multiply112By128Up(principalAmount_, index_);
-    }
-
-    function _getPrincipalAmountRoundedDown(uint240 presentAmount_, uint128 index_) internal pure returns (uint112) {
-        return _divide240By128Down(presentAmount_, index_);
-    }
-
-    function _getPrincipalAmountRoundedUp(uint240 presentAmount_, uint128 index_) internal pure returns (uint112) {
-        return _divide240By128Up(presentAmount_, index_);
-    }
-
     function _getTotalAccruedYield(uint128 currentIndex_) internal view returns (uint240 yield_) {
-        return _getPresentAmountRoundedUp(principalOfTotalEarningSupply, currentIndex_ - indexOfTotalEarningSupply);
+        return
+            IndexingMath.getPresentAmountRoundedUp(
+                principalOfTotalEarningSupply,
+                currentIndex_ - indexOfTotalEarningSupply
+            );
     }
 
     function _isApprovedEarner(address account_) internal view returns (bool) {
         return
             IRegistrarLike(registrar).get(_EARNERS_LIST_IGNORED) != bytes32(0) ||
             IRegistrarLike(registrar).listContains(_EARNERS_LIST, account_);
-    }
-
-    function _multiply112By128Down(uint112 x_, uint128 y_) internal pure returns (uint240) {
-        unchecked {
-            return UIntMath.safe240((uint256(x_) * y_) / _EXP_SCALED_ONE);
-        }
-    }
-
-    function _multiply128By128Down(uint128 x_, uint128 y_) internal pure returns (uint128) {
-        unchecked {
-            return UIntMath.safe128((uint256(x_) * y_) / _EXP_SCALED_ONE);
-        }
-    }
-
-    function _multiply112By128Up(uint112 x_, uint128 y_) internal pure returns (uint240) {
-        unchecked {
-            return UIntMath.safe240(((uint256(x_) * y_) + (_EXP_SCALED_ONE - 1)) / _EXP_SCALED_ONE);
-        }
     }
 }

@@ -11,15 +11,13 @@ interface IWrappedM is IERC20Extended {
 
     event ExcessClaim(uint256 yield);
 
-    event StartEarning(address indexed account);
+    event StartedEarning(address indexed account);
 
-    event StopEarning(address indexed account);
+    event StoppedEarning(address indexed account);
 
     /* ============ Custom Errors ============ */
 
     error ApprovedEarner();
-
-    error DivisionByZero();
 
     error NotApprovedEarner();
 
