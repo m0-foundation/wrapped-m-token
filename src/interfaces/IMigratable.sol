@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.23;
 
-interface IProxied {
+interface IMigratable {
     event Migrate(address indexed migrator, address indexed oldImplementation, address indexed newImplementation);
 
     error ZeroMigrator();

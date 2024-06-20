@@ -12,7 +12,9 @@ import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
 import { IWrappedM } from "./interfaces/IWrappedM.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 
-contract WrappedM is IWrappedM, ERC20Extended {
+import { Migratable } from "./Migratable.sol";
+
+contract WrappedM is IWrappedM, Migratable, ERC20Extended {
     type BalanceInfo is uint256;
 
     /* ============ Variables ============ */
@@ -66,20 +68,6 @@ contract WrappedM is IWrappedM, ERC20Extended {
         _addAmount(destination_, UIntMath.safe240(amount_));
 
         IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
-    }
-
-    function migrate() external {
-        address migrator_ = address(
-            uint160(uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(this))))))
-        );
-
-        if (migrator_ == address(0)) revert ZeroMigrator();
-
-        address oldImplementation_ = implementation();
-
-        migrator_.delegatecall("");
-
-        emit Migrate(migrator_, oldImplementation_, implementation());
     }
 
     function startEarningFor(address account_) external {
@@ -159,14 +147,6 @@ contract WrappedM is IWrappedM, ERC20Extended {
         uint240 earmarked_ = uint240(totalSupply()) + totalAccruedYield();
 
         return balance_ > earmarked_ ? balance_ - earmarked_ : 0;
-    }
-
-    function implementation() public view returns (address implementation_) {
-        bytes32 slot_ = _IMPLEMENTATION_SLOT;
-
-        assembly {
-            implementation_ := sload(slot_)
-        }
     }
 
     function totalAccruedYield() public view returns (uint240 yield_) {
@@ -343,6 +323,15 @@ contract WrappedM is IWrappedM, ERC20Extended {
             address(
                 uint160(
                     uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_DESTINATION_PREFIX, account_))))
+                )
+            );
+    }
+
+    function _getMigrator() internal view override returns (address migrator_) {
+        return
+            address(
+                uint160(
+                    uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(this)))))
                 )
             );
     }

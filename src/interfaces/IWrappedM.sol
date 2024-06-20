@@ -4,9 +4,9 @@ pragma solidity 0.8.23;
 
 import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.sol";
 
-import { IProxied } from "./IProxied.sol";
+import { IMigratable } from "./IMigratable.sol";
 
-interface IWrappedM is IProxied, IERC20Extended {
+interface IWrappedM is IMigratable, IERC20Extended {
     /* ============ Events ============ */
 
     event Claim(address indexed account, uint256 yield);
