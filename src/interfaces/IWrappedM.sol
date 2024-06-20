@@ -25,15 +25,15 @@ interface IWrappedM is IERC20Extended {
 
     /* ============ Interactive Functions ============ */
 
-    function claim() external returns (uint240 yield);
+    function claimFor(address account) external returns (uint240 yield);
 
     function claimExcess() external returns (uint240 yield);
 
     function deposit(address destination, uint256 amount) external;
 
-    function startEarning(address account) external;
+    function startEarningFor(address account) external;
 
-    function stopEarning(address account) external;
+    function stopEarningFor(address account) external;
 
     function withdraw(address destination, uint256 amount) external;
 
@@ -41,15 +41,11 @@ interface IWrappedM is IERC20Extended {
 
     function accruedYieldOf(address account) external view returns (uint240 yield);
 
-    function currentMIndex() external view returns (uint128 index);
+    function currentIndex() external view returns (uint128 index);
 
     function excess() external view returns (uint240 yield);
 
     function mToken() external view returns (address mToken);
-
-    function principalOfTotalEarningSupply() external view returns (uint112 principal);
-
-    function indexOfTotalEarningSupply() external view returns (uint128 index);
 
     function totalNonEarningSupply() external view returns (uint240 totalSupply);
 

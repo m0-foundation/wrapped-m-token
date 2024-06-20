@@ -23,7 +23,7 @@ library IndexingMath {
         }
     }
 
-    function divide240by240Down(uint240 x_, uint240 y_) internal pure returns (uint128) {
+    function divide240by112Down(uint240 x_, uint112 y_) internal pure returns (uint128) {
         if (y_ == 0) revert DivisionByZero();
 
         unchecked {
@@ -42,12 +42,6 @@ library IndexingMath {
     function multiply112By128Down(uint112 x_, uint128 y_) internal pure returns (uint240) {
         unchecked {
             return UIntMath.safe240((uint256(x_) * y_) / EXP_SCALED_ONE);
-        }
-    }
-
-    function multiply128By128Down(uint128 x_, uint128 y_) internal pure returns (uint128) {
-        unchecked {
-            return UIntMath.safe128((uint256(x_) * y_) / EXP_SCALED_ONE);
         }
     }
 
