@@ -45,12 +45,6 @@ library IndexingMath {
         }
     }
 
-    function multiply128By128Down(uint128 x_, uint128 y_) internal pure returns (uint128) {
-        unchecked {
-            return UIntMath.safe128((uint256(x_) * y_) / EXP_SCALED_ONE);
-        }
-    }
-
     function multiply112By128Up(uint112 x_, uint128 y_) internal pure returns (uint240) {
         unchecked {
             return UIntMath.safe240(((uint256(x_) * y_) + (EXP_SCALED_ONE - 1)) / EXP_SCALED_ONE);
