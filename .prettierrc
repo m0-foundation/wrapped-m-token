@@ -1,11 +1,13 @@
 {
-  "plugins": ["prettier-plugin-solidity"],
+  "plugins": [
+    "prettier-plugin-solidity"
+  ],
   "overrides": [
     {
       "files": "*.sol",
       "options": {
         "bracketSpacing": true,
-        "compiler": "0.8.25",
+        "compiler": "0.8.23",
         "parser": "solidity-parse",
         "printWidth": 120,
         "tabWidth": 4,
@@ -13,4 +15,3 @@
     }
   ]
 }
-
