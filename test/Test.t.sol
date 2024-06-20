@@ -86,9 +86,9 @@ contract Tests is Test {
         _registrar.setListContains(_EARNERS_LIST, _alice, true);
         _registrar.setListContains(_EARNERS_LIST, _bob, true);
 
-        _wrappedM.startEarning(_alice);
+        _wrappedM.startEarningFor(_alice);
 
-        _wrappedM.startEarning(_bob);
+        _wrappedM.startEarningFor(_bob);
 
         vm.prank(_alice);
         _wrappedM.deposit(_alice, 100_000000);
@@ -175,8 +175,7 @@ contract Tests is Test {
 
         assertEq(_wrappedM.balanceOf(_alice), 100_000000);
 
-        vm.prank(_alice);
-        uint256 yield_ = _wrappedM.claim();
+        uint256 yield_ = _wrappedM.claimFor(_alice);
 
         assertEq(yield_, 100_000000);
 
@@ -281,7 +280,7 @@ contract Tests is Test {
 
         _registrar.setListContains(_EARNERS_LIST, _alice, false);
 
-        _wrappedM.stopEarning(_alice);
+        _wrappedM.stopEarningFor(_alice);
 
         // Assert Alice (Non-Earner)
         assertEq(_wrappedM.balanceOf(_alice), 266_666664);
@@ -296,7 +295,7 @@ contract Tests is Test {
 
         _registrar.setListContains(_EARNERS_LIST, _carol, true);
 
-        _wrappedM.startEarning(_carol);
+        _wrappedM.startEarningFor(_carol);
 
         // Assert Carol (Earner)
         assertEq(_wrappedM.balanceOf(_carol), 200_000000);
