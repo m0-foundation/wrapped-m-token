@@ -29,7 +29,8 @@ contract WrappedM is IWrappedM, ERC20Extended {
 
     uint112 public principalOfTotalEarningSupply;
 
-    uint240 public totalEarningSupply;
+    uint128 internal _indexOfTotalEarningSupply;
+
     uint240 public totalNonEarningSupply;
 
     mapping(address account => BalanceInfo balance) internal _balances;
@@ -143,8 +144,12 @@ contract WrappedM is IWrappedM, ERC20Extended {
         return _getTotalAccruedYield(currentMIndex());
     }
 
+    function totalEarningSupply() public view returns (uint240 totalSupply_) {
+        return IndexingMath.getPresentAmountRoundedUp(principalOfTotalEarningSupply, _indexOfTotalEarningSupply);
+    }
+
     function totalSupply() public view returns (uint256 totalSupply_) {
-        return totalEarningSupply + totalNonEarningSupply;
+        return totalEarningSupply() + totalNonEarningSupply;
     }
 
     /* ============ Internal Interactive Functions ============ */
@@ -192,7 +197,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
         emit Claim(account_, yield_);
         emit Transfer(address(0), account_, yield_);
 
-        totalEarningSupply += yield_;
+        _setTotalEarningSupply(totalEarningSupply() + yield_, principalOfTotalEarningSupply);
 
         address claimOverrideDestination_ = _getClaimOverrideDestination(account_);
 
@@ -262,13 +267,25 @@ contract WrappedM is IWrappedM, ERC20Extended {
     }
 
     function _addTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
-        totalEarningSupply += amount_;
-        principalOfTotalEarningSupply += IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
+        _setTotalEarningSupply(
+            totalEarningSupply() + amount_,
+            principalOfTotalEarningSupply + IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
+        );
     }
 
     function _subtractTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
-        totalEarningSupply -= amount_;
-        principalOfTotalEarningSupply -= IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
+        _setTotalEarningSupply(
+            totalEarningSupply() - amount_,
+            principalOfTotalEarningSupply - IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
+        );
+    }
+
+    function _setTotalEarningSupply(uint240 amount_, uint112 principalAmount_) internal {
+        _indexOfTotalEarningSupply = principalAmount_ == 0
+            ? 0
+            : IndexingMath.divide240by112Down(amount_, principalAmount_);
+
+        principalOfTotalEarningSupply = principalAmount_;
     }
 
     /* ============ Internal View/Pure Functions ============ */
@@ -303,7 +320,7 @@ contract WrappedM is IWrappedM, ERC20Extended {
         uint240 totalProjectedSupply_ =
             IndexingMath.getPresentAmountRoundedUp(principalOfTotalEarningSupply, currentIndex_);
 
-        return totalProjectedSupply_ <= totalEarningSupply ? 0 : totalProjectedSupply_ - totalEarningSupply;
+        return totalProjectedSupply_ <= totalEarningSupply() ? 0 : totalProjectedSupply_ - totalEarningSupply();
     }
 
     function _isApprovedEarner(address account_) internal view returns (bool) {

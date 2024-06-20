@@ -23,7 +23,7 @@ library IndexingMath {
         }
     }
 
-    function divide240by240Down(uint240 x_, uint240 y_) internal pure returns (uint128) {
+    function divide240by112Down(uint240 x_, uint112 y_) internal pure returns (uint128) {
         if (y_ == 0) revert DivisionByZero();
 
         unchecked {
