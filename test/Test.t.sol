@@ -153,8 +153,9 @@ contract Tests is Test {
         assertEq(_wrappedM.totalEarningSupply(), 200_000000);
         assertEq(_wrappedM.totalNonEarningSupply(), 100_000000);
         assertEq(_wrappedM.totalSupply(), 300_000000);
-        assertEq(_wrappedM.totalAccruedYield(), 100_000001);
-        assertEq(_wrappedM.excess(), 99_999999); // TODO: Issue here as drop from previous
+
+        assertEq(_wrappedM.totalAccruedYield(), 100_000000);
+        assertEq(_wrappedM.excess(), 100_000000);
 
         vm.prank(_dave);
         _wrappedM.deposit(_dave, 100_000000);
@@ -169,8 +170,10 @@ contract Tests is Test {
         assertEq(_wrappedM.totalEarningSupply(), 200_000000);
         assertEq(_wrappedM.totalNonEarningSupply(), 200_000000);
         assertEq(_wrappedM.totalSupply(), 400_000000);
-        assertEq(_wrappedM.totalAccruedYield(), 100_000001);
-        assertEq(_wrappedM.excess(), 99_999999);
+        assertEq(_wrappedM.totalAccruedYield(), 100_000000);
+        assertEq(_wrappedM.excess(), 100_000000);
+
+        assertEq(_wrappedM.balanceOf(_alice), 100_000000);
 
         vm.prank(_alice);
         uint256 yield_ = _wrappedM.claim();
@@ -182,11 +185,11 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_alice), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 299_999999);
+        assertEq(_wrappedM.totalEarningSupply(), 300_000000);
         assertEq(_wrappedM.totalNonEarningSupply(), 200_000000);
-        assertEq(_wrappedM.totalSupply(), 499_999999);
-        assertEq(_wrappedM.totalAccruedYield(), 2);
-        assertEq(_wrappedM.excess(), 99_999999);
+        assertEq(_wrappedM.totalSupply(), 500_000000);
+        assertEq(_wrappedM.totalAccruedYield(), 0);
+        assertEq(_wrappedM.excess(), 100_000000);
 
         _mToken.setCurrentIndex(3 * _EXP_SCALED_ONE);
         _mToken.setBalanceOf(address(_wrappedM), 900_000000); // was 600 @ 2.0, so 900 @ 3.0
@@ -208,11 +211,11 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_dave), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 299_999999);
+        assertEq(_wrappedM.totalEarningSupply(), 300_000000);
         assertEq(_wrappedM.totalNonEarningSupply(), 200_000000);
-        assertEq(_wrappedM.totalSupply(), 499_999999);
-        assertEq(_wrappedM.totalAccruedYield(), 150_000002);
-        assertEq(_wrappedM.excess(), 249_999999);
+        assertEq(_wrappedM.totalSupply(), 500_000000);
+        assertEq(_wrappedM.totalAccruedYield(), 150_000000);
+        assertEq(_wrappedM.excess(), 250_000000);
 
         vm.prank(_alice);
         _wrappedM.transfer(_carol, 100_000000);
@@ -226,11 +229,11 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_carol), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 299_999999);
+        assertEq(_wrappedM.totalEarningSupply(), 300_000000);
         assertEq(_wrappedM.totalNonEarningSupply(), 300_000000);
-        assertEq(_wrappedM.totalSupply(), 599_999999);
-        assertEq(_wrappedM.totalAccruedYield(), 50_000003);
-        assertEq(_wrappedM.excess(), 249_999998); // TODO: Issue here as drop from previous
+        assertEq(_wrappedM.totalSupply(), 600_000000);
+        assertEq(_wrappedM.totalAccruedYield(), 50_000001);
+        assertEq(_wrappedM.excess(), 249_999999);
 
         vm.prank(_dave);
         _wrappedM.transfer(_bob, 50_000000);
@@ -244,11 +247,11 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_dave), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 399_999998);
+        assertEq(_wrappedM.totalEarningSupply(), 400_000000);
         assertEq(_wrappedM.totalNonEarningSupply(), 250_000000);
-        assertEq(_wrappedM.totalSupply(), 649_999998);
-        assertEq(_wrappedM.totalAccruedYield(), 5);
-        assertEq(_wrappedM.excess(), 249_999997); // TODO: Issue here as drop from previous
+        assertEq(_wrappedM.totalSupply(), 650_000000);
+        assertEq(_wrappedM.totalAccruedYield(), 0);
+        assertEq(_wrappedM.excess(), 250_000000);
 
         _mToken.setCurrentIndex(4 * _EXP_SCALED_ONE);
         _mToken.setBalanceOf(address(_wrappedM), 1_200_000000); // was 900 @ 3.0, so 1200 @ 4.0
@@ -270,11 +273,11 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_dave), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 399_999998);
+        assertEq(_wrappedM.totalEarningSupply(), 400_000000);
         assertEq(_wrappedM.totalNonEarningSupply(), 250_000000);
-        assertEq(_wrappedM.totalSupply(), 649_999998);
-        assertEq(_wrappedM.totalAccruedYield(), 133_333339);
-        assertEq(_wrappedM.excess(), 416_666663);
+        assertEq(_wrappedM.totalSupply(), 650_000000);
+        assertEq(_wrappedM.totalAccruedYield(), 133_333332);
+        assertEq(_wrappedM.excess(), 416_666668);
 
         _registrar.setListContains(_EARNERS_LIST, _alice, false);
 
@@ -285,11 +288,11 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_alice), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 200_000000);
+        assertEq(_wrappedM.totalEarningSupply(), 200_000002);
         assertEq(_wrappedM.totalNonEarningSupply(), 516_666664);
-        assertEq(_wrappedM.totalSupply(), 716_666664);
-        assertEq(_wrappedM.totalAccruedYield(), 66_666673);
-        assertEq(_wrappedM.excess(), 416_666663);
+        assertEq(_wrappedM.totalSupply(), 716_666666);
+        assertEq(_wrappedM.totalAccruedYield(), 66_666666);
+        assertEq(_wrappedM.excess(), 416_666668);
 
         _registrar.setListContains(_EARNERS_LIST, _carol, true);
 
@@ -300,11 +303,11 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_carol), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 400_000000);
+        assertEq(_wrappedM.totalEarningSupply(), 400_000002);
         assertEq(_wrappedM.totalNonEarningSupply(), 316_666664);
-        assertEq(_wrappedM.totalSupply(), 716_666664);
-        assertEq(_wrappedM.totalAccruedYield(), 66_666673);
-        assertEq(_wrappedM.excess(), 416_666663);
+        assertEq(_wrappedM.totalSupply(), 716_666666);
+        assertEq(_wrappedM.totalAccruedYield(), 66_666666);
+        assertEq(_wrappedM.excess(), 416_666668);
 
         _mToken.setCurrentIndex(5 * _EXP_SCALED_ONE);
         _mToken.setBalanceOf(address(_wrappedM), 1_500_000000); // was 1200 @ 4.0, so 1500 @ 5.0
@@ -326,11 +329,11 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_dave), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 400_000000);
+        assertEq(_wrappedM.totalEarningSupply(), 400_000002);
         assertEq(_wrappedM.totalNonEarningSupply(), 316_666664);
-        assertEq(_wrappedM.totalSupply(), 716_666664);
-        assertEq(_wrappedM.totalAccruedYield(), 183_333341);
-        assertEq(_wrappedM.excess(), 599_999995);
+        assertEq(_wrappedM.totalSupply(), 716_666666);
+        assertEq(_wrappedM.totalAccruedYield(), 183_333333);
+        assertEq(_wrappedM.excess(), 600_000001);
 
         vm.prank(_alice);
         _wrappedM.withdraw(_alice, 266_666664);
@@ -342,11 +345,11 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_alice), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 400_000000);
+        assertEq(_wrappedM.totalEarningSupply(), 400_000002);
         assertEq(_wrappedM.totalNonEarningSupply(), 50_000000);
-        assertEq(_wrappedM.totalSupply(), 450_000000);
-        assertEq(_wrappedM.totalAccruedYield(), 183_333341);
-        assertEq(_wrappedM.excess(), 599_999995);
+        assertEq(_wrappedM.totalSupply(), 450_000002);
+        assertEq(_wrappedM.totalAccruedYield(), 183_333333);
+        assertEq(_wrappedM.excess(), 600_000001);
 
         vm.prank(_bob);
         _wrappedM.withdraw(_bob, 333_333330);
@@ -358,11 +361,11 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_bob), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 200_000002);
+        assertEq(_wrappedM.totalEarningSupply(), 200_000004);
         assertEq(_wrappedM.totalNonEarningSupply(), 50_000000);
-        assertEq(_wrappedM.totalSupply(), 250_000002);
-        assertEq(_wrappedM.totalAccruedYield(), 50_000009);
-        assertEq(_wrappedM.excess(), 599_999995);
+        assertEq(_wrappedM.totalSupply(), 250_000004);
+        assertEq(_wrappedM.totalAccruedYield(), 50_000001);
+        assertEq(_wrappedM.excess(), 600_000001);
 
         vm.prank(_carol);
         _wrappedM.withdraw(_carol, 250_000000);
@@ -374,11 +377,11 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_carol), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 1);
+        assertEq(_wrappedM.totalEarningSupply(), 4);
         assertEq(_wrappedM.totalNonEarningSupply(), 50_000000);
-        assertEq(_wrappedM.totalSupply(), 50_000001);
-        assertEq(_wrappedM.totalAccruedYield(), 10);
-        assertEq(_wrappedM.excess(), 599_999995);
+        assertEq(_wrappedM.totalSupply(), 50_000004);
+        assertEq(_wrappedM.totalAccruedYield(), 1);
+        assertEq(_wrappedM.excess(), 600_000001);
 
         vm.prank(_dave);
         _wrappedM.withdraw(_dave, 50_000000);
@@ -390,21 +393,21 @@ contract Tests is Test {
         assertEq(_wrappedM.accruedYieldOf(_dave), 0);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 1);
+        assertEq(_wrappedM.totalEarningSupply(), 4);
         assertEq(_wrappedM.totalNonEarningSupply(), 0);
-        assertEq(_wrappedM.totalSupply(), 1);
-        assertEq(_wrappedM.totalAccruedYield(), 10);
-        assertEq(_wrappedM.excess(), 599_999995);
+        assertEq(_wrappedM.totalSupply(), 4);
+        assertEq(_wrappedM.totalAccruedYield(), 1);
+        assertEq(_wrappedM.excess(), 600_000001);
 
         _wrappedM.claimExcess();
 
         _mToken.setBalanceOf(address(_wrappedM), 11);
 
         // Assert Globals
-        assertEq(_wrappedM.totalEarningSupply(), 1);
+        assertEq(_wrappedM.totalEarningSupply(), 4);
         assertEq(_wrappedM.totalNonEarningSupply(), 0);
-        assertEq(_wrappedM.totalSupply(), 1);
-        assertEq(_wrappedM.totalAccruedYield(), 10);
-        assertEq(_wrappedM.excess(), 0);
+        assertEq(_wrappedM.totalSupply(), 4);
+        assertEq(_wrappedM.totalAccruedYield(), 1);
+        assertEq(_wrappedM.excess(), 6);
     }
 }

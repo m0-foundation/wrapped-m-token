@@ -49,8 +49,6 @@ interface IWrappedM is IERC20Extended {
 
     function principalOfTotalEarningSupply() external view returns (uint112 principal);
 
-    function indexOfTotalEarningSupply() external view returns (uint128 index);
-
     function totalNonEarningSupply() external view returns (uint240 totalSupply);
 
     function registrar() external view returns (address registrar);
