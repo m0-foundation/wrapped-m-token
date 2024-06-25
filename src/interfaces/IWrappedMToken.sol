@@ -9,7 +9,7 @@ import { IMigratable } from "./IMigratable.sol";
 interface IWrappedMToken is IMigratable, IERC20Extended {
     /* ============ Events ============ */
 
-    event Claimed(address indexed account, uint256 yield);
+    event Claimed(address indexed account, address indexed recipient, uint256 yield);
 
     event ExcessClaimed(uint256 yield);
 
@@ -46,17 +46,17 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /* ============ Interactive Functions ============ */
 
+    function wrap(address recipient, uint256 amount) external;
+
+    function unwrap(address recipient, uint256 amount) external;
+
     function claimFor(address account) external returns (uint240 yield);
 
     function claimExcess() external returns (uint240 yield);
 
-    function deposit(address recipient, uint256 amount) external;
-
     function startEarningFor(address account) external;
 
     function stopEarningFor(address account) external;
-
-    function withdraw(address recipient, uint256 amount) external;
 
     /* ============ View/Pure Functions ============ */
 

@@ -48,6 +48,18 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Interactive Functions ============ */
 
+    function wrap(address recipient_, uint256 amount_) external {
+        _mint(recipient_, UIntMath.safe240(amount_));
+
+        IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
+    }
+
+    function unwrap(address recipient_, uint256 amount_) external {
+        _burn(msg.sender, UIntMath.safe240(amount_));
+
+        IMTokenLike(mToken).transfer(recipient_, amount_);
+    }
+
     function claimFor(address account_) external returns (uint240 yield_) {
         return _claim(account_, currentIndex());
     }
@@ -56,18 +68,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         emit ExcessClaimed(yield_ = excess());
 
         IMTokenLike(mToken).transfer(vault, yield_);
-    }
-
-    function deposit(address recipient_, uint256 amount_) external {
-        _revertIfInsufficientAmount(amount_);
-        _revertIfInvalidRecipient(recipient_);
-
-        emit Transfer(address(0), recipient_, amount_);
-
-        // TODO: Technically, might want to `_revertIfInsufficientAmount` if earning principal is 0.
-        _addAmount(recipient_, UIntMath.safe240(amount_));
-
-        IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
     }
 
     function startEarningFor(address account_) external {
@@ -80,13 +80,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         emit StartedEarning(account_);
 
         uint128 currentIndex_ = currentIndex();
+        uint112 principalAmount_ = IndexingMath.getPrincipalAmountRoundedDown(rawBalance_, currentIndex_);
 
-        _setBalanceInfo(
-            account_,
-            true,
-            currentIndex_,
-            IndexingMath.getPrincipalAmountRoundedDown(rawBalance_, currentIndex_)
-        );
+        _setBalanceInfo(account_, true, currentIndex_, principalAmount_);
 
         unchecked {
             totalNonEarningSupply -= rawBalance_;
@@ -119,17 +115,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         }
 
         _subtractTotalEarningSupply(amount_, currentIndex_);
-    }
-
-    function withdraw(address recipient_, uint256 amount_) external {
-        _revertIfInsufficientAmount(amount_);
-
-        emit Transfer(msg.sender, address(0), amount_);
-
-        // TODO: Technically, might want to `_revertIfInsufficientAmount` if earning principal is 0.
-        _subtractAmount(msg.sender, UIntMath.safe240(amount_));
-
-        IMTokenLike(mToken).transfer(recipient_, amount_);
     }
 
     /* ============ View/Pure Functions ============ */
@@ -177,7 +162,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Internal Interactive Functions ============ */
 
-    function _addAmount(address recipient_, uint240 amount_) internal {
+    function _mint(address recipient_, uint240 amount_) internal {
+        _revertIfInsufficientAmount(amount_);
+        _revertIfInvalidRecipient(recipient_);
+
+        emit Transfer(address(0), recipient_, amount_);
+
         (bool isEarning_, , ) = _getBalanceInfo(recipient_);
 
         if (!isEarning_) return _addNonEarningAmount(recipient_, amount_);
@@ -185,7 +175,26 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         uint128 currentIndex_ = currentIndex();
 
         _claim(recipient_, currentIndex_);
+
+        // TODO: Technically, might want to `_revertIfInsufficientAmount` if earning principal is 0.
         _addEarningAmount(recipient_, amount_, currentIndex_);
+    }
+
+    function _burn(address account_, uint240 amount_) internal {
+        _revertIfInsufficientAmount(amount_);
+
+        emit Transfer(msg.sender, address(0), amount_);
+
+        (bool isEarning_, , ) = _getBalanceInfo(account_);
+
+        if (!isEarning_) return _subtractNonEarningAmount(account_, amount_);
+
+        uint128 currentIndex_ = currentIndex();
+
+        _claim(account_, currentIndex_);
+
+        // TODO: Technically, might want to `_revertIfInsufficientAmount` if earning principal is 0.
+        _subtractEarningAmount(account_, amount_, currentIndex_);
     }
 
     function _addNonEarningAmount(address recipient_, uint240 amount_) internal {
@@ -195,67 +204,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             _setBalanceInfo(recipient_, false, 0, rawBalance_ + amount_);
             totalNonEarningSupply += amount_;
         }
-    }
-
-    function _addEarningAmount(address recipient_, uint240 amount_, uint128 currentIndex_) internal {
-        (, , uint240 rawBalance_) = _getBalanceInfo(recipient_);
-
-        unchecked {
-            _setBalanceInfo(
-                recipient_,
-                true,
-                currentIndex_,
-                rawBalance_ + IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
-            );
-        }
-
-        _addTotalEarningSupply(amount_, currentIndex_);
-    }
-
-    function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
-        (bool isEarner_, uint128 index_, uint240 rawBalance_) = _getBalanceInfo(account_);
-
-        if (!isEarner_) return 0;
-
-        yield_ = _getAccruedYield(uint112(rawBalance_), index_, currentIndex_);
-        _setBalanceInfo(account_, true, currentIndex_, rawBalance_);
-
-        if (yield_ == 0) return 0;
-
-        emit Claimed(account_, yield_);
-
-        unchecked {
-            _setTotalEarningSupply(totalEarningSupply() + yield_, _principalOfTotalEarningSupply);
-        }
-
-        address claimOverrideRecipient_ = _getClaimOverrideRecipient(account_);
-
-        if (claimOverrideRecipient_ == address(0)) {
-            // NOTE: The `Transfer` event for a non-zero `claimOverrideRecipient_`
-            emit Transfer(address(0), account_, yield_);
-            return yield_;
-        }
-
-        // NOTE: Watch out for a long chain of claim override recipients.
-        // TODO: Maybe can be optimized since we know `account_` is an earner and already claimed.
-        _transfer(account_, claimOverrideRecipient_, yield_, currentIndex_);
-    }
-
-    function _setBalanceInfo(address account_, bool isEarning_, uint128 index_, uint240 amount_) internal {
-        _balances[account_] = isEarning_
-            ? BalanceInfo.wrap((uint256(1) << 248) | (uint256(index_) << 112) | uint256(amount_))
-            : BalanceInfo.wrap(uint256(amount_));
-    }
-
-    function _subtractAmount(address account_, uint240 amount_) internal {
-        (bool isEarning_, , ) = _getBalanceInfo(account_);
-
-        if (!isEarning_) return _subtractNonEarningAmount(account_, amount_);
-
-        uint128 currentIndex_ = currentIndex();
-
-        _claim(account_, currentIndex_);
-        _subtractEarningAmount(account_, amount_, currentIndex_);
     }
 
     function _subtractNonEarningAmount(address account_, uint240 amount_) internal {
@@ -269,6 +217,18 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         }
     }
 
+    function _addEarningAmount(address recipient_, uint240 amount_, uint128 currentIndex_) internal {
+        (, , uint240 rawBalance_) = _getBalanceInfo(recipient_);
+
+        uint112 principalAmount_ = IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
+
+        unchecked {
+            _setBalanceInfo(recipient_, true, currentIndex_, rawBalance_ + principalAmount_);
+        }
+
+        _addTotalEarningSupply(amount_, currentIndex_);
+    }
+
     function _subtractEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
         (, , uint240 rawBalance_) = _getBalanceInfo(account_);
 
@@ -280,6 +240,40 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             _setBalanceInfo(account_, true, currentIndex_, rawBalance_ - principalAmount_);
             _subtractTotalEarningSupply(amount_, currentIndex_);
         }
+    }
+
+    function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
+        (bool isEarner_, uint128 index_, uint240 rawBalance_) = _getBalanceInfo(account_);
+
+        if (!isEarner_) return 0;
+
+        yield_ = _getAccruedYield(uint112(rawBalance_), index_, currentIndex_);
+        _setBalanceInfo(account_, true, currentIndex_, rawBalance_);
+
+        if (yield_ == 0) return 0;
+
+        unchecked {
+            _setTotalEarningSupply(totalEarningSupply() + yield_, _principalOfTotalEarningSupply);
+        }
+
+        address claimOverrideRecipient_ = _getClaimOverrideRecipient(account_);
+
+        if (claimOverrideRecipient_ == address(0)) {
+            emit Claimed(account_, account_, yield_);
+            emit Transfer(address(0), account_, yield_);
+        } else {
+            emit Claimed(account_, claimOverrideRecipient_, yield_);
+
+            // NOTE: Watch out for a long chain of claim override recipients.
+            // TODO: Maybe can be optimized since we know `account_` is an earner and already claimed.
+            _transfer(account_, claimOverrideRecipient_, yield_, currentIndex_);
+        }
+    }
+
+    function _setBalanceInfo(address account_, bool isEarning_, uint128 index_, uint240 amount_) internal {
+        _balances[account_] = isEarning_
+            ? BalanceInfo.wrap((uint256(1) << 248) | (uint256(index_) << 112) | uint256(amount_))
+            : BalanceInfo.wrap(uint256(amount_));
     }
 
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
@@ -307,21 +301,19 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _addTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
+        uint112 principalAmount_ = IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
+
         unchecked {
-            _setTotalEarningSupply(
-                totalEarningSupply() + amount_,
-                _principalOfTotalEarningSupply + IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
-            );
+            _setTotalEarningSupply(totalEarningSupply() + amount_, _principalOfTotalEarningSupply + principalAmount_);
         }
     }
 
     function _subtractTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
         // TODO: Consider `getPrincipalAmountRoundedUp` .
+        uint112 principalAmount_ = IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
+
         unchecked {
-            _setTotalEarningSupply(
-                totalEarningSupply() - amount_,
-                _principalOfTotalEarningSupply - IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
-            );
+            _setTotalEarningSupply(totalEarningSupply() - amount_, _principalOfTotalEarningSupply - principalAmount_);
         }
     }
 

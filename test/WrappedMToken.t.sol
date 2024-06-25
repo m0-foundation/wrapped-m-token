@@ -71,30 +71,30 @@ contract WrappedMTokenTests is Test {
         new WrappedMTokenHarness(address(0));
     }
 
-    /* ============ deposit ============ */
+    /* ============ wrap ============ */
 
     function test_deposit_insufficientAmount() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
 
-        _wrappedMToken.deposit(_alice, 0);
+        _wrappedMToken.wrap(_alice, 0);
     }
 
     function test_deposit_invalidRecipient() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InvalidRecipient.selector, address(0)));
 
-        _wrappedMToken.deposit(address(0), 1_000);
+        _wrappedMToken.wrap(address(0), 1_000);
     }
 
     function test_deposit_invalidAmount() external {
         vm.expectRevert(UIntMath.InvalidUInt240.selector);
 
         vm.prank(_alice);
-        _wrappedMToken.deposit(_alice, uint256(type(uint240).max) + 1);
+        _wrappedMToken.wrap(_alice, uint256(type(uint240).max) + 1);
     }
 
     function test_deposit_toNonEarner() external {
         vm.prank(_alice);
-        _wrappedMToken.deposit(_alice, 1_000);
+        _wrappedMToken.wrap(_alice, 1_000);
 
         assertEq(_wrappedMToken.internalBalanceOf(_alice), 1_000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 1_000);
@@ -106,7 +106,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setIsEarningOf(_alice, true);
 
         vm.prank(_alice);
-        _wrappedMToken.deposit(_alice, 999);
+        _wrappedMToken.wrap(_alice, 999);
 
         assertEq(_wrappedMToken.internalBalanceOf(_alice), 908);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
@@ -114,16 +114,16 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 999);
 
         vm.prank(_alice);
-        _wrappedMToken.deposit(_alice, 1);
+        _wrappedMToken.wrap(_alice, 1);
 
-        // No change due to principal round down on deposit.
+        // No change due to principal round down on wrap.
         assertEq(_wrappedMToken.internalBalanceOf(_alice), 908);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 908);
         assertEq(_wrappedMToken.totalEarningSupply(), 1000);
 
         vm.prank(_alice);
-        _wrappedMToken.deposit(_alice, 2);
+        _wrappedMToken.wrap(_alice, 2);
 
         assertEq(_wrappedMToken.internalBalanceOf(_alice), 909);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
@@ -131,12 +131,12 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 1002);
     }
 
-    /* ============ withdraw ============ */
+    /* ============ unwrap ============ */
 
     function test_withdraw_insufficientAmount() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
 
-        _wrappedMToken.withdraw(_alice, 0);
+        _wrappedMToken.unwrap(_alice, 0);
     }
 
     function test_withdraw_insufficientBalance_fromNonEarner() external {
@@ -144,7 +144,7 @@ contract WrappedMTokenTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
         vm.prank(_alice);
-        _wrappedMToken.withdraw(_alice, 1_000);
+        _wrappedMToken.unwrap(_alice, 1_000);
     }
 
     function test_withdraw_insufficientBalance_fromEarner() external {
@@ -153,7 +153,7 @@ contract WrappedMTokenTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 908, 910));
         vm.prank(_alice);
-        _wrappedMToken.withdraw(_alice, 1_000);
+        _wrappedMToken.unwrap(_alice, 1_000);
     }
 
     function test_withdraw_fromNonEarner() external {
@@ -162,7 +162,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setRawBalanceOf(_alice, 1_000);
 
         vm.prank(_alice);
-        _wrappedMToken.withdraw(_alice, 500);
+        _wrappedMToken.unwrap(_alice, 500);
 
         assertEq(_wrappedMToken.internalBalanceOf(_alice), 500);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 500);
@@ -170,7 +170,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.indexOfTotalEarningSupply(), 0);
 
         vm.prank(_alice);
-        _wrappedMToken.withdraw(_alice, 500);
+        _wrappedMToken.unwrap(_alice, 500);
 
         assertEq(_wrappedMToken.internalBalanceOf(_alice), 0);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
@@ -187,15 +187,15 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setRawBalanceOf(_alice, 909);
 
         vm.prank(_alice);
-        _wrappedMToken.withdraw(_alice, 1);
+        _wrappedMToken.unwrap(_alice, 1);
 
-        // Change due to principal round up on withdraw.
+        // Change due to principal round up on unwrap.
         assertEq(_wrappedMToken.internalBalanceOf(_alice), 908);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalEarningSupply(), 999);
 
         vm.prank(_alice);
-        _wrappedMToken.withdraw(_alice, 998);
+        _wrappedMToken.unwrap(_alice, 998);
 
         assertEq(_wrappedMToken.internalBalanceOf(_alice), 0);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);

@@ -77,7 +77,7 @@ contract Tests is Test {
         _wrappedMToken.startEarningFor(_bob);
 
         vm.prank(_alice);
-        _wrappedMToken.deposit(_alice, 100_000000);
+        _wrappedMToken.wrap(_alice, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 100_000000);
 
@@ -93,7 +93,7 @@ contract Tests is Test {
         assertEq(_wrappedMToken.excess(), 0);
 
         vm.prank(_carol);
-        _wrappedMToken.deposit(_carol, 100_000000);
+        _wrappedMToken.wrap(_carol, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 200_000000);
 
@@ -127,7 +127,7 @@ contract Tests is Test {
         assertEq(_wrappedMToken.excess(), 100_000000);
 
         vm.prank(_bob);
-        _wrappedMToken.deposit(_bob, 100_000000);
+        _wrappedMToken.wrap(_bob, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 500_000000);
 
@@ -144,7 +144,7 @@ contract Tests is Test {
         assertEq(_wrappedMToken.excess(), 100_000000);
 
         vm.prank(_dave);
-        _wrappedMToken.deposit(_dave, 100_000000);
+        _wrappedMToken.wrap(_dave, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 600_000000);
 
@@ -321,7 +321,7 @@ contract Tests is Test {
         assertEq(_wrappedMToken.excess(), 600_000001);
 
         vm.prank(_alice);
-        _wrappedMToken.withdraw(_alice, 266_666664);
+        _wrappedMToken.unwrap(_alice, 266_666664);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 1_233_333336);
 
@@ -337,7 +337,7 @@ contract Tests is Test {
         assertEq(_wrappedMToken.excess(), 600_000001);
 
         vm.prank(_bob);
-        _wrappedMToken.withdraw(_bob, 333_333330);
+        _wrappedMToken.unwrap(_bob, 333_333330);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 900_000006);
 
@@ -353,7 +353,7 @@ contract Tests is Test {
         assertEq(_wrappedMToken.excess(), 600_000001);
 
         vm.prank(_carol);
-        _wrappedMToken.withdraw(_carol, 250_000000);
+        _wrappedMToken.unwrap(_carol, 250_000000);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 650_000006);
 
@@ -369,7 +369,7 @@ contract Tests is Test {
         assertEq(_wrappedMToken.excess(), 600_000001);
 
         vm.prank(_dave);
-        _wrappedMToken.withdraw(_dave, 50_000000);
+        _wrappedMToken.unwrap(_dave, 50_000000);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 600_000006);
 
