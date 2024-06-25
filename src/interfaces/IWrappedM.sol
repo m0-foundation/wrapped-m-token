@@ -27,17 +27,17 @@ interface IWrappedM is IMigratable, IERC20Extended {
 
     /* ============ Interactive Functions ============ */
 
+    function wrap(address destination, uint256 amount) external;
+
+    function unwrap(address destination, uint256 amount) external;
+
     function claimFor(address account) external returns (uint240 yield);
 
     function claimExcess() external returns (uint240 yield);
 
-    function deposit(address destination, uint256 amount) external;
-
     function startEarningFor(address account) external;
 
     function stopEarningFor(address account) external;
-
-    function withdraw(address destination, uint256 amount) external;
 
     /* ============ View/Pure Functions ============ */
 

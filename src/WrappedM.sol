@@ -48,6 +48,22 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
 
     /* ============ Interactive Functions ============ */
 
+    function wrap(address destination_, uint256 amount_) external {
+        emit Transfer(address(0), destination_, amount_);
+
+        _mint(destination_, UIntMath.safe240(amount_));
+
+        IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
+    }
+
+    function unwrap(address destination_, uint256 amount_) external {
+        emit Transfer(msg.sender, address(0), amount_);
+
+        _burn(msg.sender, UIntMath.safe240(amount_));
+
+        IMTokenLike(mToken).transfer(destination_, amount_);
+    }
+
     function claimFor(address account_) external returns (uint240 yield_) {
         return _claim(account_, currentIndex());
     }
@@ -56,14 +72,6 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
         emit ExcessClaim(yield_ = excess());
 
         IMTokenLike(mToken).transfer(vault, yield_);
-    }
-
-    function deposit(address destination_, uint256 amount_) external {
-        emit Transfer(address(0), destination_, amount_);
-
-        _addAmount(destination_, UIntMath.safe240(amount_));
-
-        IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
     }
 
     function startEarningFor(address account_) external {
@@ -107,17 +115,10 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
         uint240 amount_ = IndexingMath.getPresentAmountRoundedDown(uint112(rawBalance_), index_);
 
         _setBalanceInfo(account_, false, 0, amount_);
+
         totalNonEarningSupply += amount_;
 
         _subtractTotalEarningSupply(amount_, currentIndex_);
-    }
-
-    function withdraw(address destination_, uint256 amount_) external {
-        emit Transfer(msg.sender, address(0), amount_);
-
-        _subtractAmount(msg.sender, UIntMath.safe240(amount_));
-
-        IMTokenLike(mToken).transfer(destination_, amount_);
     }
 
     /* ============ View/Pure Functions ============ */
@@ -159,7 +160,7 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
 
     /* ============ Internal Interactive Functions ============ */
 
-    function _addAmount(address recipient_, uint240 amount_) internal {
+    function _mint(address recipient_, uint240 amount_) internal {
         (bool isEarning_, , ) = _getBalanceInfo(recipient_);
 
         if (!isEarning_) return _addNonEarningAmount(recipient_, amount_);
@@ -170,10 +171,27 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
         _addEarningAmount(recipient_, amount_, currentIndex_);
     }
 
+    function _burn(address account_, uint240 amount_) internal {
+        (bool isEarning_, , ) = _getBalanceInfo(account_);
+
+        if (!isEarning_) return _subtractNonEarningAmount(account_, amount_);
+
+        uint128 currentIndex_ = currentIndex();
+
+        _claim(account_, currentIndex_);
+        _subtractEarningAmount(account_, amount_, currentIndex_);
+    }
+
     function _addNonEarningAmount(address recipient_, uint240 amount_) internal {
         (, , uint240 rawBalance_) = _getBalanceInfo(recipient_);
         _setBalanceInfo(recipient_, false, 0, rawBalance_ + amount_);
         totalNonEarningSupply += amount_;
+    }
+
+    function _subtractNonEarningAmount(address account_, uint240 amount_) internal {
+        (, , uint240 rawBalance_) = _getBalanceInfo(account_);
+        _setBalanceInfo(account_, false, 0, rawBalance_ - amount_);
+        totalNonEarningSupply -= amount_;
     }
 
     function _addEarningAmount(address recipient_, uint240 amount_, uint128 currentIndex_) internal {
@@ -187,6 +205,19 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
         );
 
         _addTotalEarningSupply(amount_, currentIndex_);
+    }
+
+    function _subtractEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
+        (, , uint240 rawBalance_) = _getBalanceInfo(account_);
+
+        _setBalanceInfo(
+            account_,
+            true,
+            currentIndex_,
+            rawBalance_ - IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_)
+        );
+
+        _subtractTotalEarningSupply(amount_, currentIndex_);
     }
 
     function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
@@ -217,36 +248,6 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
         _balances[account_] = isEarning_
             ? BalanceInfo.wrap((uint256(1) << 248) | (uint256(index_) << 112) | uint256(amount_))
             : BalanceInfo.wrap(uint256(amount_));
-    }
-
-    function _subtractAmount(address account_, uint240 amount_) internal {
-        (bool isEarning_, , ) = _getBalanceInfo(account_);
-
-        if (!isEarning_) return _subtractNonEarningAmount(account_, amount_);
-
-        uint128 currentIndex_ = currentIndex();
-
-        _claim(account_, currentIndex_);
-        _subtractEarningAmount(account_, amount_, currentIndex_);
-    }
-
-    function _subtractNonEarningAmount(address account_, uint240 amount_) internal {
-        (, , uint240 rawBalance_) = _getBalanceInfo(account_);
-        _setBalanceInfo(account_, false, 0, rawBalance_ - amount_);
-        totalNonEarningSupply -= amount_;
-    }
-
-    function _subtractEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
-        (, , uint240 rawBalance_) = _getBalanceInfo(account_);
-
-        _setBalanceInfo(
-            account_,
-            true,
-            currentIndex_,
-            rawBalance_ - IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_)
-        );
-
-        _subtractTotalEarningSupply(amount_, currentIndex_);
     }
 
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {

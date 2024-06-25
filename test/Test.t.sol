@@ -124,7 +124,7 @@ contract Tests is Test {
         _wrappedM.startEarningFor(_bob);
 
         vm.prank(_alice);
-        _wrappedM.deposit(_alice, 100_000000);
+        _wrappedM.wrap(_alice, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 100_000000);
 
@@ -140,7 +140,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excess(), 0);
 
         vm.prank(_carol);
-        _wrappedM.deposit(_carol, 100_000000);
+        _wrappedM.wrap(_carol, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 200_000000);
 
@@ -174,7 +174,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excess(), 100_000000);
 
         vm.prank(_bob);
-        _wrappedM.deposit(_bob, 100_000000);
+        _wrappedM.wrap(_bob, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 500_000000);
 
@@ -191,7 +191,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excess(), 100_000000);
 
         vm.prank(_dave);
-        _wrappedM.deposit(_dave, 100_000000);
+        _wrappedM.wrap(_dave, 100_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 600_000000);
 
@@ -368,7 +368,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excess(), 600_000001);
 
         vm.prank(_alice);
-        _wrappedM.withdraw(_alice, 266_666664);
+        _wrappedM.unwrap(_alice, 266_666664);
 
         _mToken.setBalanceOf(address(_wrappedM), 1_233_333336);
 
@@ -384,7 +384,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excess(), 600_000001);
 
         vm.prank(_bob);
-        _wrappedM.withdraw(_bob, 333_333330);
+        _wrappedM.unwrap(_bob, 333_333330);
 
         _mToken.setBalanceOf(address(_wrappedM), 900_000006);
 
@@ -400,7 +400,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excess(), 600_000001);
 
         vm.prank(_carol);
-        _wrappedM.withdraw(_carol, 250_000000);
+        _wrappedM.unwrap(_carol, 250_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 650_000006);
 
@@ -416,7 +416,7 @@ contract Tests is Test {
         assertEq(_wrappedM.excess(), 600_000001);
 
         vm.prank(_dave);
-        _wrappedM.withdraw(_dave, 50_000000);
+        _wrappedM.unwrap(_dave, 50_000000);
 
         _mToken.setBalanceOf(address(_wrappedM), 600_000006);
 
