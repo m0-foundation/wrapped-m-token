@@ -25,6 +25,8 @@ interface IWrappedM is IMigratable, IERC20Extended {
 
     error ZeroMToken();
 
+    error NotInEarnerState();
+
     /* ============ Interactive Functions ============ */
 
     function wrap(address destination, uint256 amount) external;

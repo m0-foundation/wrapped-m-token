@@ -9,6 +9,10 @@ interface IMTokenLike {
 
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool success);
 
+    function startEarning() external;
+
+    function stopEarning() external;
+
     /* ============ View/Pure Functions ============ */
 
     function balanceOf(address account) external view returns (uint256 balance);

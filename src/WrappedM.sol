@@ -37,6 +37,15 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
 
     mapping(address account => BalanceInfo balance) internal _balances;
 
+    bool public isEarner;
+    uint128 public lastIndexOfTotalEarningSupply;
+
+    modifier onlyWhenEarner() {
+        if (isEarner == true) revert NotInEarnerState();
+
+        _;
+    }
+
     /* ============ Constructor ============ */
 
     constructor(address mToken_) ERC20Extended("WrappedM by M^0", "wM", 6) {
@@ -48,7 +57,7 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
 
     /* ============ Interactive Functions ============ */
 
-    function wrap(address destination_, uint256 amount_) external {
+    function wrap(address destination_, uint256 amount_) external onlyWhenEarner {
         emit Transfer(address(0), destination_, amount_);
 
         _mint(destination_, UIntMath.safe240(amount_));
@@ -74,7 +83,18 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
         IMTokenLike(mToken).transfer(vault, yield_);
     }
 
-    function startEarningFor(address account_) external {
+    function startEarningM() external {
+        isEarner = true;
+        IMTokenLike(mToken).startEarning();
+    }
+
+    function stopEarningM() external {
+        isEarner = false;
+        lastIndexOfTotalEarningSupply = currentIndex();
+        IMTokenLike(mToken).stopEarning();
+    }
+
+    function startEarningFor(address account_) external onlyWhenEarner {
         if (!_isApprovedEarner(account_)) revert NotApprovedEarner();
 
         (bool isEarning_, , uint240 rawBalance_) = _getBalanceInfo(account_);
@@ -97,7 +117,7 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
         _addTotalEarningSupply(rawBalance_, currentIndex_);
     }
 
-    function stopEarningFor(address account_) external {
+    function stopEarningFor(address account_) external onlyWhenEarner {
         if (_isApprovedEarner(account_)) revert ApprovedEarner();
 
         (bool isEarning_, , ) = _getBalanceInfo(account_);
@@ -136,7 +156,7 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
     }
 
     function currentIndex() public view returns (uint128 index_) {
-        return IMTokenLike(mToken).currentIndex();
+        return isEarner ? IMTokenLike(mToken).currentIndex() : lastIndexOfTotalEarningSupply;
     }
 
     function excess() public view returns (uint240 yield_) {
