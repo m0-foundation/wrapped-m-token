@@ -9,12 +9,12 @@ import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 import { IndexingMath } from "./libs/IndexingMath.sol";
 
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
-import { IWrappedM } from "./interfaces/IWrappedM.sol";
+import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 
 import { Migratable } from "./Migratable.sol";
 
-contract WrappedM is IWrappedM, Migratable, ERC20Extended {
+contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     type BalanceInfo is uint256;
 
     /* ============ Variables ============ */
@@ -23,7 +23,7 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
 
     bytes32 internal constant _EARNERS_LIST_IGNORED = "earners_list_ignored";
     bytes32 internal constant _EARNERS_LIST = "earners";
-    bytes32 internal constant _CLAIM_DESTINATION_PREFIX = "wm_claim_destination";
+    bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
     bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
 
     address public immutable mToken;
@@ -53,15 +53,19 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
     }
 
     function claimExcess() external returns (uint240 yield_) {
-        emit ExcessClaim(yield_ = excess());
+        emit ExcessClaimed(yield_ = excess());
 
         IMTokenLike(mToken).transfer(vault, yield_);
     }
 
-    function deposit(address destination_, uint256 amount_) external {
-        emit Transfer(address(0), destination_, amount_);
+    function deposit(address recipient_, uint256 amount_) external {
+        _revertIfInsufficientAmount(amount_);
+        _revertIfInvalidRecipient(recipient_);
 
-        _addAmount(destination_, UIntMath.safe240(amount_));
+        emit Transfer(address(0), recipient_, amount_);
+
+        // TODO: Technically, might want to `_revertIfInsufficientAmount` if earning principal is 0.
+        _addAmount(recipient_, UIntMath.safe240(amount_));
 
         IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
     }
@@ -84,13 +88,15 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
             IndexingMath.getPrincipalAmountRoundedDown(rawBalance_, currentIndex_)
         );
 
-        totalNonEarningSupply -= rawBalance_;
+        unchecked {
+            totalNonEarningSupply -= rawBalance_;
+        }
 
         _addTotalEarningSupply(rawBalance_, currentIndex_);
     }
 
     function stopEarningFor(address account_) external {
-        if (_isApprovedEarner(account_)) revert ApprovedEarner();
+        if (_isApprovedEarner(account_)) revert IsApprovedEarner();
 
         (bool isEarning_, , ) = _getBalanceInfo(account_);
 
@@ -107,17 +113,23 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
         uint240 amount_ = IndexingMath.getPresentAmountRoundedDown(uint112(rawBalance_), index_);
 
         _setBalanceInfo(account_, false, 0, amount_);
-        totalNonEarningSupply += amount_;
+
+        unchecked {
+            totalNonEarningSupply += amount_;
+        }
 
         _subtractTotalEarningSupply(amount_, currentIndex_);
     }
 
-    function withdraw(address destination_, uint256 amount_) external {
+    function withdraw(address recipient_, uint256 amount_) external {
+        _revertIfInsufficientAmount(amount_);
+
         emit Transfer(msg.sender, address(0), amount_);
 
+        // TODO: Technically, might want to `_revertIfInsufficientAmount` if earning principal is 0.
         _subtractAmount(msg.sender, UIntMath.safe240(amount_));
 
-        IMTokenLike(mToken).transfer(destination_, amount_);
+        IMTokenLike(mToken).transfer(recipient_, amount_);
     }
 
     /* ============ View/Pure Functions ============ */
@@ -138,11 +150,17 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
         return IMTokenLike(mToken).currentIndex();
     }
 
+    function isEarning(address account_) external view returns (bool isEarning_) {
+        (isEarning_, , ) = _getBalanceInfo(account_);
+    }
+
     function excess() public view returns (uint240 yield_) {
         uint240 balance_ = uint240(IMTokenLike(mToken).balanceOf(address(this)));
         uint240 earmarked_ = uint240(totalSupply()) + totalAccruedYield();
 
-        return balance_ > earmarked_ ? balance_ - earmarked_ : 0;
+        unchecked {
+            return balance_ > earmarked_ ? balance_ - earmarked_ : 0;
+        }
     }
 
     function totalAccruedYield() public view returns (uint240 yield_) {
@@ -172,19 +190,24 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
 
     function _addNonEarningAmount(address recipient_, uint240 amount_) internal {
         (, , uint240 rawBalance_) = _getBalanceInfo(recipient_);
-        _setBalanceInfo(recipient_, false, 0, rawBalance_ + amount_);
-        totalNonEarningSupply += amount_;
+
+        unchecked {
+            _setBalanceInfo(recipient_, false, 0, rawBalance_ + amount_);
+            totalNonEarningSupply += amount_;
+        }
     }
 
     function _addEarningAmount(address recipient_, uint240 amount_, uint128 currentIndex_) internal {
         (, , uint240 rawBalance_) = _getBalanceInfo(recipient_);
 
-        _setBalanceInfo(
-            recipient_,
-            true,
-            currentIndex_,
-            rawBalance_ + IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
-        );
+        unchecked {
+            _setBalanceInfo(
+                recipient_,
+                true,
+                currentIndex_,
+                rawBalance_ + IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
+            );
+        }
 
         _addTotalEarningSupply(amount_, currentIndex_);
     }
@@ -199,18 +222,23 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
 
         if (yield_ == 0) return 0;
 
-        emit Claim(account_, yield_);
-        emit Transfer(address(0), account_, yield_);
+        emit Claimed(account_, yield_);
 
-        _setTotalEarningSupply(totalEarningSupply() + yield_, _principalOfTotalEarningSupply);
+        unchecked {
+            _setTotalEarningSupply(totalEarningSupply() + yield_, _principalOfTotalEarningSupply);
+        }
 
-        address claimOverrideDestination_ = _getClaimOverrideDestination(account_);
+        address claimOverrideRecipient_ = _getClaimOverrideRecipient(account_);
 
-        if (claimOverrideDestination_ == address(0)) return yield_;
+        if (claimOverrideRecipient_ == address(0)) {
+            // NOTE: The `Transfer` event for a non-zero `claimOverrideRecipient_`
+            emit Transfer(address(0), account_, yield_);
+            return yield_;
+        }
 
-        // // NOTE: Watch out for a long chain of claim override destinations.
-        // // TODO: Maybe can be optimized since we know `account_` is an earner and already claimed.
-        _transfer(account_, claimOverrideDestination_, yield_, currentIndex_);
+        // NOTE: Watch out for a long chain of claim override recipients.
+        // TODO: Maybe can be optimized since we know `account_` is an earner and already claimed.
+        _transfer(account_, claimOverrideRecipient_, yield_, currentIndex_);
     }
 
     function _setBalanceInfo(address account_, bool isEarning_, uint128 index_, uint240 amount_) internal {
@@ -232,24 +260,31 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
 
     function _subtractNonEarningAmount(address account_, uint240 amount_) internal {
         (, , uint240 rawBalance_) = _getBalanceInfo(account_);
-        _setBalanceInfo(account_, false, 0, rawBalance_ - amount_);
-        totalNonEarningSupply -= amount_;
+
+        if (rawBalance_ < amount_) revert InsufficientBalance(account_, rawBalance_, amount_);
+
+        unchecked {
+            _setBalanceInfo(account_, false, 0, rawBalance_ - amount_);
+            totalNonEarningSupply -= amount_;
+        }
     }
 
     function _subtractEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
         (, , uint240 rawBalance_) = _getBalanceInfo(account_);
 
-        _setBalanceInfo(
-            account_,
-            true,
-            currentIndex_,
-            rawBalance_ - IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_)
-        );
+        uint112 principalAmount_ = IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_);
 
-        _subtractTotalEarningSupply(amount_, currentIndex_);
+        if (rawBalance_ < principalAmount_) revert InsufficientBalance(account_, rawBalance_, principalAmount_);
+
+        unchecked {
+            _setBalanceInfo(account_, true, currentIndex_, rawBalance_ - principalAmount_);
+            _subtractTotalEarningSupply(amount_, currentIndex_);
+        }
     }
 
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
+        _revertIfInvalidRecipient(recipient_);
+
         _claim(sender_, currentIndex_);
         _claim(recipient_, currentIndex_);
 
@@ -272,17 +307,22 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
     }
 
     function _addTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
-        _setTotalEarningSupply(
-            totalEarningSupply() + amount_,
-            _principalOfTotalEarningSupply + IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
-        );
+        unchecked {
+            _setTotalEarningSupply(
+                totalEarningSupply() + amount_,
+                _principalOfTotalEarningSupply + IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
+            );
+        }
     }
 
     function _subtractTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
-        _setTotalEarningSupply(
-            totalEarningSupply() - amount_,
-            _principalOfTotalEarningSupply - IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
-        );
+        // TODO: Consider `getPrincipalAmountRoundedUp` .
+        unchecked {
+            _setTotalEarningSupply(
+                totalEarningSupply() - amount_,
+                _principalOfTotalEarningSupply - IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_)
+            );
+        }
     }
 
     function _setTotalEarningSupply(uint240 amount_, uint112 principalAmount_) internal {
@@ -300,7 +340,12 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
         uint128 index_,
         uint128 currentIndex_
     ) internal pure returns (uint240) {
-        return IndexingMath.getPresentAmountRoundedDown(principalAmount_, currentIndex_ - index_);
+        unchecked {
+            return
+                currentIndex_ <= index_
+                    ? 0
+                    : IndexingMath.getPresentAmountRoundedDown(principalAmount_, currentIndex_ - index_);
+        }
     }
 
     function _getBalanceInfo(
@@ -314,11 +359,13 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
                 : (false, uint128(0), uint240(unwrapped_));
     }
 
-    function _getClaimOverrideDestination(address account_) internal view returns (address) {
+    function _getClaimOverrideRecipient(address account_) internal view returns (address) {
         return
             address(
                 uint160(
-                    uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_DESTINATION_PREFIX, account_))))
+                    uint256(
+                        IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)))
+                    )
                 )
             );
     }
@@ -340,12 +387,30 @@ contract WrappedM is IWrappedM, Migratable, ERC20Extended {
 
         uint240 totalEarningSupply_ = totalEarningSupply();
 
-        return totalProjectedSupply_ <= totalEarningSupply_ ? 0 : totalProjectedSupply_ - totalEarningSupply_;
+        unchecked {
+            return totalProjectedSupply_ <= totalEarningSupply_ ? 0 : totalProjectedSupply_ - totalEarningSupply_;
+        }
     }
 
     function _isApprovedEarner(address account_) internal view returns (bool) {
         return
             IRegistrarLike(registrar).get(_EARNERS_LIST_IGNORED) != bytes32(0) ||
             IRegistrarLike(registrar).listContains(_EARNERS_LIST, account_);
+    }
+
+    /**
+     * @dev   Reverts if `amount_` is equal to 0.
+     * @param amount_ Amount of token.
+     */
+    function _revertIfInsufficientAmount(uint256 amount_) internal pure {
+        if (amount_ == 0) revert InsufficientAmount(amount_);
+    }
+
+    /**
+     * @dev   Reverts if `recipient_` is address(0).
+     * @param recipient_ Address of a recipient.
+     */
+    function _revertIfInvalidRecipient(address recipient_) internal pure {
+        if (recipient_ == address(0)) revert InvalidRecipient(recipient_);
     }
 }
