@@ -17,7 +17,7 @@ contract WrappedMTokenV2 {
     }
 }
 
-contract WrappedMTokenMigratorV1 {
+contract WrappedMTokenMigratorV2 {
     bytes32 private constant _IMPLEMENTATION_SLOT =
         bytes32(0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc);
 
@@ -41,7 +41,7 @@ contract Tests is Test {
     uint56 internal constant _EXP_SCALED_ONE = 1e12;
 
     bytes32 internal constant _EARNERS_LIST = "earners";
-    bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
+    bytes32 internal constant _MIGRATOR_V2_PREFIX = "wm_migrator_v2";
 
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
@@ -70,12 +70,14 @@ contract Tests is Test {
         _wrappedMToken = IWrappedMToken(address(new Proxy(address(_implementation))));
     }
 
-    function test_story() external {
-        _registrar.setListContains(_EARNERS_LIST, _alice, true);
-        _registrar.setListContains(_EARNERS_LIST, _bob, true);
+    function test_story_generic() external {
         _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
 
         _wrappedMToken.enableEarning();
+
+        _registrar.setListContains(_EARNERS_LIST, _alice, true);
+        _registrar.setListContains(_EARNERS_LIST, _bob, true);
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
 
         _wrappedMToken.startEarningFor(_alice);
 
@@ -401,12 +403,327 @@ contract Tests is Test {
         assertEq(_wrappedMToken.excess(), 6);
     }
 
+    function test_story_enableDisable() external {
+        _registrar.setListContains(_EARNERS_LIST, _alice, true);
+
+        _wrappedMToken.startEarningFor(_alice);
+
+        vm.prank(_alice);
+        _wrappedMToken.wrap(_alice, 100_000000);
+
+        _mToken.setBalanceOf(address(_wrappedMToken), 100_000000);
+
+        vm.prank(_bob);
+        _wrappedMToken.wrap(_bob, 100_000000);
+
+        _mToken.setBalanceOf(address(_wrappedMToken), 200_000000);
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 0);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _mToken.setCurrentIndex((3 * _EXP_SCALED_ONE) / 2);
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 0);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _mToken.setCurrentIndex(2 * _EXP_SCALED_ONE);
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 0);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 0);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _mToken.setCurrentIndex((5 * _EXP_SCALED_ONE) / 2);
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 25_000000);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 25_000000);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _mToken.setCurrentIndex(3 * _EXP_SCALED_ONE);
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 50_000000);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 50_000000);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), false);
+
+        _wrappedMToken.disableEarning();
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 50_000000);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 50_000000);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _mToken.setCurrentIndex(4 * _EXP_SCALED_ONE);
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 50_000000);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 50_000000);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 50_000000);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 50_000000);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _mToken.setCurrentIndex((9 * _EXP_SCALED_ONE) / 2);
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 68_750000);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 68_750000);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _mToken.setCurrentIndex(5 * _EXP_SCALED_ONE);
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 87_500000);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 87_500000);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), false);
+
+        _wrappedMToken.disableEarning();
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 87_500000);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 87_500000);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _mToken.setCurrentIndex(6 * _EXP_SCALED_ONE);
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 87_500000);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 87_500000);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 87_500000);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 87_500000);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _mToken.setCurrentIndex((13 * _EXP_SCALED_ONE) / 2);
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 103_124999);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 103_124999);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _mToken.setCurrentIndex(7 * _EXP_SCALED_ONE);
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 118_749999);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 118_749999);
+        assertEq(_wrappedMToken.excess(), 0);
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), false);
+
+        _wrappedMToken.disableEarning();
+
+        // Assert Alice (Earner)
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 118_749999);
+
+        // Assert Bob (Non-Earner)
+        assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+
+        // Assert Globals
+        assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 100_000000);
+        assertEq(_wrappedMToken.totalSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 118_749999);
+        assertEq(_wrappedMToken.excess(), 0);
+    }
+
     function test_migration() external {
         WrappedMTokenV2 implementationV2_ = new WrappedMTokenV2();
-        address migrator_ = address(new WrappedMTokenMigratorV1(address(implementationV2_)));
+        address migrator_ = address(new WrappedMTokenMigratorV2(address(implementationV2_)));
 
         _registrar.set(
-            keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(_wrappedMToken))),
+            keccak256(abi.encode(_MIGRATOR_V2_PREFIX, address(_wrappedMToken))),
             bytes32(uint256(uint160(migrator_)))
         );
 
@@ -420,7 +737,7 @@ contract Tests is Test {
 
     function test_migration_fromAdmin() external {
         WrappedMTokenV2 implementationV2_ = new WrappedMTokenV2();
-        address migrator_ = address(new WrappedMTokenMigratorV1(address(implementationV2_)));
+        address migrator_ = address(new WrappedMTokenMigratorV2(address(implementationV2_)));
 
         vm.expectRevert();
         WrappedMTokenV2(address(_wrappedMToken)).foo();

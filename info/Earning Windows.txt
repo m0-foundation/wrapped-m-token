@@ -1,0 +1,55 @@
+Earning Windows
+
+window 0
+index_1 1.0 off
+
+window 1
+index_2 2.0 on
+index_3 3.0 off
+
+window 2
+index_4 4.0 on
+index_5 5.0 off
+
+window 3
+index_6 6.0 on
+index_7 7.0 off
+
+------
+
+Account details
+
+deposit in window 1 at index 2.5
+principal_a = principal at start of window 1 = 100
+index_a = 2.5
+
+------
+
+Current details
+
+currentIndex = 7.5
+
+------
+
+Math
+
+present_end_window_1 = (principal_a * index_a) + (principal_a * (index_3 - index_a))
+                       (100         *     2.5) + (100         * (3       - 2.5    )) = 300
+present_end_window_2 = present_end_window_1 + ((present_end_window_1 / index_4) * (index_5 - index_4))
+                       300                  + ((300                  / 4      ) * (5 - 4)) = 375
+present_end_window_3 = present_end_window_2 + ((present_end_window_2 / index_6) * (index_7 - index_6))
+                       375                  + ((375                  / 6      ) * (7 - 6)) = 437.5
+
+------
+
+present1 = (principalA * indexA) + (principalA * (index3 - indexA))
+present1 = (principalA * indexA) + (principalA * index3 - principalA * indexA)
+present1 = principalA * index3
+
+present2 = present1 + ((present1 / index4) * (index5 - index4))
+present2 = present1 * (index5 / index4)
+
+present3 = present2 + ((present2 / index6) * (index7 - index6))
+present3 = present2 * (index7 / index6)
+present3 = present1 * (index5 / index4) * (index7 / index6)
+present3 = principalA * index3 * (index5 / index4) * (index7 / index6)

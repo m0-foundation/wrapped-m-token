@@ -1,0 +1,25 @@
+isApproved_ | isEarning_ | isEarningEnabled |||     call     | push
+   FALSE    |   FALSE    |       FALSE      |||     none     | NO
+   FALSE    |   FALSE    |       TRUE       ||| stopEarning  | YES
+   FALSE    |   TRUE     |       FALSE      ||| Not possible since it implies WM called startEarning without pushing
+   FALSE    |   TRUE     |       TRUE       ||| stopEarning  | YES
+   TRUE     |   FALSE    |       FALSE      ||| startEarning | YES
+   TRUE     |   FALSE    |       TRUE       ||| startEarning | NO
+   TRUE     |   TRUE     |       FALSE      ||| Not possible since it implies WM called startEarning without pushing
+   TRUE     |   TRUE     |       TRUE       |||     none     | NO
+
+
+
+isApproved_ | isEarning_ | isEarningEnabled |||     call     | push
+   FALSE    |   FALSE    |       FALSE      |||     none     | NO
+   FALSE    |   TRUE     |       FALSE      ||| DC
+   TRUE     |   TRUE     |       FALSE      ||| DC
+   TRUE     |   TRUE     |       TRUE       |||     none     | NO
+
+
+
+isApproved_ | isEarning_ | isEarningEnabled |||     call     | push
+   FALSE    |   FALSE    |       TRUE       ||| stopEarning  | YES
+   FALSE    |   TRUE     |       TRUE       ||| stopEarning  | YES
+   TRUE     |   FALSE    |       FALSE      ||| startEarning | YES
+   TRUE     |   FALSE    |       TRUE       ||| startEarning | NO

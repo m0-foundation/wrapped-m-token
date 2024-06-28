@@ -15,11 +15,11 @@ interface IMTokenLike {
 
     /* ============ View/Pure Functions ============ */
 
-    function isEarning(address account) external view returns (bool earning);
-
     function balanceOf(address account) external view returns (uint256 balance);
 
     function currentIndex() external view returns (uint128 currentIndex);
+
+    function isEarning(address account) external view returns (bool isEarning);
 
     function ttgRegistrar() external view returns (address ttgRegistrar);
 }

@@ -14,6 +14,8 @@ import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 
 import { Migratable } from "./Migratable.sol";
 
+// TODO: alter amount of excess that can be claimed if contract is not earning at that moment.
+
 contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     type BalanceInfo is uint256;
 
@@ -24,7 +26,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     bytes32 internal constant _EARNERS_LIST_IGNORED = "earners_list_ignored";
     bytes32 internal constant _EARNERS_LIST = "earners";
     bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
-    bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
+    bytes32 internal constant _MIGRATOR_V2_PREFIX = "wm_migrator_v2";
 
     address public immutable migrationAdmin;
     address public immutable mToken;
@@ -78,35 +80,35 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function enableEarning() external {
         _revertIfNotApprovedEarner(address(this));
 
-        if (_updateIndexes.length != 0) revert EarningCannotBeReenabled();
+        if (IMTokenLike(mToken).isEarning(address(this))) revert EarningAlreadyEnabled();
 
         IMTokenLike(mToken).startEarning();
 
+        if (isEarningEnabled()) return;
+
         uint128 currentMIndex_ = _currentMIndex();
 
-        _updateIndexes.push(currentMIndex_);
-
         emit EarningEnabled(currentMIndex_);
+
+        _updateIndexes.push(currentMIndex_);
     }
 
     function disableEarning() external {
         _revertIfApprovedEarner(address(this));
 
-        if (_updateIndexes.length != 1) revert EarningCanOnlyBeDisabledOnce();
-
-        uint128 currentMIndex_ = _currentMIndex();
-
-        _updateIndexes.push(currentMIndex_);
+        if (!isEarningEnabled()) revert EarningAlreadyDisabled();
 
         IMTokenLike(mToken).stopEarning();
 
+        uint128 currentMIndex_ = _currentMIndex();
+
         emit EarningDisabled(currentMIndex_);
+
+        _updateIndexes.push(currentMIndex_);
     }
 
     function startEarningFor(address account_) external {
         _revertIfNotApprovedEarner(account_);
-
-        if (!isEarningEnabled()) revert EarningIsDisabled();
 
         (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
 
@@ -156,9 +158,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ View/Pure Functions ============ */
 
     function accruedYieldOf(address account_) external view returns (uint240 yield_) {
-        (bool isEarning_, , uint112 principal_, uint240 balance_) = _getBalanceInfo(account_);
+        (bool isEarning_, uint128 index_, uint112 principal_, uint240 balance_) = _getBalanceInfo(account_);
 
-        return isEarning_ ? (IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex()) - balance_) : 0;
+        return isEarning_ ? (_getBalanceIncludingYield(principal_, index_, currentIndex()) - balance_) : 0;
     }
 
     function balanceOf(address account_) external view returns (uint256 balance_) {
@@ -166,9 +168,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function currentIndex() public view returns (uint128 index_) {
-        // If `_updateIndexes.length > 1` (which can only be `_updateIndexes.length == 2` with this implementation), it
-        // is a final non-earning state, so return the second and final index in `_updateIndexes`.
-        return (_updateIndexes.length <= 1) ? _currentMIndex() : _unsafeAccess(_updateIndexes, 1);
+        (bool enabled_, uint128 latestIndex_) = _latestEarningStateUpdate();
+
+        return enabled_ ? IMTokenLike(mToken).currentIndex() : latestIndex_;
     }
 
     function isEarning(address account_) external view returns (bool isEarning_) {
@@ -176,7 +178,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function isEarningEnabled() public view returns (bool isEnabled_) {
-        return _updateIndexes.length == 1;
+        return _updateIndexes.length % 2 != 0;
     }
 
     function excess() public view returns (uint240 yield_) {
@@ -282,12 +284,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (currentIndex_ == index_) return 0;
 
-        _setBalanceInfo(
-            account_,
-            true,
-            currentIndex_,
-            IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex_)
-        );
+        _setBalanceInfo(account_, true, currentIndex_, _getBalanceIncludingYield(principal_, index_, currentIndex_));
 
         // NOTE: Need to get `endingBalance_` from `_getBalanceInfo` since the true balance is the result of rounding
         //       down while dividing to a principal amount in `_setBalanceInfo` and then rounding down while multiplying
@@ -374,6 +371,38 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         return IMTokenLike(mToken).currentIndex();
     }
 
+    function _getBalanceIncludingYield(
+        uint112 accountPrincipal_,
+        uint128 accountIndex_,
+        uint128 currentIndex_
+    ) internal view returns (uint240 balance_) {
+        // The aggregate index should include multiplying the principal by the current index (if currently enabled) or
+        // should start at 1.0 (if currently disabled). This ensures that at the end of the function, the result of
+        // `accountPrincipal_ * aggregateIndex_` is a present amount.
+        uint128 aggregateIndex_ = isEarningEnabled() ? currentIndex_ : _EXP_SCALED_ONE;
+        uint256 i_ = _updateIndexes.length;
+
+        while (i_ > 0) {
+            unchecked {
+                uint128 index_ = _unsafeAccess(_updateIndexes, --i_);
+                bool enabled_ = i_ % 2 == 0; // Even positions (0, 2, 4, ...) are enables, odd positions are disables.
+
+                // NOTE: The index during an entire disable period was/is always last index at the disable time.
+                if (index_ < accountIndex_) break; // Exit loop if the index is less than the account index.
+
+                // Every time an enable boundary is crossed, we need to divide the present by the index to get the
+                // principal amount at the start of that period.
+                // Every time a disable boundary is crossed, we need to multiply the principal by the index to get the
+                // present amount at the end of that period.
+                aggregateIndex_ = enabled_
+                    ? IndexingMath.divide128By128Down(aggregateIndex_, index_)
+                    : IndexingMath.multiply128By128Down(aggregateIndex_, index_);
+            }
+        }
+
+        return IndexingMath.getPresentAmountRoundedDown(accountPrincipal_, aggregateIndex_);
+    }
+
     function _getBalanceInfo(
         address account_
     ) internal view returns (bool isEarning_, uint128 index_, uint112 principal_, uint240 balance_) {
@@ -399,18 +428,28 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             );
     }
 
+    function _latestEarningStateUpdate() internal view returns (bool enabled_, uint128 index_) {
+        if (_updateIndexes.length == 0) return (false, _EXP_SCALED_ONE);
+
+        uint256 i_ = _updateIndexes.length - 1;
+
+        enabled_ = i_ % 2 == 0;
+        index_ = _unsafeAccess(_updateIndexes, i_);
+    }
+
     function _getMigrator() internal view override returns (address migrator_) {
         return
             address(
                 uint160(
-                    uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(this)))))
+                    uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_MIGRATOR_V2_PREFIX, address(this)))))
                 )
             );
     }
 
     function _getTotalAccruedYield(uint128 currentIndex_) internal view returns (uint240 yield_) {
-        uint240 projectedEarningSupply_ = IndexingMath.getPresentAmountRoundedUp(
+        uint240 projectedEarningSupply_ = _getBalanceIncludingYield(
             _principalOfTotalEarningSupply,
+            _indexOfTotalEarningSupply,
             currentIndex_
         );
 
