@@ -14,13 +14,13 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     event ExcessClaimed(uint256 yield);
 
     /**
-     * @notice Emitted when account starts being an M earner.
+     * @notice Emitted when account starts being an wM earner.
      * @param  account The account that started earning.
      */
     event StartedEarning(address indexed account);
 
     /**
-     * @notice Emitted when account stops being an M earner.
+     * @notice Emitted when account stops being an wM earner.
      * @param  account The account that stopped earning.
      */
     event StoppedEarning(address indexed account);
