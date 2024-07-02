@@ -41,6 +41,12 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted when calling `startEarning` for an account not approved as earner by TTG.
     error NotApprovedEarner();
 
+    /// @notice Emitted when calling `startEarningM` after wrapper was already in earning state once.
+    error OnlyEarningOnce();
+
+    /// @notice Emitted when method is called when Wrapped M is not in earning state.
+    error NotInEarningState();
+
     /// @notice Emitted in constructor if M Token is 0x0.
     error ZeroMToken();
 
@@ -53,6 +59,10 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function claimFor(address account) external returns (uint240 yield);
 
     function claimExcess() external returns (uint240 yield);
+
+    function startEarningM() external;
+
+    function stopEarningM() external;
 
     function startEarningFor(address account) external;
 
