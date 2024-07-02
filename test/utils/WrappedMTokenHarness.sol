@@ -5,7 +5,7 @@ pragma solidity 0.8.23;
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 
 contract WrappedMTokenHarness is WrappedMToken {
-    constructor(address mToken_) WrappedMToken(mToken_) {}
+    constructor(address mToken_, address migrationAdmin_) WrappedMToken(mToken_, migrationAdmin_) {}
 
     function setIsEarningOf(address account_, bool isEarning_) external {
         (, uint128 index_, , uint240 balance_) = _getBalanceInfo(account_);
