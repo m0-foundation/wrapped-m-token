@@ -32,11 +32,11 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /**
      * @notice Emitted when there is insufficient balance to decrement from `account`.
-     * @param  account     The account with insufficient balance.
-     * @param  rawBalance  The raw balance of the account (can be present value or principal).
-     * @param  amount      The amount to decrement the `rawBalance` by (either present value or principal).
+     * @param  account The account with insufficient balance.
+     * @param  balance The balance of the account.
+     * @param  amount  The amount to decrement.
      */
-    error InsufficientBalance(address account, uint256 rawBalance, uint256 amount);
+    error InsufficientBalance(address account, uint256 balance, uint256 amount);
 
     /// @notice Emitted when calling `startEarning` for an account not approved as earner by TTG.
     error NotApprovedEarner();
