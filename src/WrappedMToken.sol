@@ -73,7 +73,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function startEarningFor(address account_) external {
         if (!_isApprovedEarner(account_)) revert NotApprovedEarner();
 
-        (bool isEarning_, , , uint240 amount_) = _getBalanceInfo(account_);
+        (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
 
         if (isEarning_) return;
 
@@ -81,11 +81,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         uint128 currentIndex_ = currentIndex();
 
-        _setBalanceInfo(account_, true, currentIndex_, amount_);
-        _addTotalEarningSupply(amount_, currentIndex_);
+        _setBalanceInfo(account_, true, currentIndex_, balance_);
+        _addTotalEarningSupply(balance_, currentIndex_);
 
         unchecked {
-            totalNonEarningSupply -= amount_;
+            totalNonEarningSupply -= balance_;
         }
     }
 
@@ -96,17 +96,17 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         _claim(account_, currentIndex_);
 
-        (bool isEarning_, , , uint240 amount_) = _getBalanceInfo(account_);
+        (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
 
         if (!isEarning_) return;
 
         emit StoppedEarning(account_);
 
-        _setBalanceInfo(account_, false, 0, amount_);
-        _subtractTotalEarningSupply(amount_, currentIndex_);
+        _setBalanceInfo(account_, false, 0, balance_);
+        _subtractTotalEarningSupply(balance_, currentIndex_);
 
         unchecked {
-            totalNonEarningSupply += amount_;
+            totalNonEarningSupply += balance_;
         }
     }
 
