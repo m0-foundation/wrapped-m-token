@@ -14,15 +14,7 @@ abstract contract Migratable is IMigratable {
     /* ============ Interactive Functions ============ */
 
     function migrate() external {
-        address migrator_ = _getMigrator();
-
-        if (migrator_ == address(0)) revert ZeroMigrator();
-
-        address oldImplementation_ = implementation();
-
-        migrator_.delegatecall("");
-
-        emit Migrate(migrator_, oldImplementation_, implementation());
+        _migrate(_getMigrator());
     }
 
     /* ============ View/Pure Functions ============ */
@@ -33,6 +25,23 @@ abstract contract Migratable is IMigratable {
         assembly {
             implementation_ := sload(slot_)
         }
+    }
+
+    /* ============ Internal Interactive Functions ============ */
+
+    function _migrate(address migrator_) internal {
+        if (migrator_ == address(0)) revert ZeroMigrator();
+
+        if (migrator_.code.length == 0) revert InvalidMigrator();
+
+        address oldImplementation_ = implementation();
+
+        migrator_.delegatecall("");
+
+        address newImplementation_ = implementation();
+
+        emit Migrated(migrator_, oldImplementation_, newImplementation_);
+        emit Upgraded(newImplementation_);
     }
 
     /* ============ Internal View/Pure Functions ============ */

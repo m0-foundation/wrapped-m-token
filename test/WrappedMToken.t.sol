@@ -30,6 +30,8 @@ contract WrappedMTokenTests is Test {
     address internal _charlie = makeAddr("charlie");
     address internal _david = makeAddr("david");
 
+    address internal _migrationAdmin = makeAddr("migrationAdmin");
+
     address[] internal _accounts = [_alice, _bob, _charlie, _david];
 
     address internal _vault = makeAddr("vault");
@@ -49,7 +51,7 @@ contract WrappedMTokenTests is Test {
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
         _mToken.setTtgRegistrar(address(_registrar));
 
-        _implementation = new WrappedMTokenHarness(address(_mToken));
+        _implementation = new WrappedMTokenHarness(address(_mToken), _migrationAdmin);
 
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
@@ -67,7 +69,12 @@ contract WrappedMTokenTests is Test {
 
     function test_constructor_zeroMToken() external {
         vm.expectRevert(IWrappedMToken.ZeroMToken.selector);
-        new WrappedMTokenHarness(address(0));
+        new WrappedMTokenHarness(address(0), address(0));
+    }
+
+    function test_constructor_zeroMigrationAdmin() external {
+        vm.expectRevert(IWrappedMToken.ZeroMigrationAdmin.selector);
+        new WrappedMTokenHarness(address(_mToken), address(0));
     }
 
     /* ============ wrap ============ */

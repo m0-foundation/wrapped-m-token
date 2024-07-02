@@ -3,7 +3,11 @@
 pragma solidity 0.8.23;
 
 interface IMigratable {
-    event Migrate(address indexed migrator, address indexed oldImplementation, address indexed newImplementation);
+    event Migrated(address indexed migrator, address indexed oldImplementation, address indexed newImplementation);
+
+    event Upgraded(address indexed implementation);
+
+    error InvalidMigrator();
 
     error ZeroMigrator();
 
