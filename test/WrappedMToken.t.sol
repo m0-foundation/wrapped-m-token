@@ -368,6 +368,15 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.startEarningFor(_alice);
     }
 
+    function test_startEarningFor_notInEarningState() external {
+        _mToken.stopEarning(address(_wrappedMToken));
+
+        _registrar.setListContains(_EARNERS_LIST, _alice, true);
+
+        vm.expectRevert(IWrappedMToken.NotInEarningState.selector);
+        _wrappedMToken.startEarningFor(_alice);
+    }
+
     function test_startEarningFor() external {
         _wrappedMToken.setTotalNonEarningSupply(1_000);
 
@@ -433,12 +442,12 @@ contract WrappedMTokenTests is Test {
     }
 
     /* ============ startEarningM ============ */
-    function test_startEarningM_onlyEarningOnce() external {
+    function test_startEarningM_allowedToEarnOnlyOnce() external {
         assertEq(_mToken.isEarning(address(_wrappedMToken)), true);
 
         _wrappedMToken.stopEarningM();
 
-        vm.expectRevert(IWrappedMToken.OnlyEarningOnce.selector);
+        vm.expectRevert(IWrappedMToken.AllowedToEarnOnlyOnce.selector);
         _wrappedMToken.startEarningM();
     }
 

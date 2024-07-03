@@ -37,6 +37,10 @@ contract MockM {
     function stopEarning() external {
         isEarning[msg.sender] = false;
     }
+
+    function stopEarning(address earner) external {
+        isEarning[earner] = false;
+    }
 }
 
 contract MockRegistrar {

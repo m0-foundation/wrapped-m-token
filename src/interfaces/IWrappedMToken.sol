@@ -41,10 +41,10 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted when calling `startEarning` for an account not approved as earner by TTG.
     error NotApprovedEarner();
 
-    /// @notice Emitted when calling `startEarningM` after wrapper was already in earning state once.
-    error OnlyEarningOnce();
+    /// @notice Emitted when calling `startEarningM` after Wrapped M was already earning M yield once.
+    error AllowedToEarnOnlyOnce();
 
-    /// @notice Emitted when method is called when Wrapped M is not in earning state.
+    /// @notice Emitted when calling `startEarningFor` if Wrapped M is not in earning state.
     error NotInEarningState();
 
     /// @notice Emitted in constructor if M Token is 0x0.
