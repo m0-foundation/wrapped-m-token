@@ -40,7 +40,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     mapping(address account => BalanceInfo balance) internal _balances;
 
     modifier onlyWhenEarning() {
-        if (IMTokenLike(mToken).isEarning(address(this))) revert NotInEarningState();
+        if (!IMTokenLike(mToken).isEarning(address(this))) revert NotInEarningState();
 
         _;
     }
@@ -56,7 +56,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Interactive Functions ============ */
 
-    function wrap(address recipient_, uint256 amount_) external onlyWhenEarning {
+    function wrap(address recipient_, uint256 amount_) external {
         _mint(recipient_, UIntMath.safe240(amount_));
 
         IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
@@ -78,7 +78,19 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         IMTokenLike(mToken).transfer(vault, yield_);
     }
 
-    function startEarningFor(address account_) external {
+    function startEarningM() external {
+        if (mIndexWhenEarningStopped != 0) revert OnlyEarningOnce();
+
+        IMTokenLike(mToken).startEarning();
+    }
+
+    function stopEarningM() external {
+        mIndexWhenEarningStopped = currentIndex();
+
+        IMTokenLike(mToken).stopEarning();
+    }
+
+    function startEarningFor(address account_) external onlyWhenEarning {
         if (!_isApprovedEarner(account_)) revert NotApprovedEarner();
 
         (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
@@ -116,18 +128,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             totalNonEarningSupply += balance_;
         }
-    }
-
-    function startEarningM() external {
-        if (mIndexWhenEarningStopped != 0) revert OnlyEarningOnce();
-
-        IMTokenLike(mToken).startEarning();
-    }
-
-    function stopEarningM() external {
-        mIndexWhenEarningStopped = currentIndex();
-
-        IMTokenLike(mToken).stopEarning();
     }
 
     /* ============ View/Pure Functions ============ */

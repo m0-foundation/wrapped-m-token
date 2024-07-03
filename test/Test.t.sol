@@ -72,6 +72,8 @@ contract Tests is Test {
         _registrar.setListContains(_EARNERS_LIST, _alice, true);
         _registrar.setListContains(_EARNERS_LIST, _bob, true);
 
+        _wrappedMToken.startEarningM();
+
         _wrappedMToken.startEarningFor(_alice);
 
         _wrappedMToken.startEarningFor(_bob);

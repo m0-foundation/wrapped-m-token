@@ -54,6 +54,8 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         _mToken.setCurrentIndex(_currentIndex = 1_100000068703);
+
+        _wrappedMToken.startEarningM();
     }
 
     /* ============ constructor ============ */
@@ -428,6 +430,31 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.totalNonEarningSupply(), 999);
         assertEq(_wrappedMToken.totalEarningSupply(), 1); // TODO: Fix?
+    }
+
+    /* ============ startEarningM ============ */
+    function test_startEarningM_onlyEarningOnce() external {
+        assertEq(_mToken.isEarning(address(_wrappedMToken)), true);
+
+        _wrappedMToken.stopEarningM();
+
+        vm.expectRevert(IWrappedMToken.OnlyEarningOnce.selector);
+        _wrappedMToken.startEarningM();
+    }
+
+    /* ============ stopEarningM ============ */
+    function test_stopEarningM() external {
+        assertEq(_mToken.isEarning(address(_wrappedMToken)), true);
+        assertEq(_wrappedMToken.mIndexWhenEarningStopped(), 0);
+
+        _wrappedMToken.stopEarningM();
+
+        assertEq(_mToken.isEarning(address(_wrappedMToken)), false);
+        assertEq(_wrappedMToken.mIndexWhenEarningStopped(), _mToken.currentIndex());
+
+        _mToken.setCurrentIndex(_currentIndex = _EXP_SCALED_ONE);
+
+        assertEq(_wrappedMToken.currentIndex(), _wrappedMToken.mIndexWhenEarningStopped());
     }
 
     /* ============ balanceOf ============ */
