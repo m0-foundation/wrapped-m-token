@@ -88,7 +88,11 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     function excess() external view returns (uint240 yield);
 
+    function migrationAdmin() external view returns (address migrationAdmin);
+
     function mToken() external view returns (address mToken);
+
+    function mIndexWhenEarningStopped() external view returns (uint128 index);
 
     function totalNonEarningSupply() external view returns (uint240 totalSupply);
 
