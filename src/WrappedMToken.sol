@@ -26,6 +26,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
     bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
 
+    address public immutable migrationAdmin;
     address public immutable mToken;
     address public immutable registrar;
     address public immutable vault;
@@ -47,11 +48,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Constructor ============ */
 
-    constructor(address mToken_) ERC20Extended("WrappedM by M^0", "wM", 6) {
+    constructor(address mToken_, address migrationAdmin_) ERC20Extended("WrappedM by M^0", "wM", 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
 
         registrar = IMTokenLike(mToken_).ttgRegistrar();
         vault = IRegistrarLike(registrar).vault();
+
+        if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
     }
 
     /* ============ Interactive Functions ============ */
@@ -128,6 +131,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             totalNonEarningSupply += balance_;
         }
+    }
+
+    /* ============ Temporary Admin Migration ============ */
+
+    function migrate(address migrator_) external {
+        if (msg.sender != migrationAdmin) revert UnauthorizedMigration();
+
+        _migrate(migrator_);
     }
 
     /* ============ View/Pure Functions ============ */

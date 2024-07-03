@@ -48,6 +48,8 @@ contract Tests is Test {
     address internal _carol = makeAddr("carol");
     address internal _dave = makeAddr("dave");
 
+    address internal _migrationAdmin = makeAddr("migrationAdmin");
+
     address internal _vault = makeAddr("vault");
 
     MockM internal _mToken;
@@ -63,7 +65,7 @@ contract Tests is Test {
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
         _mToken.setTtgRegistrar(address(_registrar));
 
-        _implementation = new WrappedMToken(address(_mToken));
+        _implementation = new WrappedMToken(address(_mToken), _migrationAdmin);
 
         _wrappedMToken = IWrappedMToken(address(new Proxy(address(_implementation))));
     }
@@ -411,6 +413,19 @@ contract Tests is Test {
         WrappedMTokenV2(address(_wrappedMToken)).foo();
 
         _wrappedMToken.migrate();
+
+        assertEq(WrappedMTokenV2(address(_wrappedMToken)).foo(), 1);
+    }
+
+    function test_migration_fromAdmin() external {
+        WrappedMTokenV2 implementationV2_ = new WrappedMTokenV2();
+        address migrator_ = address(new WrappedMTokenMigratorV1(address(implementationV2_)));
+
+        vm.expectRevert();
+        WrappedMTokenV2(address(_wrappedMToken)).foo();
+
+        vm.prank(_migrationAdmin);
+        _wrappedMToken.migrate(migrator_);
 
         assertEq(WrappedMTokenV2(address(_wrappedMToken)).foo(), 1);
     }

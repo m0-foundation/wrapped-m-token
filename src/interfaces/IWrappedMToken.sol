@@ -47,8 +47,14 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted when calling `startEarningFor` if Wrapped M is not in earning state.
     error NotInEarningState();
 
+    /// @notice Emitted when the non-governance migrate function is called by a account other than the migration admin.
+    error UnauthorizedMigration();
+
     /// @notice Emitted in constructor if M Token is 0x0.
     error ZeroMToken();
+
+    /// @notice Emitted in constructor if Migration Admin is 0x0.
+    error ZeroMigrationAdmin();
 
     /* ============ Interactive Functions ============ */
 
@@ -67,6 +73,10 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function startEarningFor(address account) external;
 
     function stopEarningFor(address account) external;
+
+    /* ============ Temporary Admin Migration ============ */
+
+    function migrate(address migrator_) external;
 
     /* ============ View/Pure Functions ============ */
 
