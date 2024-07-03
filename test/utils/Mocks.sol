@@ -8,6 +8,7 @@ contract MockM {
     uint128 public currentIndex;
 
     mapping(address account => uint256 balance) public balanceOf;
+    mapping(address account => bool isEarning) public isEarning;
 
     function transfer(address, uint256) external returns (bool success_) {
         return true;
@@ -27,6 +28,18 @@ contract MockM {
 
     function setTtgRegistrar(address ttgRegistrar_) external {
         ttgRegistrar = ttgRegistrar_;
+    }
+
+    function startEarning() external {
+        isEarning[msg.sender] = true;
+    }
+
+    function stopEarning() external {
+        isEarning[msg.sender] = false;
+    }
+
+    function stopEarning(address earner) external {
+        isEarning[earner] = false;
     }
 }
 

@@ -56,6 +56,8 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         _mToken.setCurrentIndex(_currentIndex = 1_100000068703);
+
+        _wrappedMToken.startEarningM();
     }
 
     /* ============ constructor ============ */
@@ -373,6 +375,15 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.startEarningFor(_alice);
     }
 
+    function test_startEarningFor_notInEarningState() external {
+        _mToken.stopEarning(address(_wrappedMToken));
+
+        _registrar.setListContains(_EARNERS_LIST, _alice, true);
+
+        vm.expectRevert(IWrappedMToken.NotInEarningState.selector);
+        _wrappedMToken.startEarningFor(_alice);
+    }
+
     function test_startEarningFor() external {
         _wrappedMToken.setTotalNonEarningSupply(1_000);
 
@@ -435,6 +446,38 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.totalNonEarningSupply(), 999);
         assertEq(_wrappedMToken.totalEarningSupply(), 1); // TODO: Fix?
+    }
+
+    /* ============ startEarningM ============ */
+    function test_startEarningM_allowedToEarnOnlyOnce() external {
+        assertEq(_mToken.isEarning(address(_wrappedMToken)), true);
+
+        _wrappedMToken.stopEarningM();
+
+        vm.expectRevert(IWrappedMToken.AllowedToEarnOnlyOnce.selector);
+        _wrappedMToken.startEarningM();
+    }
+
+    /* ============ stopEarningM ============ */
+    function test_stopEarningM() external {
+        assertEq(_mToken.isEarning(address(_wrappedMToken)), true);
+        assertEq(_wrappedMToken.mIndexWhenEarningStopped(), 0);
+
+        _wrappedMToken.stopEarningM();
+
+        assertEq(_mToken.isEarning(address(_wrappedMToken)), false);
+        assertEq(_wrappedMToken.mIndexWhenEarningStopped(), _mToken.currentIndex());
+
+        _mToken.setCurrentIndex(_currentIndex = _EXP_SCALED_ONE);
+
+        assertEq(_wrappedMToken.currentIndex(), _wrappedMToken.mIndexWhenEarningStopped());
+    }
+
+    function test_stopEarningM_notInEarningState() external {
+        _mToken.stopEarning(address(_wrappedMToken));
+
+        vm.expectRevert(IWrappedMToken.NotInEarningState.selector);
+        _wrappedMToken.stopEarningM();
     }
 
     /* ============ balanceOf ============ */

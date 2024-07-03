@@ -41,6 +41,12 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted when calling `startEarning` for an account not approved as earner by TTG.
     error NotApprovedEarner();
 
+    /// @notice Emitted when calling `startEarningM` after Wrapped M was already earning M yield once.
+    error AllowedToEarnOnlyOnce();
+
+    /// @notice Emitted when calling `startEarningFor` if Wrapped M is not in earning state.
+    error NotInEarningState();
+
     /// @notice Emitted when the non-governance migrate function is called by a account other than the migration admin.
     error UnauthorizedMigration();
 
@@ -59,6 +65,10 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function claimFor(address account) external returns (uint240 yield);
 
     function claimExcess() external returns (uint240 yield);
+
+    function startEarningM() external;
+
+    function stopEarningM() external;
 
     function startEarningFor(address account) external;
 

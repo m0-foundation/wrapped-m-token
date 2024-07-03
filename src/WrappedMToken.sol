@@ -36,7 +36,15 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     uint240 public totalNonEarningSupply;
 
+    uint128 public mIndexWhenEarningStopped;
+
     mapping(address account => BalanceInfo balance) internal _balances;
+
+    modifier onlyWhenEarning() {
+        if (!IMTokenLike(mToken).isEarning(address(this))) revert NotInEarningState();
+
+        _;
+    }
 
     /* ============ Constructor ============ */
 
@@ -73,7 +81,19 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         IMTokenLike(mToken).transfer(vault, yield_);
     }
 
-    function startEarningFor(address account_) external {
+    function startEarningM() external {
+        if (mIndexWhenEarningStopped != 0) revert AllowedToEarnOnlyOnce();
+
+        IMTokenLike(mToken).startEarning();
+    }
+
+    function stopEarningM() external onlyWhenEarning {
+        mIndexWhenEarningStopped = currentIndex();
+
+        IMTokenLike(mToken).stopEarning();
+    }
+
+    function startEarningFor(address account_) external onlyWhenEarning {
         if (!_isApprovedEarner(account_)) revert NotApprovedEarner();
 
         (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
@@ -134,7 +154,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function currentIndex() public view returns (uint128 index_) {
-        return IMTokenLike(mToken).currentIndex();
+        return mIndexWhenEarningStopped == 0 ? IMTokenLike(mToken).currentIndex() : mIndexWhenEarningStopped;
     }
 
     function isEarning(address account_) external view returns (bool isEarning_) {
