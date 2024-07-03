@@ -10,11 +10,11 @@ contract MockM {
     mapping(address account => uint256 balance) public balanceOf;
     mapping(address account => bool isEarning) public isEarning;
 
-    function transfer(address, uint256) external returns (bool success_) {
+    function transfer(address, uint256) external pure returns (bool success_) {
         return true;
     }
 
-    function transferFrom(address, address, uint256) external returns (bool success_) {
+    function transferFrom(address, address, uint256) external pure returns (bool success_) {
         return true;
     }
 
@@ -56,5 +56,37 @@ contract MockRegistrar {
 
     function setVault(address vault_) external {
         vault = vault_;
+    }
+}
+
+contract MockMinterGateway {
+    address public mToken;
+    address public ttgRegistrar;
+
+    uint256 public minterRate;
+    uint256 public totalActiveOwedM;
+
+    function setMToken(address mToken_) external {
+        mToken = mToken_;
+    }
+
+    function setMinterRate(uint256 minterRate_) external {
+        minterRate = minterRate_;
+    }
+
+    function setTotalActiveOwedM(uint256 totalActiveOwedM_) external {
+        totalActiveOwedM = totalActiveOwedM_;
+    }
+
+    function setTtgRegistrar(address ttgRegistrar_) external {
+        ttgRegistrar = ttgRegistrar_;
+    }
+}
+
+contract MockRateModel {
+    uint256 public rate;
+
+    function setRate(uint256 rate_) external {
+        rate = rate_;
     }
 }

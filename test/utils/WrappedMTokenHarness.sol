@@ -38,6 +38,12 @@ contract WrappedMTokenHarness is WrappedMToken {
         _indexOfTotalEarningSupply = uint128(indexOfTotalEarningSupply_);
     }
 
+    function internalBalanceInfo(
+        address account_
+    ) external view returns (bool isEarning_, uint128 index_, uint112 principal_, uint240 balance_) {
+        (isEarning_, index_, principal_, balance_) = _getBalanceInfo(account_);
+    }
+
     function internalBalanceOf(address account_) external view returns (uint240 balance_) {
         (, , , balance_) = _getBalanceInfo(account_);
     }
