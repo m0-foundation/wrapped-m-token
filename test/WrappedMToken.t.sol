@@ -473,6 +473,13 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.currentIndex(), _wrappedMToken.mIndexWhenEarningStopped());
     }
 
+    function test_stopEarningM_notInEarningState() external {
+        _mToken.stopEarning(address(_wrappedMToken));
+
+        vm.expectRevert(IWrappedMToken.NotInEarningState.selector);
+        _wrappedMToken.stopEarningM();
+    }
+
     /* ============ balanceOf ============ */
     function test_balanceOf_nonEarner() external {
         _wrappedMToken.setBalanceOf(_alice, 500);

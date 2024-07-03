@@ -87,7 +87,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         IMTokenLike(mToken).startEarning();
     }
 
-    function stopEarningM() external {
+    function stopEarningM() external onlyWhenEarning {
         mIndexWhenEarningStopped = currentIndex();
 
         IMTokenLike(mToken).stopEarning();
