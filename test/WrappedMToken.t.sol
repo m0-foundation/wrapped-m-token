@@ -76,6 +76,11 @@ contract WrappedMTokenTests is Test {
         new WrappedMTokenHarness(address(_mToken), address(0));
     }
 
+    function test_constructor_zeroImplementation() external {
+        vm.expectRevert();
+        WrappedMTokenHarness(address(new Proxy(address(0))));
+    }
+
     /* ============ wrap ============ */
     function test_wrap_insufficientAmount() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
