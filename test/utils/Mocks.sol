@@ -10,11 +10,11 @@ contract MockM {
     mapping(address account => uint256 balance) public balanceOf;
     mapping(address account => bool isEarning) public isEarning;
 
-    function transfer(address, uint256) external pure returns (bool success_) {
+    function transfer(address, uint256) external returns (bool success_) {
         return true;
     }
 
-    function transferFrom(address, address, uint256) external pure returns (bool success_) {
+    function transferFrom(address, address, uint256) external returns (bool success_) {
         return true;
     }
 
