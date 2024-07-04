@@ -2,17 +2,17 @@
 
 pragma solidity 0.8.23;
 
-import {UIntMath} from "../lib/common/src/libs/UIntMath.sol";
+import { UIntMath } from "../lib/common/src/libs/UIntMath.sol";
 
-import {ERC20Extended} from "../lib/common/src/ERC20Extended.sol";
+import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 
-import {IndexingMath} from "./libs/IndexingMath.sol";
+import { IndexingMath } from "./libs/IndexingMath.sol";
 
-import {IMTokenLike} from "./interfaces/IMTokenLike.sol";
-import {IWrappedMToken} from "./interfaces/IWrappedMToken.sol";
-import {IRegistrarLike} from "./interfaces/IRegistrarLike.sol";
+import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
+import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
+import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 
-import {Migratable} from "./Migratable.sol";
+import { Migratable } from "./Migratable.sol";
 
 contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     type BalanceInfo is uint256;
@@ -102,7 +102,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function startEarningFor(address account_) external onlyWhenEarning {
         if (!_isApprovedEarner(account_)) revert NotApprovedEarner();
 
-        (bool isEarning_,,, uint240 balance_) = _getBalanceInfo(account_);
+        (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
 
         if (isEarning_) return;
 
@@ -125,7 +125,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         _claim(account_, currentIndex_);
 
-        (bool isEarning_,,, uint240 balance_) = _getBalanceInfo(account_);
+        (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
 
         if (!isEarning_) return;
 
@@ -150,13 +150,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ View/Pure Functions ============ */
 
     function accruedYieldOf(address account_) external view returns (uint240 yield_) {
-        (bool isEarning_,, uint112 principal_, uint240 balance_) = _getBalanceInfo(account_);
+        (bool isEarning_, , uint112 principal_, uint240 balance_) = _getBalanceInfo(account_);
 
         return isEarning_ ? (IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex()) - balance_) : 0;
     }
 
     function balanceOf(address account_) external view returns (uint256 balance_) {
-        (,,, balance_) = _getBalanceInfo(account_);
+        (, , , balance_) = _getBalanceInfo(account_);
     }
 
     function currentIndex() public view returns (uint128 index_) {
@@ -164,7 +164,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function isEarning(address account_) external view returns (bool isEarning_) {
-        (isEarning_,,,) = _getBalanceInfo(account_);
+        (isEarning_, , , ) = _getBalanceInfo(account_);
     }
 
     function excess() public view returns (uint240 yield_) {
@@ -195,7 +195,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(address(0), recipient_, amount_);
 
-        (bool isEarning_,,,) = _getBalanceInfo(recipient_);
+        (bool isEarning_, , , ) = _getBalanceInfo(recipient_);
 
         if (!isEarning_) return _addNonEarningAmount(recipient_, amount_);
 
@@ -212,7 +212,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(msg.sender, address(0), amount_);
 
-        (bool isEarning_,,,) = _getBalanceInfo(account_);
+        (bool isEarning_, , , ) = _getBalanceInfo(account_);
 
         if (!isEarning_) return _subtractNonEarningAmount(account_, amount_);
 
@@ -226,7 +226,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     function _addNonEarningAmount(address recipient_, uint240 amount_) internal {
         unchecked {
-            (,,, uint240 balance_) = _getBalanceInfo(recipient_);
+            (, , , uint240 balance_) = _getBalanceInfo(recipient_);
             _setBalanceInfo(recipient_, false, 0, balance_ + amount_);
             totalNonEarningSupply += amount_;
         }
@@ -234,7 +234,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     function _subtractNonEarningAmount(address account_, uint240 amount_) internal {
         unchecked {
-            (,,, uint240 balance_) = _getBalanceInfo(account_);
+            (, , , uint240 balance_) = _getBalanceInfo(account_);
 
             if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
 
@@ -245,7 +245,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     function _addEarningAmount(address recipient_, uint240 amount_, uint128 currentIndex_) internal {
         unchecked {
-            (,,, uint240 balance_) = _getBalanceInfo(recipient_);
+            (, , , uint240 balance_) = _getBalanceInfo(recipient_);
 
             _setBalanceInfo(recipient_, true, currentIndex_, balance_ + amount_);
             _addTotalEarningSupply(amount_, currentIndex_);
@@ -254,7 +254,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     function _subtractEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
         unchecked {
-            (,,, uint240 balance_) = _getBalanceInfo(account_);
+            (, , , uint240 balance_) = _getBalanceInfo(account_);
 
             if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
 
@@ -264,7 +264,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
-        (bool isEarner_, uint128 index_,, uint240 startingBalance_) = _getBalanceInfo(account_);
+        (bool isEarner_, uint128 index_, , uint240 startingBalance_) = _getBalanceInfo(account_);
 
         if (!isEarner_) return 0;
 
@@ -272,7 +272,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         _updateIndex(account_, currentIndex_);
 
-        (,,, uint240 endingBalance_) = _getBalanceInfo(account_);
+        (, , , uint240 endingBalance_) = _getBalanceInfo(account_);
 
         unchecked {
             yield_ = endingBalance_ - startingBalance_;
@@ -306,8 +306,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _setBalanceInfo(address account_, bool isEarning_, uint128 index_, uint240 amount_) internal {
         _balances[account_] = isEarning_
             ? BalanceInfo.wrap(
-                (uint256(1) << 248) | (uint256(index_) << 112)
-                    | uint256(IndexingMath.getPrincipalAmountRoundedDown(amount_, index_))
+                (uint256(1) << 248) |
+                    (uint256(index_) << 112) |
+                    uint256(IndexingMath.getPrincipalAmountRoundedDown(amount_, index_))
             )
             : BalanceInfo.wrap(uint256(amount_));
     }
@@ -320,8 +321,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(sender_, recipient_, amount_);
 
-        (bool senderIsEarning_,,,) = _getBalanceInfo(sender_);
-        (bool recipientIsEarning_,,,) = _getBalanceInfo(recipient_);
+        (bool senderIsEarning_, , , ) = _getBalanceInfo(sender_);
+        (bool recipientIsEarning_, , , ) = _getBalanceInfo(recipient_);
 
         senderIsEarning_
             ? _subtractEarningAmount(sender_, amount_, currentIndex_)
@@ -358,11 +359,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Internal View/Pure Functions ============ */
 
-    function _getBalanceInfo(address account_)
-        internal
-        view
-        returns (bool isEarning_, uint128 index_, uint112 principal_, uint240 balance_)
-    {
+    function _getBalanceInfo(
+        address account_
+    ) internal view returns (bool isEarning_, uint128 index_, uint112 principal_, uint240 balance_) {
         uint256 unwrapped_ = BalanceInfo.unwrap(_balances[account_]);
 
         isEarning_ = (unwrapped_ >> 248) != 0;
@@ -375,24 +374,30 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _getClaimOverrideRecipient(address account_) internal view returns (address) {
-        return address(
-            uint160(
-                uint256(
-                    IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)))
+        return
+            address(
+                uint160(
+                    uint256(
+                        IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)))
+                    )
                 )
-            )
-        );
+            );
     }
 
     function _getMigrator() internal view override returns (address migrator_) {
-        return address(
-            uint160(uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(this))))))
-        );
+        return
+            address(
+                uint160(
+                    uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(this)))))
+                )
+            );
     }
 
     function _getTotalAccruedYield(uint128 currentIndex_) internal view returns (uint240 yield_) {
-        uint240 projectedEarningSupply_ =
-            IndexingMath.getPresentAmountRoundedUp(_principalOfTotalEarningSupply, currentIndex_);
+        uint240 projectedEarningSupply_ = IndexingMath.getPresentAmountRoundedUp(
+            _principalOfTotalEarningSupply,
+            currentIndex_
+        );
 
         uint240 earningSupply_ = totalEarningSupply();
 
@@ -402,8 +407,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _isApprovedEarner(address account_) internal view returns (bool) {
-        return IRegistrarLike(registrar).get(_EARNERS_LIST_IGNORED) != bytes32(0)
-            || IRegistrarLike(registrar).listContains(_EARNERS_LIST, account_);
+        return
+            IRegistrarLike(registrar).get(_EARNERS_LIST_IGNORED) != bytes32(0) ||
+            IRegistrarLike(registrar).listContains(_EARNERS_LIST, account_);
     }
 
     /**
