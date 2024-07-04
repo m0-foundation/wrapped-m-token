@@ -56,12 +56,9 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         _mToken.setCurrentIndex(_currentIndex = 1_100000068703);
-
-        _wrappedMToken.startEarningM();
     }
 
     /* ============ constructor ============ */
-
     function test_constructor() external view {
         assertEq(_wrappedMToken.implementation(), address(_implementation));
         assertEq(_wrappedMToken.mToken(), address(_mToken));
@@ -80,27 +77,26 @@ contract WrappedMTokenTests is Test {
     }
 
     /* ============ wrap ============ */
-
-    function test_deposit_insufficientAmount() external {
+    function test_wrap_insufficientAmount() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
 
         _wrappedMToken.wrap(_alice, 0);
     }
 
-    function test_deposit_invalidRecipient() external {
+    function test_wrap_invalidRecipient() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InvalidRecipient.selector, address(0)));
 
         _wrappedMToken.wrap(address(0), 1_000);
     }
 
-    function test_deposit_invalidAmount() external {
+    function test_wrap_invalidAmount() external {
         vm.expectRevert(UIntMath.InvalidUInt240.selector);
 
         vm.prank(_alice);
         _wrappedMToken.wrap(_alice, uint256(type(uint240).max) + 1);
     }
 
-    function test_deposit_toNonEarner() external {
+    function test_wrap_toNonEarner() external {
         vm.prank(_alice);
         _wrappedMToken.wrap(_alice, 1_000);
 
@@ -110,7 +106,11 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.indexOfTotalEarningSupply(), 0);
     }
 
-    function test_deposit_toEarner() external {
+    function test_wrap_toEarner() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
         _wrappedMToken.setAccountOf(_alice, true, _EXP_SCALED_ONE, 0);
 
         vm.prank(_alice);
@@ -146,14 +146,13 @@ contract WrappedMTokenTests is Test {
     }
 
     /* ============ unwrap ============ */
-
-    function test_withdraw_insufficientAmount() external {
+    function test_unwrap_insufficientAmount() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
 
         _wrappedMToken.unwrap(_alice, 0);
     }
 
-    function test_withdraw_insufficientBalance_fromNonEarner() external {
+    function test_unwrap_insufficientBalance_fromNonEarner() external {
         _wrappedMToken.setBalanceOf(_alice, 999);
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
@@ -161,7 +160,11 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.unwrap(_alice, 1_000);
     }
 
-    function test_withdraw_insufficientBalance_fromEarner() external {
+    function test_unwrap_insufficientBalance_fromEarner() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
         _wrappedMToken.setAccountOf(_alice, true, _currentIndex, 1_000);
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
@@ -169,7 +172,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.unwrap(_alice, 1_000);
     }
 
-    function test_withdraw_fromNonEarner() external {
+    function test_unwrap_fromNonEarner() external {
         _wrappedMToken.setTotalNonEarningSupply(1_000);
 
         _wrappedMToken.setBalanceOf(_alice, 1_000);
@@ -191,7 +194,11 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.indexOfTotalEarningSupply(), 0);
     }
 
-    function test_withdraw_fromEarner() external {
+    function test_unwrap_fromEarner() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
         _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
         _wrappedMToken.setIndexOfTotalEarningSupply(_currentIndex);
 
@@ -238,6 +245,10 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_transfer_insufficientBalance_fromEarner_toNonEarner() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
         _wrappedMToken.setAccountOf(_alice, true, _currentIndex, 1_000);
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
@@ -290,6 +301,10 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_transfer_fromEarner_toNonEarner() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
         _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
         _wrappedMToken.setIndexOfTotalEarningSupply(_currentIndex);
         _wrappedMToken.setTotalNonEarningSupply(500);
@@ -325,6 +340,10 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_transfer_fromNonEarner_toEarner() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
         _wrappedMToken.setPrincipalOfTotalEarningSupply(455);
         _wrappedMToken.setIndexOfTotalEarningSupply(_currentIndex);
         _wrappedMToken.setTotalNonEarningSupply(1_000);
@@ -347,6 +366,10 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_transfer_fromEarner_toEarner() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
         _wrappedMToken.setPrincipalOfTotalEarningSupply(1_364);
         _wrappedMToken.setIndexOfTotalEarningSupply(_currentIndex);
 
@@ -375,16 +398,29 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.startEarningFor(_alice);
     }
 
-    function test_startEarningFor_notInEarningState() external {
-        _mToken.stopEarning(address(_wrappedMToken));
-
+    function test_startEarningFor_earningIsDisabled() external {
         _registrar.setListContains(_EARNERS_LIST, _alice, true);
 
-        vm.expectRevert(IWrappedMToken.NotInEarningState.selector);
+        vm.expectRevert(IWrappedMToken.EarningIsDisabled.selector);
+        _wrappedMToken.startEarningFor(_alice);
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), false);
+
+        _wrappedMToken.disableEarning();
+
+        vm.expectRevert(IWrappedMToken.EarningIsDisabled.selector);
         _wrappedMToken.startEarningFor(_alice);
     }
 
     function test_startEarningFor() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
         _wrappedMToken.setTotalNonEarningSupply(1_000);
 
         _wrappedMToken.setBalanceOf(_alice, 1_000);
@@ -406,6 +442,10 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_startEarning_overflow() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
         uint256 aliceBalance_ = uint256(type(uint112).max) + 20;
 
         _mToken.setCurrentIndex(_currentIndex = _EXP_SCALED_ONE);
@@ -429,6 +469,10 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_stopEarningFor() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
         _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
         _wrappedMToken.setIndexOfTotalEarningSupply(_currentIndex);
 
@@ -448,36 +492,71 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 1); // TODO: Fix?
     }
 
-    /* ============ startEarningM ============ */
-    function test_startEarningM_allowedToEarnOnlyOnce() external {
-        assertEq(_mToken.isEarning(address(_wrappedMToken)), true);
-
-        _wrappedMToken.stopEarningM();
-
-        vm.expectRevert(IWrappedMToken.AllowedToEarnOnlyOnce.selector);
-        _wrappedMToken.startEarningM();
+    /* ============ enableEarning ============ */
+    function test_enableEarning_notApprovedEarner() external {
+        vm.expectRevert(IWrappedMToken.NotApprovedEarner.selector);
+        _wrappedMToken.enableEarning();
     }
 
-    /* ============ stopEarningM ============ */
-    function test_stopEarningM() external {
-        assertEq(_mToken.isEarning(address(_wrappedMToken)), true);
-        assertEq(_wrappedMToken.mIndexWhenEarningStopped(), 0);
+    function test_enableEarning_earningCannotBeReenabled() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
 
-        _wrappedMToken.stopEarningM();
+        _wrappedMToken.enableEarning();
 
-        assertEq(_mToken.isEarning(address(_wrappedMToken)), false);
-        assertEq(_wrappedMToken.mIndexWhenEarningStopped(), _mToken.currentIndex());
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), false);
 
-        _mToken.setCurrentIndex(_currentIndex = _EXP_SCALED_ONE);
+        _wrappedMToken.disableEarning();
 
-        assertEq(_wrappedMToken.currentIndex(), _wrappedMToken.mIndexWhenEarningStopped());
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        vm.expectRevert(IWrappedMToken.EarningCannotBeReenabled.selector);
+        _wrappedMToken.enableEarning();
     }
 
-    function test_stopEarningM_notInEarningState() external {
-        _mToken.stopEarning(address(_wrappedMToken));
+    function test_enableEarning() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
 
-        vm.expectRevert(IWrappedMToken.NotInEarningState.selector);
-        _wrappedMToken.stopEarningM();
+        vm.expectEmit();
+        emit IWrappedMToken.EarningEnabled(_currentIndex);
+
+        _wrappedMToken.enableEarning();
+    }
+
+    /* ============ disableEarning ============ */
+    function test_disableEarning_earningCanOnlyBeDisabledOnce() external {
+        vm.expectRevert(IWrappedMToken.EarningCanOnlyBeDisabledOnce.selector);
+        _wrappedMToken.disableEarning();
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), false);
+
+        _wrappedMToken.disableEarning();
+
+        vm.expectRevert(IWrappedMToken.EarningCanOnlyBeDisabledOnce.selector);
+        _wrappedMToken.disableEarning();
+    }
+
+    function test_disableEarning_approvedEarner() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        vm.expectRevert(IWrappedMToken.IsApprovedEarner.selector);
+        _wrappedMToken.disableEarning();
+    }
+
+    function test_disableEarning() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), false);
+
+        vm.expectEmit();
+        emit IWrappedMToken.EarningDisabled(_currentIndex);
+
+        _wrappedMToken.disableEarning();
     }
 
     /* ============ balanceOf ============ */
@@ -492,6 +571,10 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_balanceOf_earner() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
         _wrappedMToken.setAccountOf(_alice, true, _EXP_SCALED_ONE, 500);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 500);
@@ -555,6 +638,35 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setTotalNonEarningSupply(1_000);
 
         assertEq(_wrappedMToken.totalSupply(), 2_000);
+    }
+
+    /* ============ currentIndex ============ */
+    function test_currentIndex() external {
+        assertEq(_wrappedMToken.currentIndex(), _currentIndex);
+
+        _mToken.setCurrentIndex(2 * _EXP_SCALED_ONE);
+
+        assertEq(_wrappedMToken.currentIndex(), 2 * _EXP_SCALED_ONE);
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
+        assertEq(_wrappedMToken.currentIndex(), 2 * _EXP_SCALED_ONE);
+
+        _mToken.setCurrentIndex(3 * _EXP_SCALED_ONE);
+
+        assertEq(_wrappedMToken.currentIndex(), 3 * _EXP_SCALED_ONE);
+
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), false);
+
+        _wrappedMToken.disableEarning();
+
+        assertEq(_wrappedMToken.currentIndex(), 3 * _EXP_SCALED_ONE);
+
+        _mToken.setCurrentIndex(4 * _EXP_SCALED_ONE);
+
+        assertEq(_wrappedMToken.currentIndex(), 3 * _EXP_SCALED_ONE);
     }
 
     /* ============ utils ============ */
