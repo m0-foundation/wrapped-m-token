@@ -4,17 +4,27 @@ pragma solidity 0.8.23;
 
 import { UIntMath } from "../../lib/common/src/libs/UIntMath.sol";
 
+/**
+ * @title  Helper library for indexing math functions.
+ * @author M^0 Labs
+ */
 library IndexingMath {
     /* ============ Variables ============ */
 
+    /// @notice The scaling of indexes for exponent math.
     uint56 internal constant EXP_SCALED_ONE = 1e12;
 
     /* ============ Custom Errors ============ */
 
+    /// @notice Emitted when a division by zero occurs.
     error DivisionByZero();
 
     /* ============ Internal View/Pure Functions ============ */
 
+    /**
+     * @notice Helper function to calculate `(x * EXP_SCALED_ONE) / index`, rounded down.
+     * @dev    Inspired by USM (https://github.com/usmfum/USM/blob/master/contracts/WadMath.sol)
+     */
     function divide240By128Down(uint240 x_, uint128 y_) internal pure returns (uint112) {
         if (y_ == 0) revert DivisionByZero();
 
@@ -28,6 +38,10 @@ library IndexingMath {
         }
     }
 
+    /**
+     * @notice Helper function to calculate `(x * EXP_SCALED_ONE) / index`, rounded down.
+     * @dev    Inspired by USM (https://github.com/usmfum/USM/blob/master/contracts/WadMath.sol)
+     */
     function divide240by112Down(uint240 x_, uint112 y_) internal pure returns (uint128) {
         if (y_ == 0) revert DivisionByZero();
 
@@ -41,26 +55,52 @@ library IndexingMath {
         }
     }
 
+    /**
+     * @notice Helper function to calculate `(x * index) / EXP_SCALED_ONE`, rounded down.
+     * @dev    Inspired by USM (https://github.com/usmfum/USM/blob/master/contracts/WadMath.sol)
+     */
     function multiply112By128Down(uint112 x_, uint128 y_) internal pure returns (uint240) {
         unchecked {
             return uint240((uint256(x_) * y_) / EXP_SCALED_ONE);
         }
     }
 
+    /**
+     * @notice Helper function to calculate `(x * index) / EXP_SCALED_ONE`, rounded up.
+     * @dev    Inspired by USM (https://github.com/usmfum/USM/blob/master/contracts/WadMath.sol)
+     */
     function multiply112By128Up(uint112 x_, uint128 y_) internal pure returns (uint240) {
         unchecked {
             return uint240(((uint256(x_) * y_) + (EXP_SCALED_ONE - 1)) / EXP_SCALED_ONE);
         }
     }
 
+    /**
+     * @dev    Returns the present amount (rounded down) given the principal amount and an index.
+     * @param  principalAmount_ The principal amount.
+     * @param  index_           An index.
+     * @return The present amount rounded down.
+     */
     function getPresentAmountRoundedDown(uint112 principalAmount_, uint128 index_) internal pure returns (uint240) {
         return multiply112By128Down(principalAmount_, index_);
     }
 
+    /**
+     * @dev    Returns the present amount (rounded up) given the principal amount and an index.
+     * @param  principalAmount_ The principal amount.
+     * @param  index_           An index.
+     * @return The present amount rounded up.
+     */
     function getPresentAmountRoundedUp(uint112 principalAmount_, uint128 index_) internal pure returns (uint240) {
         return multiply112By128Up(principalAmount_, index_);
     }
 
+    /**
+     * @dev    Returns the principal amount given the present amount, using the current index.
+     * @param  presentAmount_ The present amount.
+     * @param  index_         An index.
+     * @return The principal amount rounded down.
+     */
     function getPrincipalAmountRoundedDown(uint240 presentAmount_, uint128 index_) internal pure returns (uint112) {
         return divide240By128Down(presentAmount_, index_);
     }

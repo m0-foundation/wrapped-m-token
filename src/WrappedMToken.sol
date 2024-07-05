@@ -14,16 +14,25 @@ import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 
 import { Migratable } from "./Migratable.sol";
 
+/**
+ * @title  ERC20 Token contract for wrapping M into a non-rebasing token with claimable yields.
+ * @author M^0 Labs
+ */
 contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     type BalanceInfo is uint256;
 
     /* ============ Variables ============ */
 
-    uint56 internal constant _EXP_SCALED_ONE = 1e12;
-
+    /// @dev Registrar key holding value of whether the earners list can be ignored.
     bytes32 internal constant _EARNERS_LIST_IGNORED = "earners_list_ignored";
+
+    /// @dev Registrar key of earners list.
     bytes32 internal constant _EARNERS_LIST = "earners";
+
+    /// @dev Registrar key prefix to determine the override recipient of an account's accrued yield.
     bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
+
+    /// @dev Registrar key prefix to determine the migrator contract.
     bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
 
     address public immutable migrationAdmin;
@@ -31,17 +40,25 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     address public immutable registrar;
     address public immutable vault;
 
+    /// @dev The principal and index that make up the non-rebasing totalEarningSupply().
     uint112 internal _principalOfTotalEarningSupply;
     uint128 internal _indexOfTotalEarningSupply;
 
     uint240 public totalNonEarningSupply;
 
+    /// @dev Mapping of accounts to their respective `BalanceInfo` custom types.
     mapping(address account => BalanceInfo balance) internal _balances;
 
     uint128[] internal _enableDisableEarningIndices;
 
     /* ============ Constructor ============ */
 
+    /**
+     * @dev   Constructs the contract given an M Token address and migration admin.
+     *        Note that a proxy will not need to initialize since there are not mutable storage values affected.
+     * @param mToken_         The address of an M Token.
+     * @param migrationAdmin_ The address of a migration admin.
+     */
     constructor(address mToken_, address migrationAdmin_) ERC20Extended("WrappedM by M^0", "wM", 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
 
@@ -69,10 +86,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         return _claim(account_, currentIndex());
     }
 
-    function claimExcess() external returns (uint240 yield_) {
-        emit ExcessClaimed(yield_ = excess());
+    function claimExcess() external returns (uint240 excess_) {
+        emit ExcessClaimed(excess_ = excess());
 
-        IMTokenLike(mToken).transfer(vault, yield_);
+        IMTokenLike(mToken).transfer(vault, excess_);
     }
 
     function enableEarning() external {
@@ -200,10 +217,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         return _enableDisableEarningIndices.length != 0;
     }
 
-    function excess() public view returns (uint240 yield_) {
+    function excess() public view returns (uint240 excess_) {
         unchecked {
             uint240 balance_ = uint240(IMTokenLike(mToken).balanceOf(address(this)));
             uint240 earmarked_ = uint240(totalSupply()) + totalAccruedYield();
+
             return balance_ > earmarked_ ? balance_ - earmarked_ : 0;
         }
     }
@@ -222,6 +240,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Internal Interactive Functions ============ */
 
+    /**
+     * @dev   Mints `amount_` tokens to `recipient_`.
+     * @param recipient_ The address whose account balance will be incremented.
+     * @param amount_    The present amount of tokens to mint.
+     */
     function _mint(address recipient_, uint240 amount_) internal {
         _revertIfInsufficientAmount(amount_);
         _revertIfInvalidRecipient(recipient_);
@@ -240,6 +263,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _addEarningAmount(recipient_, amount_, currentIndex_);
     }
 
+    /**
+     * @dev   Burns `amount_` tokens from `account_`.
+     * @param account_ The address whose account balance will be decremented.
+     * @param amount_  The present amount of tokens to burn.
+     */
     function _burn(address account_, uint240 amount_) internal {
         _revertIfInsufficientAmount(amount_);
 
@@ -257,7 +285,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _subtractEarningAmount(account_, amount_, currentIndex_);
     }
 
+    /**
+     * @dev   Increments the token balance of `account_` by `amount_`, assuming non-earning status.
+     * @param account_ The address whose account balance will be incremented.
+     * @param amount_  The present amount of tokens to increment by.
+     */
     function _addNonEarningAmount(address account_, uint240 amount_) internal {
+        // NOTE: Can be `unchecked` because the max amount of wrappable M is never greater than `type(uint240).max`.
         unchecked {
             (, , , uint240 balance_) = _getBalanceInfo(account_);
             _setBalanceInfo(account_, false, 0, balance_ + amount_);
@@ -265,6 +299,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         }
     }
 
+    /**
+     * @dev   Decrements the token balance of `account_` by `amount_`, assuming non-earning status.
+     * @param account_ The address whose account balance will be decremented.
+     * @param amount_  The present amount of tokens to decrement by.
+     */
     function _subtractNonEarningAmount(address account_, uint240 amount_) internal {
         unchecked {
             (, , , uint240 balance_) = _getBalanceInfo(account_);
@@ -276,7 +315,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         }
     }
 
+    /**
+     * @dev   Increments the token balance of `account_` by `amount_`, assuming earning status and updated index.
+     * @param account_      The address whose account balance will be incremented.
+     * @param amount_       The present amount of tokens to increment by.
+     * @param currentIndex_ The current index to use to compute the principal amount.
+     */
     function _addEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
+        // NOTE: Can be `unchecked` because the max amount of wrappable M is never greater than `type(uint240).max`.
         unchecked {
             (, , , uint240 balance_) = _getBalanceInfo(account_);
 
@@ -285,6 +331,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         }
     }
 
+    /**
+     * @dev   Decrements the token balance of `account_` by `amount_`, assuming earning status and updated index.
+     * @param account_      The address whose account balance will be decremented.
+     * @param amount_       The present amount of tokens to decrement by.
+     * @param currentIndex_ The current index to use to compute the principal amount.
+     */
     function _subtractEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
         unchecked {
             (, , , uint240 balance_) = _getBalanceInfo(account_);
@@ -296,6 +348,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         }
     }
 
+    /**
+     * @dev    Claims accrued yield for `account_` given a current index.
+     * @param  account_      The address to claim accrued yield for.
+     * @param  currentIndex_ The current index to accrue until.
+     * @return yield_        The accrued yield that was claimed.
+     */
     function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
         (bool isEarner_, uint128 index_, uint112 principal_, uint240 startingBalance_) = _getBalanceInfo(account_);
 
@@ -303,6 +361,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (currentIndex_ == index_) return 0;
 
+        // Overwrite the balance info with the new index and present amount.
         _setBalanceInfo(
             account_,
             true,
@@ -320,6 +379,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
             yield_ = endingBalance_ - startingBalance_;
 
+            // Update the total earning supply to account for the yield, where the principal has not changed.
             _setTotalEarningSupply(totalEarningSupply() + yield_, _principalOfTotalEarningSupply);
         }
 
@@ -327,6 +387,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         address claimOverrideRecipient_ = _getClaimOverrideRecipient(account_);
 
+        // Emit the appropriate `Claimed` and `Transfer` events, depending on the claim override recipient
         if (claimOverrideRecipient_ == address(0)) {
             emit Claimed(account_, account_, yield_);
         } else {
@@ -337,19 +398,41 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         }
     }
 
-    function _setBalanceInfo(address account_, bool isEarning_, uint128 index_, uint240 amount_) internal {
+    /**
+     * @dev   Writes the encoded balance information for `account_` in the storage mapping.
+     * @param account_   The account whose balance information is being written.
+     * @param isEarning_ Whether the earning status of the account.
+     * @param index_     The index of their last interaction.
+     * @param balance_   The present amount of the token balance.
+     */
+    function _setBalanceInfo(address account_, bool isEarning_, uint128 index_, uint240 balance_) internal {
+        // The balance info is encoded as follows:
+        //   - If the account is an earner:
+        //     - The most significant 8 bits is a flag for whether the account is earning,
+        //     - The next 128 bits are the index of the last interaction,
+        //     - The next and last 112 bits are the principal amount.
+        //   - If the account is not an earner, the 240 least significant bits are simply the present amount.
         _balances[account_] = isEarning_
             ? BalanceInfo.wrap(
                 (uint256(1) << 248) |
                     (uint256(index_) << 112) |
-                    uint256(IndexingMath.getPrincipalAmountRoundedDown(amount_, index_))
+                    uint256(IndexingMath.getPrincipalAmountRoundedDown(balance_, index_))
             )
-            : BalanceInfo.wrap(uint256(amount_));
+            : BalanceInfo.wrap(uint256(balance_));
     }
 
+    /**
+     * @dev   Transfers `amount_` tokens from `sender_` to `recipient_` given some current index.
+     * @param sender_       The sender's address.
+     * @param recipient_    The recipient's address.
+     * @param amount_       The amount to be transferred.
+     * @param currentIndex_ The current index.
+     */
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
         _revertIfInvalidRecipient(recipient_);
 
+        // Claims for both the sender and recipient are required before transferring since add an subtract functions
+        // assume accounts' balances are up-to-date with the current index.
         _claim(sender_, currentIndex_);
         _claim(recipient_, currentIndex_);
 
@@ -360,6 +443,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (senderBalance_ < amount_) revert InsufficientBalance(sender_, senderBalance_, amount_);
 
+        // If the sender and recipient are both earning or both non-earning, update their balances without affecting
+        // the total earning and non-earning supply storage variables.
         if (senderIsEarning_ == recipientIsEarning_) {
             // NOTE: `_setBalanceInfo` ignores `index_` passed for non-earners.
             unchecked {
@@ -379,24 +464,49 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             : _addNonEarningAmount(recipient_, amount_);
     }
 
+    /**
+     * @dev   Internal ERC20 transfer function that needs to be implemented by the inheriting contract.
+     * @param sender_    The sender's address.
+     * @param recipient_ The recipient's address.
+     * @param amount_    The amount to be transferred.
+     */
     function _transfer(address sender_, address recipient_, uint256 amount_) internal override {
         _transfer(sender_, recipient_, UIntMath.safe240(amount_), currentIndex());
     }
 
+    /**
+     * @dev   Increments total earning supply by `amount_` tokens.
+     * @param amount_       The present amount of tokens to increment total earning supply by.
+     * @param currentIndex_ The current index used to compute the principal amount.
+     */
     function _addTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
         unchecked {
             uint112 principal_ = IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
+
+            // Increment the total earning supply and principal proportionally.
             _setTotalEarningSupply(totalEarningSupply() + amount_, _principalOfTotalEarningSupply + principal_);
         }
     }
 
+    /**
+     * @dev   Decrements total earning supply by `amount_` tokens.
+     * @param amount_       The present amount of tokens to decrement total earning supply by.
+     * @param currentIndex_ The current index used to compute the principal amount.
+     */
     function _subtractTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
         unchecked {
             uint112 principal_ = IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
+
+            // Decrement the total earning supply and principal proportionally.
             _setTotalEarningSupply(totalEarningSupply() - amount_, _principalOfTotalEarningSupply - principal_);
         }
     }
 
+    /**
+     * @dev   Sets the storage variables composing the total earning supply to ensure present and principal amounts.
+     * @param amount_    The present amount of total earning supply.
+     * @param principal_ The principal amount of total earning supply.
+     */
     function _setTotalEarningSupply(uint240 amount_, uint112 principal_) internal {
         _indexOfTotalEarningSupply = (principal_ == 0) ? 0 : IndexingMath.divide240by112Down(amount_, principal_);
         _principalOfTotalEarningSupply = principal_;
@@ -404,29 +514,48 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Internal View/Pure Functions ============ */
 
+    /// @dev  Returns the current index of the M Token.
     function _currentMIndex() internal view returns (uint128 index_) {
         return IMTokenLike(mToken).currentIndex();
     }
 
+    /// @dev  Returns the earning index from the last earning disable call.
     function _lastDisableEarningIndex() internal view returns (uint128 index_) {
         return wasEarningEnabled() ? _unsafeAccess(_enableDisableEarningIndices, 1) : 0;
     }
 
+    /**
+     * @dev    Reads the decoded balance information for `account_` in the storage mapping.
+     * @param  account_   The account whose balance information is being written.
+     * @return isEarning_ Whether the earning status of the account.
+     * @return index_     The index of their last interaction.
+     * @return principal_ The principal amount of the token balance.
+     * @return balance_   The present amount of the token balance.
+     */
     function _getBalanceInfo(
         address account_
     ) internal view returns (bool isEarning_, uint128 index_, uint112 principal_, uint240 balance_) {
         uint256 unwrapped_ = BalanceInfo.unwrap(_balances[account_]);
 
+        // The most significant 8 bits is always a flag for whether the account is earning.
         isEarning_ = (unwrapped_ >> 248) != 0;
 
+        // If the account is not an earner, the 240 least significant bits are simply the present balance.
         if (!isEarning_) return (isEarning_, uint128(0), uint112(0), uint240(unwrapped_));
 
+        // If the account is an earner, the next 128 bits are the index of the last interaction and the last 112 bits
+        // are the principal amount, form which the present balance can be computed.
         index_ = uint128((unwrapped_ << 8) >> 120);
         principal_ = uint112(unwrapped_);
         balance_ = IndexingMath.getPresentAmountRoundedDown(principal_, index_);
     }
 
-    function _getClaimOverrideRecipient(address account_) internal view returns (address) {
+    /**
+     * @dev    Returns the recipient to override as the destination for an account's claim of yield.
+     * @param  account_   The account being queried.
+     * @return recipient_ the recipient, if any, to override as the destination of claimed yield.
+     */
+    function _getClaimOverrideRecipient(address account_) internal view returns (address recipient_) {
         return
             address(
                 uint160(
@@ -437,16 +566,25 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             );
     }
 
+    /// @dev Returns the address of the contract to use as a migrator, if any.
     function _getMigrator() internal view override returns (address migrator_) {
         return
             address(
                 uint160(
+                    // NOTE: A subsequent implementation should use a unique migrator prefix.
                     uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(this)))))
                 )
             );
     }
 
+    /**
+     * @dev    Returns the accrued yield of the portion of total supply that is earning yield.
+     * @param  currentIndex_ The index up to which to compute accrued yield.
+     * @return yield_        The accrued yield.
+     */
     function _getTotalAccruedYield(uint128 currentIndex_) internal view returns (uint240 yield_) {
+        // NOTE: Round up to overestimate the earning supply plus all accrued yield, such that:
+        //       `projectedEarningSupply_ >= Sum of all (present earning balances + accrued yield)`.
         uint240 projectedEarningSupply_ = IndexingMath.getPresentAmountRoundedUp(
             _principalOfTotalEarningSupply,
             currentIndex_
@@ -459,7 +597,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         }
     }
 
-    function _isApprovedEarner(address account_) internal view returns (bool) {
+    /**
+     * @dev    Returns whether `account_` is a TTG-approved earner.
+     * @param  account_    The account being queried.
+     * @return isApproved_ True if the account_ is a TTG-approved earner.
+     */
+    function _isApprovedEarner(address account_) internal view returns (bool isApproved_) {
         return
             IRegistrarLike(registrar).get(_EARNERS_LIST_IGNORED) != bytes32(0) ||
             IRegistrarLike(registrar).listContains(_EARNERS_LIST, account_);
@@ -481,22 +624,37 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         if (recipient_ == address(0)) revert InvalidRecipient(recipient_);
     }
 
+    /**
+     * @dev   Reverts if `account_` is an approved earner.
+     * @param account_ Address of an account.
+     */
     function _revertIfApprovedEarner(address account_) internal view {
         if (_isApprovedEarner(account_)) revert IsApprovedEarner();
     }
 
+    /**
+     * @dev   Reverts if `account_` is not an approved earner.
+     * @param account_ Address of an account.
+     */
     function _revertIfNotApprovedEarner(address account_) internal view {
         if (!_isApprovedEarner(account_)) revert NotApprovedEarner();
     }
 
-    function _unsafeAccess(uint128[] storage indexes_, uint256 i_) internal view returns (uint128 index_) {
+    /**
+     * @dev   Reads the uint128 value at some index of an array of uint128 values whose storage pointer given is given,
+     *        assuming the index is valid, without wasting gas checking for out-of-bounds errors.
+     * @param array_ The storage pointer of an array of uint128 values.
+     * @param i_     The index of the array to read.
+     */
+    function _unsafeAccess(uint128[] storage array_, uint256 i_) internal view returns (uint128 value_) {
         assembly {
-            mstore(0, indexes_.slot)
+            mstore(0, array_.slot)
 
-            index_ := sload(add(keccak256(0, 0x20), div(i_, 2)))
+            value_ := sload(add(keccak256(0, 0x20), div(i_, 2)))
 
+            // Since uint128 values take up either top tope opf bottom half of a slot, shift the result accordingly.
             if eq(mod(i_, 2), 1) {
-                index_ := shr(128, index_)
+                value_ := shr(128, value_)
             }
         }
     }
