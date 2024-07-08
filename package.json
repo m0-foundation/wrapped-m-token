@@ -29,6 +29,7 @@
     "solhint-fix": "solhint --fix 'src/**/*.sol'",
     "test": "make -B tests",
     "test-gas": "make -B gas-report",
+    "test-fork": "make -B fork",
     "test-fuzz": "make -B fuzz",
     "test-integration": "make -B integration",
     "test-invariant": "make -B invariant"

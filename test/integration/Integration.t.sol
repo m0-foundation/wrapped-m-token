@@ -8,11 +8,6 @@ import { MockRateModel, MockRegistrar } from "../utils/Mocks.sol";
 import { TestUtils } from "../utils/TestUtils.sol";
 
 contract IntegrationTests is TestUtils {
-    uint32 internal constant _EARNER_RATE = 5_000; // 5% APY
-
-    bytes32 internal constant _EARNERS_LIST = "earners";
-    bytes32 internal constant _EARNER_RATE_MODEL = "earner_rate_model";
-
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
     address internal _carol = makeAddr("carol");

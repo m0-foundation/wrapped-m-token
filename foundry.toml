@@ -1,10 +1,12 @@
 [profile.default]
+evm_version = "shanghai"
 gas_reports = ["*"]
 gas_reports_ignore = []
 ignored_error_codes = []
 optimizer = false
 solc_version = "0.8.23"
 verbosity = 3
+via_ir = true
 
 [profile.production]
 evm_version = "cancun"
