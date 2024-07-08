@@ -33,9 +33,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     error EarningIsDisabled();
 
-    error EarningCannotBeReenabled();
+    error EarningIsEnabled();
 
-    error EarningCanOnlyBeDisabledOnce();
+    error EarningCannotBeReenabled();
 
     /// @notice Emitted when calling `stopEarning` for an account approved as earner by TTG.
     error IsApprovedEarner();
