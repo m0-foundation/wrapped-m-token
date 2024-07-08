@@ -5,14 +5,28 @@ pragma solidity 0.8.23;
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
 import { ContinuousIndexingMath } from "../../lib/protocol/src/libs/ContinuousIndexingMath.sol";
+import { IMToken } from "../../lib/protocol/src/interfaces/IMToken.sol";
+import { IRateModel } from "../../lib/protocol/src/interfaces/IRateModel.sol";
 
 import { IndexingMath } from "../../src/libs/IndexingMath.sol";
+import { IRegistrarLike } from "../../src/interfaces/IRegistrarLike.sol";
+import { WrappedMToken } from "../../src/WrappedMToken.sol";
 
 import { WrappedMTokenHarness } from "./WrappedMTokenHarness.sol";
 import { MTokenHarness } from "./MTokenHarness.sol";
 
 contract TestUtils is Test {
     uint56 internal constant _EXP_SCALED_ONE = 1e12;
+    uint32 internal constant _EARNER_RATE = 5_000; // 5% APY
+
+    /// @notice The earners list name in TTG.
+    bytes32 internal constant _EARNERS_LIST = "earners";
+
+    /// @notice The earners list name in TTG.
+    bytes32 internal constant _EARNERS_LIST_IGNORED = "earners_list_ignored";
+
+    /// @notice The name of parameter in TTG that defines the earner rate model contract.
+    bytes32 internal constant _EARNER_RATE_MODEL = "earner_rate_model";
 
     /* ============ wrap ============ */
     function _wrap(
@@ -48,6 +62,25 @@ contract TestUtils is Test {
         return _getPresentAmountRoundedDown(startingPrincipal_, currentIndex_) - startingPresentAmount_;
     }
 
+    /* ============ earning ============ */
+    function _mockIsEarning(address registrar_, address earner_, bool isEarning_) internal {
+        vm.mockCall(
+            registrar_,
+            abi.encodeWithSelector(IRegistrarLike.get.selector, _EARNERS_LIST_IGNORED),
+            abi.encode(false)
+        );
+
+        vm.mockCall(
+            registrar_,
+            abi.encodeWithSelector(IRegistrarLike.listContains.selector, _EARNERS_LIST, earner_),
+            abi.encode(isEarning_)
+        );
+    }
+
+    function _mockStartEarningMCall(WrappedMToken wrappedMToken_, address registrar_) internal {
+        _mockIsEarning(registrar_, address(wrappedMToken_), true);
+        wrappedMToken_.startEarningM();
+    }
     /* ============ index ============ */
     function _getContinuousIndexAt(
         uint32 minterRate_,
@@ -64,6 +97,23 @@ contract TestUtils is Test {
                     )
                 )
             );
+    }
+
+    function _mockUpdateIndexCall(
+        IMToken mToken_,
+        address registrar_,
+        address earnerRateModel_,
+        uint32 earnerRate_
+    ) internal returns (uint128) {
+        vm.mockCall(
+            registrar_,
+            abi.encodeWithSelector(IRegistrarLike.get.selector, earnerRateModel_),
+            abi.encode(earnerRateModel_)
+        );
+
+        vm.mockCall(earnerRateModel_, abi.encodeWithSelector(IRateModel.rate.selector), abi.encode(earnerRate_));
+
+        return mToken_.updateIndex();
     }
 
     /* ============ principal ============ */
