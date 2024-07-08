@@ -38,7 +38,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     mapping(address account => BalanceInfo balance) internal _balances;
 
-    uint128[] internal _updateIndexes;
+    uint128[] internal _enableDisablingEarningIndexes;
 
     /* ============ Constructor ============ */
 
@@ -86,7 +86,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         uint128 currentMIndex_ = _currentMIndex();
 
-        _updateIndexes.push(currentMIndex_);
+        _enableDisablingEarningIndexes.push(currentMIndex_);
 
         IMTokenLike(mToken).startEarning();
 
@@ -100,7 +100,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         uint128 currentMIndex_ = _currentMIndex();
 
-        _updateIndexes.push(currentMIndex_);
+        _enableDisablingEarningIndexes.push(currentMIndex_);
 
         IMTokenLike(mToken).stopEarning();
 
@@ -178,15 +178,15 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function isEarningEnabled() public view returns (bool isEnabled_) {
-        return _updateIndexes.length % 2 == 1;
+        return _enableDisablingEarningIndexes.length % 2 == 1;
     }
 
     function isEarningDisabled() public view returns (bool isDisabled_) {
-        return _updateIndexes.length % 2 == 0;
+        return _enableDisablingEarningIndexes.length % 2 == 0;
     }
 
     function wasEarningEnabled() public view returns (bool wasEarning_) {
-        return _updateIndexes.length != 0;
+        return _enableDisablingEarningIndexes.length != 0;
     }
 
     function excess() public view returns (uint240 yield_) {
@@ -385,7 +385,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _mIndexWhenEarningWasDisabled() internal view returns (uint128 index_) {
-        return wasEarningEnabled() ? _unsafeAccess(_updateIndexes, 1) : 0;
+        return wasEarningEnabled() ? _unsafeAccess(_enableDisablingEarningIndexes, 1) : 0;
     }
 
     function _getBalanceInfo(
