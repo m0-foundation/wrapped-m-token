@@ -222,6 +222,18 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IWrappedMToken
+    function claimOverrideRecipientFor(address account_) public view returns (address recipient_) {
+        return
+            address(
+                uint160(
+                    uint256(
+                        IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)))
+                    )
+                )
+            );
+    }
+
+    /// @inheritdoc IWrappedMToken
     function currentIndex() public view returns (uint128 index_) {
         return isEarningEnabled() ? _currentMIndex() : _lastDisableEarningIndex();
     }
@@ -413,7 +425,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(address(0), account_, yield_);
 
-        address claimOverrideRecipient_ = _getClaimOverrideRecipient(account_);
+        address claimOverrideRecipient_ = claimOverrideRecipientFor(account_);
 
         // Emit the appropriate `Claimed` and `Transfer` events, depending on the claim override recipient
         if (claimOverrideRecipient_ == address(0)) {
@@ -627,22 +639,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         index_ = uint128(unwrapped_ >> 112); // Shift out the 112 principal bits and cast to ignore the flag bit.
         principal_ = uint112(unwrapped_);
         balance_ = IndexingMath.getPresentAmountRoundedDown(principal_, index_);
-    }
-
-    /**
-     * @dev    Returns the recipient to override as the destination for an account's claim of yield.
-     * @param  account_   The account being queried.
-     * @return recipient_ The address of the recipient, if any, to override as the destination of claimed yield.
-     */
-    function _getClaimOverrideRecipient(address account_) internal view returns (address recipient_) {
-        return
-            address(
-                uint160(
-                    uint256(
-                        IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)))
-                    )
-                )
-            );
     }
 
     /// @dev Returns the address of the contract to use as a migrator, if any.
