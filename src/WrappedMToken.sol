@@ -170,7 +170,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function currentIndex() public view returns (uint128 index_) {
-        return isEarningEnabled() ? _currentMIndex() : _mIndexWhenEarningWasDisabled();
+        return isEarningEnabled() ? _currentMIndex() : _lastDisableEarningIndex();
     }
 
     function isEarning(address account_) external view returns (bool isEarning_) {
@@ -380,7 +380,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         return IMTokenLike(mToken).currentIndex();
     }
 
-    function _mIndexWhenEarningWasDisabled() internal view returns (uint128 index_) {
+    function _lastDisableEarningIndex() internal view returns (uint128 index_) {
         return wasEarningEnabled() ? _unsafeAccess(_enableDisableEarningIndices, 1) : 0;
     }
 
