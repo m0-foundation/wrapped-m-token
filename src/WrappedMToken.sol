@@ -36,15 +36,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     uint240 public totalNonEarningSupply;
 
-    uint128 public mIndexWhenEarningStopped;
-
     mapping(address account => BalanceInfo balance) internal _balances;
 
-    modifier onlyWhenEarning() {
-        if (!IMTokenLike(mToken).isEarning(address(this))) revert NotInEarningState();
-
-        _;
-    }
+    uint128[] internal _enableDisableEarningIndices;
 
     /* ============ Constructor ============ */
 
@@ -81,20 +75,42 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         IMTokenLike(mToken).transfer(vault, yield_);
     }
 
-    function startEarningM() external {
-        if (mIndexWhenEarningStopped != 0) revert AllowedToEarnOnlyOnce();
+    function enableEarning() external {
+        _revertIfNotApprovedEarner(address(this));
+
+        if (isEarningEnabled()) revert EarningIsEnabled();
+
+        // NOTE: This is a temporary measure to prevent re-enabling earning after it has been disabled.
+        //       This line will be removed in the future.
+        if (wasEarningEnabled()) revert EarningCannotBeReenabled();
+
+        uint128 currentMIndex_ = _currentMIndex();
+
+        _enableDisableEarningIndices.push(currentMIndex_);
 
         IMTokenLike(mToken).startEarning();
+
+        emit EarningEnabled(currentMIndex_);
     }
 
-    function stopEarningM() external onlyWhenEarning {
-        mIndexWhenEarningStopped = currentIndex();
+    function disableEarning() external {
+        _revertIfApprovedEarner(address(this));
+
+        if (!isEarningEnabled()) revert EarningIsDisabled();
+
+        uint128 currentMIndex_ = _currentMIndex();
+
+        _enableDisableEarningIndices.push(currentMIndex_);
 
         IMTokenLike(mToken).stopEarning();
+
+        emit EarningDisabled(currentMIndex_);
     }
 
-    function startEarningFor(address account_) external onlyWhenEarning {
-        if (!_isApprovedEarner(account_)) revert NotApprovedEarner();
+    function startEarningFor(address account_) external {
+        _revertIfNotApprovedEarner(account_);
+
+        if (!isEarningEnabled()) revert EarningIsDisabled();
 
         (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
 
@@ -113,7 +129,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function stopEarningFor(address account_) external {
-        if (_isApprovedEarner(account_)) revert IsApprovedEarner();
+        _revertIfApprovedEarner(account_);
 
         uint128 currentIndex_ = currentIndex();
 
@@ -154,11 +170,19 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function currentIndex() public view returns (uint128 index_) {
-        return mIndexWhenEarningStopped == 0 ? IMTokenLike(mToken).currentIndex() : mIndexWhenEarningStopped;
+        return isEarningEnabled() ? _currentMIndex() : _lastDisableEarningIndex();
     }
 
     function isEarning(address account_) external view returns (bool isEarning_) {
         (isEarning_, , , ) = _getBalanceInfo(account_);
+    }
+
+    function isEarningEnabled() public view returns (bool isEnabled_) {
+        return _enableDisableEarningIndices.length % 2 == 1;
+    }
+
+    function wasEarningEnabled() public view returns (bool wasEarning_) {
+        return _enableDisableEarningIndices.length != 0;
     }
 
     function excess() public view returns (uint240 yield_) {
@@ -197,7 +221,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         _claim(recipient_, currentIndex_);
 
-        // TODO: Technically, might want to `_revertIfInsufficientAmount` if earning principal is 0.
+        // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
         _addEarningAmount(recipient_, amount_, currentIndex_);
     }
 
@@ -214,7 +238,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         _claim(account_, currentIndex_);
 
-        // TODO: Technically, might want to `_revertIfInsufficientAmount` if earning principal is 0.
+        // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
         _subtractEarningAmount(account_, amount_, currentIndex_);
     }
 
@@ -258,14 +282,22 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
-        (bool isEarner_, uint128 index_, , uint240 startingBalance_) = _getBalanceInfo(account_);
+        (bool isEarner_, uint128 index_, uint112 principal_, uint240 startingBalance_) = _getBalanceInfo(account_);
 
         if (!isEarner_) return 0;
 
         if (currentIndex_ == index_) return 0;
 
-        _updateIndex(account_, currentIndex_);
+        _setBalanceInfo(
+            account_,
+            true,
+            currentIndex_,
+            IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex_)
+        );
 
+        // NOTE: Need to get `endingBalance_` from `_getBalanceInfo` since the true balance is the result of rounding
+        //       down while dividing to a principal amount in `_setBalanceInfo` and then rounding down while multiplying
+        //       to a present amount in `_getBalanceInfo`.
         (, , , uint240 endingBalance_) = _getBalanceInfo(account_);
 
         unchecked {
@@ -287,14 +319,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             // NOTE: Watch out for a long chain of earning claim override recipients.
             _transfer(account_, claimOverrideRecipient_, yield_, currentIndex_);
         }
-    }
-
-    function _updateIndex(address account_, uint128 index_) internal {
-        uint256 unwrapped_ = BalanceInfo.unwrap(_balances[account_]);
-
-        unwrapped_ &= ~(uint256(type(uint112).max) << 128);
-
-        _balances[account_] = BalanceInfo.wrap(unwrapped_ | (uint256(index_) << 112));
     }
 
     function _setBalanceInfo(address account_, bool isEarning_, uint128 index_, uint240 amount_) internal {
@@ -340,7 +364,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     function _subtractTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
         unchecked {
-            // TODO: Consider `getPrincipalAmountRoundedUp` .
             uint112 principal_ = IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
             _setTotalEarningSupply(totalEarningSupply() - amount_, _principalOfTotalEarningSupply - principal_);
         }
@@ -352,6 +375,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /* ============ Internal View/Pure Functions ============ */
+
+    function _currentMIndex() internal view returns (uint128 index_) {
+        return IMTokenLike(mToken).currentIndex();
+    }
+
+    function _lastDisableEarningIndex() internal view returns (uint128 index_) {
+        return wasEarningEnabled() ? _unsafeAccess(_enableDisableEarningIndices, 1) : 0;
+    }
 
     function _getBalanceInfo(
         address account_
@@ -420,5 +451,25 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _revertIfInvalidRecipient(address recipient_) internal pure {
         if (recipient_ == address(0)) revert InvalidRecipient(recipient_);
+    }
+
+    function _revertIfApprovedEarner(address account_) internal view {
+        if (_isApprovedEarner(account_)) revert IsApprovedEarner();
+    }
+
+    function _revertIfNotApprovedEarner(address account_) internal view {
+        if (!_isApprovedEarner(account_)) revert NotApprovedEarner();
+    }
+
+    function _unsafeAccess(uint128[] storage indexes_, uint256 i_) internal view returns (uint128 index_) {
+        assembly {
+            mstore(0, indexes_.slot)
+
+            index_ := sload(add(keccak256(0, 0x20), div(i_, 2)))
+
+            if eq(mod(i_, 2), 1) {
+                index_ := shr(128, index_)
+            }
+        }
     }
 }

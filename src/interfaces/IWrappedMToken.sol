@@ -11,6 +11,10 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     event Claimed(address indexed account, address indexed recipient, uint256 yield);
 
+    event EarningEnabled(uint128 index);
+
+    event EarningDisabled(uint128 index);
+
     event ExcessClaimed(uint256 yield);
 
     /**
@@ -27,6 +31,12 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /* ============ Custom Errors ============ */
 
+    error EarningIsDisabled();
+
+    error EarningIsEnabled();
+
+    error EarningCannotBeReenabled();
+
     /// @notice Emitted when calling `stopEarning` for an account approved as earner by TTG.
     error IsApprovedEarner();
 
@@ -40,12 +50,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice Emitted when calling `startEarning` for an account not approved as earner by TTG.
     error NotApprovedEarner();
-
-    /// @notice Emitted when calling `startEarningM` after Wrapped M was already earning M yield once.
-    error AllowedToEarnOnlyOnce();
-
-    /// @notice Emitted when calling `startEarningFor` if Wrapped M is not in earning state.
-    error NotInEarningState();
 
     /// @notice Emitted when the non-governance migrate function is called by a account other than the migration admin.
     error UnauthorizedMigration();
@@ -66,9 +70,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     function claimExcess() external returns (uint240 yield);
 
-    function startEarningM() external;
+    function enableEarning() external;
 
-    function stopEarningM() external;
+    function disableEarning() external;
 
     function startEarningFor(address account) external;
 
@@ -84,15 +88,15 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     function currentIndex() external view returns (uint128 index);
 
+    function excess() external view returns (uint240 yield);
+
     function isEarning(address account) external view returns (bool isEarning);
 
-    function excess() external view returns (uint240 yield);
+    function isEarningEnabled() external view returns (bool isEnabled);
 
     function migrationAdmin() external view returns (address migrationAdmin);
 
     function mToken() external view returns (address mToken);
-
-    function mIndexWhenEarningStopped() external view returns (uint128 index);
 
     function totalNonEarningSupply() external view returns (uint240 totalSupply);
 

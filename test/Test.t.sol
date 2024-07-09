@@ -73,8 +73,9 @@ contract Tests is Test {
     function test_story() external {
         _registrar.setListContains(_EARNERS_LIST, _alice, true);
         _registrar.setListContains(_EARNERS_LIST, _bob, true);
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
 
-        _wrappedMToken.startEarningM();
+        _wrappedMToken.enableEarning();
 
         _wrappedMToken.startEarningFor(_alice);
 
