@@ -523,8 +523,8 @@ contract WrappedMTokenTests is Test {
     }
 
     /* ============ disableEarning ============ */
-    function test_disableEarning_earningCanOnlyBeDisabledOnce() external {
-        vm.expectRevert(IWrappedMToken.EarningCanOnlyBeDisabledOnce.selector);
+    function test_disableEarning_earningIsDisabled() external {
+        vm.expectRevert(IWrappedMToken.EarningIsDisabled.selector);
         _wrappedMToken.disableEarning();
 
         _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
@@ -535,7 +535,7 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.disableEarning();
 
-        vm.expectRevert(IWrappedMToken.EarningCanOnlyBeDisabledOnce.selector);
+        vm.expectRevert(IWrappedMToken.EarningIsDisabled.selector);
         _wrappedMToken.disableEarning();
     }
 
@@ -642,11 +642,11 @@ contract WrappedMTokenTests is Test {
 
     /* ============ currentIndex ============ */
     function test_currentIndex() external {
-        assertEq(_wrappedMToken.currentIndex(), _currentIndex);
+        assertEq(_wrappedMToken.currentIndex(), 0);
 
         _mToken.setCurrentIndex(2 * _EXP_SCALED_ONE);
 
-        assertEq(_wrappedMToken.currentIndex(), 2 * _EXP_SCALED_ONE);
+        assertEq(_wrappedMToken.currentIndex(), 0);
 
         _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
 
