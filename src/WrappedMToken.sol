@@ -38,7 +38,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     mapping(address account => BalanceInfo balance) internal _balances;
 
-    uint128[] internal _enableDisablingEarningIndexes;
+    uint128[] internal _enableDisableEarningIndices;
 
     /* ============ Constructor ============ */
 
@@ -81,12 +81,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         if (isEarningEnabled()) revert EarningIsEnabled();
 
         // NOTE: This is a temporary measure to prevent re-enabling earning after it has been disabled.
-        //       This line is will be removed in the future.
+        //       This line will be removed in the future.
         if (wasEarningEnabled()) revert EarningCannotBeReenabled();
 
         uint128 currentMIndex_ = _currentMIndex();
 
-        _enableDisablingEarningIndexes.push(currentMIndex_);
+        _enableDisableEarningIndices.push(currentMIndex_);
 
         IMTokenLike(mToken).startEarning();
 
@@ -96,11 +96,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function disableEarning() external {
         _revertIfApprovedEarner(address(this));
 
-        if (isEarningDisabled()) revert EarningIsDisabled();
+        if (!isEarningEnabled()) revert EarningIsDisabled();
 
         uint128 currentMIndex_ = _currentMIndex();
 
-        _enableDisablingEarningIndexes.push(currentMIndex_);
+        _enableDisableEarningIndices.push(currentMIndex_);
 
         IMTokenLike(mToken).stopEarning();
 
@@ -110,7 +110,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function startEarningFor(address account_) external {
         _revertIfNotApprovedEarner(account_);
 
-        if (isEarningDisabled()) revert EarningIsDisabled();
+        if (!isEarningEnabled()) revert EarningIsDisabled();
 
         (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
 
@@ -178,15 +178,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function isEarningEnabled() public view returns (bool isEnabled_) {
-        return _enableDisablingEarningIndexes.length % 2 == 1;
-    }
-
-    function isEarningDisabled() public view returns (bool isDisabled_) {
-        return _enableDisablingEarningIndexes.length % 2 == 0;
+        return _enableDisableEarningIndices.length % 2 == 1;
     }
 
     function wasEarningEnabled() public view returns (bool wasEarning_) {
-        return _enableDisablingEarningIndexes.length != 0;
+        return _enableDisableEarningIndices.length != 0;
     }
 
     function excess() public view returns (uint240 yield_) {
@@ -385,7 +381,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _mIndexWhenEarningWasDisabled() internal view returns (uint128 index_) {
-        return wasEarningEnabled() ? _unsafeAccess(_enableDisablingEarningIndexes, 1) : 0;
+        return wasEarningEnabled() ? _unsafeAccess(_enableDisableEarningIndices, 1) : 0;
     }
 
     function _getBalanceInfo(
