@@ -5,6 +5,8 @@ pragma solidity 0.8.23;
 interface IMTokenLike {
     /* ============ Interactive Functions ============ */
 
+    function mint(address account, uint256 amount) external;
+
     function transfer(address recipient, uint256 amount) external returns (bool success);
 
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool success);
@@ -12,6 +14,8 @@ interface IMTokenLike {
     function startEarning() external;
 
     function stopEarning() external;
+
+    function updateIndex() external returns (uint128);
 
     /* ============ View/Pure Functions ============ */
 

@@ -2,12 +2,12 @@
 
 pragma solidity 0.8.23;
 
+import { IERC20 } from "../../lib/common/src/interfaces/IERC20.sol";
+
 import { INonfungiblePositionManager } from "../vendor/uniswap-v3/interfaces/INonfungiblePositionManager.sol";
 import { IUniswapV3Factory } from "../vendor/uniswap-v3/interfaces/IUniswapV3Factory.sol";
 import { IUniswapV3Pool } from "../vendor/uniswap-v3/interfaces/IUniswapV3Pool.sol";
 import { ISwapRouter } from "../vendor/uniswap-v3/interfaces/ISwapRouter.sol";
-
-import { TransferHelper } from "../vendor/uniswap-v3/libraries/TransferHelper.sol";
 
 import { TickMath } from "../vendor/uniswap-v3/utils/TickMath.sol";
 import { encodePriceSqrt } from "../vendor/uniswap-v3/utils/Math.sol";
@@ -54,11 +54,11 @@ contract UniswapV3PositionManager {
         uint256 mintAmount_
     ) external returns (uint256 tokenId_, uint128 liquidity_, uint256 amount0_, uint256 amount1_) {
         // Transfer tokens to contract
-        TransferHelper.safeTransferFrom(token0_, msg.sender, address(this), mintAmount_);
-        TransferHelper.safeTransferFrom(token1_, msg.sender, address(this), mintAmount_);
+        IERC20(token0_).transferFrom(msg.sender, address(this), mintAmount_);
+        IERC20(token1_).transferFrom(msg.sender, address(this), mintAmount_);
 
-        TransferHelper.safeApprove(token0_, address(nonfungiblePositionManager), mintAmount_);
-        TransferHelper.safeApprove(token1_, address(nonfungiblePositionManager), mintAmount_);
+        IERC20(token0_).approve(address(nonfungiblePositionManager), mintAmount_);
+        IERC20(token1_).approve(address(nonfungiblePositionManager), mintAmount_);
 
         // Note that the pool defined by token0_/token1_ and poolFee_ must already be created and initialized in order to mint
         (tokenId_, liquidity_, amount0_, amount1_) = nonfungiblePositionManager.mint(
@@ -82,13 +82,13 @@ contract UniswapV3PositionManager {
 
         // Remove allowance and refund in both assets
         if (amount0_ < mintAmount_) {
-            TransferHelper.safeApprove(token0_, address(nonfungiblePositionManager), 0);
-            TransferHelper.safeTransfer(token0_, msg.sender, mintAmount_ - amount0_);
+            IERC20(token0_).approve(address(nonfungiblePositionManager), 0);
+            IERC20(token0_).transfer(msg.sender, mintAmount_ - amount0_);
         }
 
         if (amount1_ < mintAmount_) {
-            TransferHelper.safeApprove(token1_, address(nonfungiblePositionManager), 0);
-            TransferHelper.safeTransfer(token1_, msg.sender, mintAmount_ - amount1_);
+            IERC20(token1_).approve(address(nonfungiblePositionManager), 0);
+            IERC20(token1_).transfer(msg.sender, mintAmount_ - amount1_);
         }
     }
 
@@ -105,7 +105,7 @@ contract UniswapV3PositionManager {
         require(msg.sender == deposits[tokenId].owner, "Not the owner");
 
         // transfer ownership to original owner
-        nonfungiblePositionManager.safeTransferFrom(address(this), msg.sender, tokenId);
+        IERC20(address(nonfungiblePositionManager)).transferFrom(address(this), msg.sender, tokenId);
 
         //remove information related to tokenId
         delete deposits[tokenId];
@@ -125,10 +125,10 @@ contract UniswapV3PositionManager {
         // msg.sender must approve this contract
 
         // Transfer the specified amount of tokenIn to this contract.
-        TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
+        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
 
         // Approve the router to spend tokenIn.
-        TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
+        IERC20(tokenIn).approve(address(swapRouter), amountIn);
 
         // Naively set amountOutMinimum to 0. In production, use an oracle or other data source to choose a safer value for amountOutMinimum.
         // We also set the sqrtPriceLimitx96 to be 0 to ensure we swap our exact input amount.
