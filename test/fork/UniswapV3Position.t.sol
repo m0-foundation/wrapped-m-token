@@ -3,8 +3,8 @@
 pragma solidity 0.8.23;
 
 import { IERC20 } from "../../lib/common/src/interfaces/IERC20.sol";
-import { IMToken } from "../../lib/protocol/src/interfaces/IMToken.sol";
 
+import { IMTokenLike } from "../../src/interfaces/IMTokenLike.sol";
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 
 import { UniswapV3PositionManager } from "../utils/UniswapV3PositionManager.sol";
@@ -31,10 +31,12 @@ contract UniswapV3PositionForkTest is TestUtils {
 
     // TTG Registrar address on mainnet
     address internal _registrar = address(0x119FbeeDD4F4f4298Fb59B720d5654442b81ae2c);
-    address internal _minterGateway;
+
+    // Minter Gateway address on mainnet
+    address internal _minterGateway = address(0xf7f9638cb444D65e5A40bF5ff98ebE4ff319F04E);
 
     // M token address on mainnet
-    IMToken internal _mToken = IMToken(address(0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b));
+    IMTokenLike internal _mToken = IMTokenLike(address(0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b));
     WrappedMToken internal _wrappedMToken;
 
     function setUp() external {
@@ -43,7 +45,6 @@ contract UniswapV3PositionForkTest is TestUtils {
 
         vm.deal(_alice, 100 ether);
 
-        _minterGateway = _mToken.minterGateway();
         _wrappedMToken = new WrappedMToken(address(_mToken), _migrationAdmin);
 
         _mockStartEarningMCall(_wrappedMToken, _registrar);
@@ -65,7 +66,7 @@ contract UniswapV3PositionForkTest is TestUtils {
         _mToken.mint(_alice, mintAmount_);
 
         vm.prank(_alice);
-        _mToken.approve(address(_wrappedMToken), mintAmount_);
+        IERC20(address(_mToken)).approve(address(_wrappedMToken), mintAmount_);
 
         vm.prank(_alice);
         _wrappedMToken.wrap(_alice, mintAmount_);
@@ -129,7 +130,7 @@ contract UniswapV3PositionForkTest is TestUtils {
         _mToken.mint(_alice, mintAmount_);
 
         vm.prank(_alice);
-        _mToken.approve(address(_wrappedMToken), mintAmount_);
+        IERC20(address(_mToken)).approve(address(_wrappedMToken), mintAmount_);
 
         vm.prank(_alice);
         _wrappedMToken.wrap(_alice, mintAmount_);
