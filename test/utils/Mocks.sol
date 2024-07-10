@@ -58,35 +58,3 @@ contract MockRegistrar {
         vault = vault_;
     }
 }
-
-contract MockMinterGateway {
-    address public mToken;
-    address public ttgRegistrar;
-
-    uint256 public minterRate;
-    uint256 public totalActiveOwedM;
-
-    function setMToken(address mToken_) external {
-        mToken = mToken_;
-    }
-
-    function setMinterRate(uint256 minterRate_) external {
-        minterRate = minterRate_;
-    }
-
-    function setTotalActiveOwedM(uint256 totalActiveOwedM_) external {
-        totalActiveOwedM = totalActiveOwedM_;
-    }
-
-    function setTtgRegistrar(address ttgRegistrar_) external {
-        ttgRegistrar = ttgRegistrar_;
-    }
-}
-
-contract MockRateModel {
-    uint256 public rate;
-
-    function setRate(uint256 rate_) external {
-        rate = rate_;
-    }
-}

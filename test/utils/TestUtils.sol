@@ -4,16 +4,15 @@ pragma solidity 0.8.23;
 
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
-import { ContinuousIndexingMath } from "../../lib/protocol/src/libs/ContinuousIndexingMath.sol";
-import { IMToken } from "../../lib/protocol/src/interfaces/IMToken.sol";
-import { IRateModel } from "../../lib/protocol/src/interfaces/IRateModel.sol";
+import { IERC20 } from "../../lib/common/src/interfaces/IERC20.sol";
+import { ContinuousIndexingMath } from "../../lib/common/src/libs/ContinuousIndexingMath.sol";
+import { IMTokenLike } from "../../src/interfaces/IMTokenLike.sol";
 
 import { IndexingMath } from "../../src/libs/IndexingMath.sol";
 import { IRegistrarLike } from "../../src/interfaces/IRegistrarLike.sol";
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 
 import { WrappedMTokenHarness } from "./WrappedMTokenHarness.sol";
-import { MTokenHarness } from "./MTokenHarness.sol";
 
 contract TestUtils is Test {
     uint56 internal constant _EXP_SCALED_ONE = 1e12;
@@ -28,31 +27,7 @@ contract TestUtils is Test {
     /// @notice The name of parameter in TTG that defines the earner rate model contract.
     bytes32 internal constant _EARNER_RATE_MODEL = "earner_rate_model";
 
-    /* ============ wrap ============ */
-    function _wrap(
-        MTokenHarness mToken_,
-        WrappedMTokenHarness wrappedMToken_,
-        address account_,
-        address recipient_,
-        uint256 amount_
-    ) internal {
-        vm.prank(account_);
-        mToken_.approve(address(wrappedMToken_), amount_);
-
-        vm.prank(account_);
-        wrappedMToken_.wrap(recipient_, amount_);
-    }
-
     /* ============ accrued yield ============ */
-    function _getAccruedYieldOf(
-        WrappedMTokenHarness wrappedMToken_,
-        address account_,
-        uint128 currentIndex_
-    ) internal view returns (uint240) {
-        (, , uint112 principal_, uint240 balance_) = wrappedMToken_.internalBalanceInfo(account_);
-        return _getPresentAmountRoundedDown(principal_, currentIndex_) - balance_;
-    }
-
     function _getAccruedYield(
         uint240 startingPresentAmount_,
         uint128 startingIndex_,
@@ -100,7 +75,7 @@ contract TestUtils is Test {
     }
 
     function _mockUpdateIndexCall(
-        IMToken mToken_,
+        IMTokenLike mToken_,
         address registrar_,
         address earnerRateModel_,
         uint32 earnerRate_
@@ -111,7 +86,8 @@ contract TestUtils is Test {
             abi.encode(earnerRateModel_)
         );
 
-        vm.mockCall(earnerRateModel_, abi.encodeWithSelector(IRateModel.rate.selector), abi.encode(earnerRate_));
+        // rate() selector 4bytes sig is 0x2c4e722e
+        vm.mockCall(earnerRateModel_, abi.encodeWithSelector(0x2c4e722e), abi.encode(earnerRate_));
 
         return mToken_.updateIndex();
     }

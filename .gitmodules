@@ -5,6 +5,4 @@
 [submodule "lib/common"]
 	path = lib/common
 	url = git@github.com:MZero-Labs/common.git
-[submodule "lib/protocol"]
-	path = lib/protocol
-	url = https://github.com/MZero-Labs/protocol
+	branch = feat/add-indexing-math-lib
