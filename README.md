@@ -2,7 +2,7 @@
 
 ## Overview
 
-Non-rebasing M token alternative with an additional possibility to preserve and forward yield by earners.
+Non-rebasing M token alternative with an additional possibility to preserve and forward yield to earners.
 
 ## Development
 
