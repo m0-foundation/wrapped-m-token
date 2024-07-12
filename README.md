@@ -1,16 +1,8 @@
-# Foundry template
+# Wrapped M Token - Smart Wrapper contract
 
-Template to kickstart a Foundry project.
+## Overview
 
-## Getting started
-
-The easiest way to get started is by clicking the [Use this template](https://github.com/MZero-Labs/foundry-template/generate) button at the top right of this page.
-
-If you prefer to go the CLI way:
-
-```bash
-forge init my-project --template https://github.com/MZero-Labs/foundry-template
-```
+Non-rebasing M token alternative with an additional possibility to preserve and forward yield by earners.
 
 ## Development
 
