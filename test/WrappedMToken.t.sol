@@ -397,6 +397,44 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 1_501);
     }
 
+    function test_transfer_nonEarnerToSelf() external {
+        _wrappedMToken.setTotalNonEarningSupply(1_000);
+
+        _wrappedMToken.setBalanceOf(_alice, 1_000);
+
+        vm.prank(_alice);
+        _wrappedMToken.transfer(_alice, 500);
+
+        assertEq(_wrappedMToken.internalBalanceOf(_alice), 1_000);
+
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 1_000);
+        assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
+        assertEq(_wrappedMToken.indexOfTotalEarningSupply(), 0);
+    }
+
+    function test_transfer_earnerToSelf() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
+        _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
+        _wrappedMToken.setIndexOfTotalEarningSupply(_currentIndex);
+
+        _wrappedMToken.setAccountOf(_alice, true, _currentIndex, 1_000);
+        assertEq(_wrappedMToken.balanceOf(_alice), 999);
+
+        _mToken.setCurrentIndex((_currentIndex * 5) / 3); // 1833333447838
+
+        _wrappedMToken.claimFor(_alice);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1664);
+
+        vm.prank(_alice);
+        _wrappedMToken.transfer(_alice, 500);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1664);
+    }
+
     /* ============ startEarningFor ============ */
     function test_startEarningFor_notApprovedEarner() external {
         vm.expectRevert(IWrappedMToken.NotApprovedEarner.selector);
