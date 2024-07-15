@@ -323,11 +323,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             _setTotalEarningSupply(totalEarningSupply() + yield_, _principalOfTotalEarningSupply);
         }
 
+        emit Transfer(address(0), account_, yield_);
+
         address claimOverrideRecipient_ = _getClaimOverrideRecipient(account_);
 
         if (claimOverrideRecipient_ == address(0)) {
             emit Claimed(account_, account_, yield_);
-            emit Transfer(address(0), account_, yield_);
         } else {
             emit Claimed(account_, claimOverrideRecipient_, yield_);
 
