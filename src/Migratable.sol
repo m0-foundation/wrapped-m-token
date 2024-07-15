@@ -4,6 +4,10 @@ pragma solidity 0.8.23;
 
 import { IMigratable } from "./interfaces/IMigratable.sol";
 
+/**
+ * @title  Abstract implementation for exposing the ability to migrate a contract, extending ERC-1967.
+ * @author M^0 Labs
+ */
 abstract contract Migratable is IMigratable {
     /* ============ Variables ============ */
 
@@ -26,6 +30,10 @@ abstract contract Migratable is IMigratable {
 
     /* ============ Internal Interactive Functions ============ */
 
+    /**
+     * @dev   Performs an arbitrary migration by delegate-calling `migrator_`.
+     * @param migrator_ The address of a migrator contract.
+     */
     function _migrate(address migrator_) internal {
         if (migrator_ == address(0)) revert ZeroMigrator();
 
@@ -39,10 +47,13 @@ abstract contract Migratable is IMigratable {
         address newImplementation_ = implementation();
 
         emit Migrated(migrator_, oldImplementation_, newImplementation_);
+
+        // NOTE: Redundant event emitted to conform to the EIP-1967 standard.
         emit Upgraded(newImplementation_);
     }
 
     /* ============ Internal View/Pure Functions ============ */
 
+    /// @dev Returns the address of a migrator contract.
     function _getMigrator() internal view virtual returns (address migrator_);
 }
