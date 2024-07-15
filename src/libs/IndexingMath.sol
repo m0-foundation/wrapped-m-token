@@ -31,14 +31,6 @@ library IndexingMath {
         }
     }
 
-    function divide240By128Up(uint240 x, uint128 y_) internal pure returns (uint112) {
-        if (y_ == 0) revert DivisionByZero();
-
-        unchecked {
-            return UIntMath.safe112(((uint256(x) * EXP_SCALED_ONE) + y_ - 1) / y_);
-        }
-    }
-
     function multiply112By128Down(uint112 x_, uint128 y_) internal pure returns (uint240) {
         unchecked {
             return UIntMath.safe240((uint256(x_) * y_) / EXP_SCALED_ONE);
@@ -61,9 +53,5 @@ library IndexingMath {
 
     function getPrincipalAmountRoundedDown(uint240 presentAmount_, uint128 index_) internal pure returns (uint112) {
         return divide240By128Down(presentAmount_, index_);
-    }
-
-    function getPrincipalAmountRoundedUp(uint240 presentAmount_, uint128 index_) internal pure returns (uint112) {
-        return divide240By128Up(presentAmount_, index_);
     }
 }
