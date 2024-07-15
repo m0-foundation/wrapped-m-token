@@ -679,10 +679,6 @@ contract WrappedMTokenTests is Test {
         return IndexingMath.divide240By128Down(presentAmount_, index_);
     }
 
-    function _getPrincipalAmountRoundedUp(uint240 presentAmount_, uint128 index_) internal pure returns (uint112) {
-        return IndexingMath.divide240By128Up(presentAmount_, index_);
-    }
-
     function _getPresentAmountRoundedDown(uint112 principalAmount_, uint128 index_) internal pure returns (uint240) {
         return IndexingMath.multiply112By128Down(principalAmount_, index_);
     }
