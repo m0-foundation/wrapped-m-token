@@ -257,10 +257,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _subtractEarningAmount(account_, amount_, currentIndex_);
     }
 
-    function _addNonEarningAmount(address recipient_, uint240 amount_) internal {
+    function _addNonEarningAmount(address account_, uint240 amount_) internal {
         unchecked {
-            (, , , uint240 balance_) = _getBalanceInfo(recipient_);
-            _setBalanceInfo(recipient_, false, 0, balance_ + amount_);
+            (, , , uint240 balance_) = _getBalanceInfo(account_);
+            _setBalanceInfo(account_, false, 0, balance_ + amount_);
             totalNonEarningSupply += amount_;
         }
     }
@@ -276,11 +276,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         }
     }
 
-    function _addEarningAmount(address recipient_, uint240 amount_, uint128 currentIndex_) internal {
+    function _addEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
         unchecked {
-            (, , , uint240 balance_) = _getBalanceInfo(recipient_);
+            (, , , uint240 balance_) = _getBalanceInfo(account_);
 
-            _setBalanceInfo(recipient_, true, currentIndex_, balance_ + amount_);
+            _setBalanceInfo(account_, true, currentIndex_, balance_ + amount_);
             _addTotalEarningSupply(amount_, currentIndex_);
         }
     }
@@ -355,8 +355,20 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(sender_, recipient_, amount_);
 
-        (bool senderIsEarning_, , , ) = _getBalanceInfo(sender_);
-        (bool recipientIsEarning_, , , ) = _getBalanceInfo(recipient_);
+        (bool senderIsEarning_, , , uint240 senderBalance_) = _getBalanceInfo(sender_);
+        (bool recipientIsEarning_, , , uint240 recipientBalance_) = _getBalanceInfo(recipient_);
+
+        if (senderBalance_ < amount_) revert InsufficientBalance(sender_, senderBalance_, amount_);
+
+        if (senderIsEarning_ == recipientIsEarning_) {
+            // NOTE: `_setBalanceInfo` ignores `index_` passed for non-earners.
+            unchecked {
+                _setBalanceInfo(sender_, senderIsEarning_, currentIndex_, senderBalance_ - amount_);
+                _setBalanceInfo(recipient_, recipientIsEarning_, currentIndex_, recipientBalance_ + amount_);
+            }
+
+            return;
+        }
 
         senderIsEarning_
             ? _subtractEarningAmount(sender_, amount_, currentIndex_)
