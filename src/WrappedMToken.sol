@@ -189,6 +189,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             uint240 balance_ = uint240(IMTokenLike(mToken).balanceOf(address(this)));
             uint240 earmarked_ = uint240(totalSupply()) + totalAccruedYield();
+
             return balance_ > earmarked_ ? balance_ - earmarked_ : 0;
         }
     }
@@ -225,15 +226,18 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _addAmount(address account_, uint240 amount_) internal {
-        (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
-
         unchecked {
+            (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
+
             if (isEarning_) {
                 uint128 currentIndex_ = currentIndex();
+
                 _claim(account_, currentIndex_);
 
-                // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
+                // NOTE: Additional principal may end up being rounded to 0 and this will not
+                //       `_revertIfInsufficientAmount`.
                 (, , , balance_) = _getBalanceInfo(account_);
+
                 _setBalanceInfo(account_, true, currentIndex_, balance_ + amount_);
                 _addTotalEarningSupply(amount_, currentIndex_);
             } else {
@@ -244,15 +248,18 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _subtractAmount(address account_, uint240 amount_) internal {
-        (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
-
         unchecked {
+            (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
+
             if (isEarning_) {
                 uint128 currentIndex_ = currentIndex();
+
                 _claim(account_, currentIndex_);
 
-                // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
+                // NOTE: Subtracted principal may end up being rounded to 0 and this will not
+                //       `_revertIfInsufficientAmount`.
                 (, , , balance_) = _getBalanceInfo(account_);
+
                 if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
 
                 _setBalanceInfo(account_, true, currentIndex_, balance_ - amount_);
