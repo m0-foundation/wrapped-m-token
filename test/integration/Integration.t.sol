@@ -586,7 +586,7 @@ contract IntegrationTests is Test {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalSupply(), 3);
         assertEq(_wrappedMToken.totalAccruedYield(), 4);
-        assertEq(_wrappedMToken.excess(), _excess -= 0);
+        assertEq(_wrappedMToken.excess(), _excess);
 
         assertGe(_wrapperBalanceOfM = _mToken.balanceOf(address(_wrappedMToken)), _excess);
 
