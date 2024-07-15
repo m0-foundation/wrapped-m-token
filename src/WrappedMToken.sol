@@ -10,8 +10,9 @@ import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 import { IndexingMath } from "./libs/IndexingMath.sol";
 
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
-import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
+import { IMigratable } from "./interfaces/IMigratable.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
+import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
 
 import { Migratable } from "./Migratable.sol";
 
@@ -185,7 +186,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Temporary Admin Migration ============ */
 
-    /// @inheritdoc IMigratable
+    /**
+     * @notice Performs an arbitrary migration by delegate-calling `migrator_`.
+     * @param  migrator_ The address of a migrator contract.
+     */
     function migrate(address migrator_) external {
         if (msg.sender != migrationAdmin) revert UnauthorizedMigration();
 
@@ -261,7 +265,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         return IndexingMath.getPresentAmountRoundedUp(_principalOfTotalEarningSupply, _indexOfTotalEarningSupply);
     }
 
-    /// @inheritdoc IWrappedMToken
+    /// @inheritdoc IERC20
     function totalSupply() public view returns (uint256 totalSupply_) {
         return totalEarningSupply() + totalNonEarningSupply;
     }
