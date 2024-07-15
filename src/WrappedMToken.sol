@@ -316,9 +316,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         (, , , uint240 endingBalance_) = _getBalanceInfo(account_);
 
         unchecked {
-            yield_ = endingBalance_ - startingBalance_;
+            if (endingBalance_ <= startingBalance_) return 0;
 
-            if (yield_ == 0) return 0;
+            yield_ = endingBalance_ - startingBalance_;
 
             _setTotalEarningSupply(totalEarningSupply() + yield_, _principalOfTotalEarningSupply);
         }
