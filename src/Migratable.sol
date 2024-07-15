@@ -11,6 +11,9 @@ abstract contract Migratable is IMigratable {
     bytes32 private constant _IMPLEMENTATION_SLOT =
         bytes32(0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc);
 
+    /// @dev Mapping to keep track of migrators that have already been used.
+    mapping(address migrator => bool used) internal _migrators;
+
     /* ============ Interactive Functions ============ */
 
     function migrate() external {
@@ -31,8 +34,8 @@ abstract contract Migratable is IMigratable {
 
     function _migrate(address migrator_) internal {
         if (migrator_ == address(0)) revert ZeroMigrator();
-
         if (migrator_.code.length == 0) revert InvalidMigrator();
+        if (_migrators[migrator_]) revert MigratorAlreadyUsed();
 
         address oldImplementation_ = implementation();
 

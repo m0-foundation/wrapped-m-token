@@ -12,6 +12,9 @@ interface IMigratable {
     /// @notice Emitted when the delegatecall to the migrator fails.
     error MigrationFailed();
 
+    /// @notice Emitted when the migrator has already been used.
+    error MigratorAlreadyUsed();
+
     error ZeroMigrator();
 
     function migrate() external;
