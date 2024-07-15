@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
+if [ -z "$MAINNET_RPC_URL" ]; then
+	. .env
+fi
+
 gas=false
 verbose=false
 
@@ -35,10 +39,10 @@ fi
 
 if [ -z "$test" ]; then
 	if [ -z "$directory" ]; then
-		forge test --match-path "test/*" $gasReport $verbosity
+		forge test --match-path "test/*" --fork-url $MAINNET_RPC_URL $gasReport $verbosity
 	else
-		forge test --match-path "$directory/*.t.sol" $gasReport $verbosity
+		forge test --match-path "$directory/*.t.sol" --fork-url $MAINNET_RPC_URL $gasReport $verbosity
 	fi
 else
-	forge test --match-test "$test" $gasReport $verbosity
+	forge test --match-test "$test" --fork-url $MAINNET_RPC_URL $gasReport $verbosity
 fi

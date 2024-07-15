@@ -162,7 +162,22 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function accruedYieldOf(address account_) external view returns (uint240 yield_) {
         (bool isEarning_, , uint112 principal_, uint240 balance_) = _getBalanceInfo(account_);
 
-        return isEarning_ ? (IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex()) - balance_) : 0;
+        if (!isEarning_) return 0;
+
+        uint128 currentIndex_ = currentIndex();
+
+        // NOTE: Since `_claim` computes the balance including yield, updates the account by recomputing an account
+        //       principal at the current index, then fetches the balance again in order to be maximally conservative,
+        //       This function needs to match the math in order to provide a consistent view of the accrued yield.
+        uint240 balanceIncludingAccruedYield_ = IndexingMath.getPresentAmountRoundedDown(
+            IndexingMath.getPrincipalAmountRoundedDown(
+                IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex_),
+                currentIndex_
+            ),
+            currentIndex_
+        );
+
+        return balanceIncludingAccruedYield_ > balance_ ? balanceIncludingAccruedYield_ - balance_ : 0;
     }
 
     function balanceOf(address account_) external view returns (uint256 balance_) {
