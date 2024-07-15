@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.23;
 
-import { Test, console2 } from "../lib/forge-std/src/Test.sol";
+import { Test } from "../lib/forge-std/src/Test.sol";
 import { IERC20Extended } from "../lib/common/src/interfaces/IERC20Extended.sol";
 import { UIntMath } from "../lib/common/src/libs/UIntMath.sol";
 
@@ -380,9 +380,9 @@ contract WrappedMTokenTests is Test {
         vm.prank(_alice);
         _wrappedMToken.transfer(_bob, 500);
 
-        assertEq(_wrappedMToken.internalPrincipalOf(_alice), 453);
+        assertEq(_wrappedMToken.internalPrincipalOf(_alice), 455);
         assertEq(_wrappedMToken.internalIndexOf(_alice), _currentIndex);
-        assertEq(_wrappedMToken.internalBalanceOf(_alice), 498);
+        assertEq(_wrappedMToken.internalBalanceOf(_alice), 500);
 
         assertEq(_wrappedMToken.internalPrincipalOf(_bob), 908);
         assertEq(_wrappedMToken.internalIndexOf(_bob), _currentIndex);
@@ -390,6 +390,43 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalEarningSupply(), 1_501);
+    }
+
+    function test_transfer_nonEarnerToSelf() external {
+        _wrappedMToken.setTotalNonEarningSupply(1_000);
+
+        _wrappedMToken.setBalanceOf(_alice, 1_000);
+
+        vm.prank(_alice);
+        _wrappedMToken.transfer(_alice, 500);
+
+        assertEq(_wrappedMToken.internalBalanceOf(_alice), 1_000);
+
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 1_000);
+        assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
+        assertEq(_wrappedMToken.indexOfTotalEarningSupply(), 0);
+    }
+
+    function test_transfer_earnerToSelf() external {
+        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+
+        _wrappedMToken.enableEarning();
+
+        _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
+        _wrappedMToken.setIndexOfTotalEarningSupply(_currentIndex);
+
+        _wrappedMToken.setAccountOf(_alice, true, _currentIndex, 1_000);
+
+        _mToken.setCurrentIndex((_currentIndex * 5) / 3); // 1833333447838
+
+        _wrappedMToken.claimFor(_alice);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1664);
+
+        vm.prank(_alice);
+        _wrappedMToken.transfer(_alice, 500);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1664);
     }
 
     /* ============ startEarningFor ============ */

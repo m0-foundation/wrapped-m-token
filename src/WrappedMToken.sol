@@ -226,9 +226,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _addAmount(address account_, uint240 amount_) internal {
-        unchecked {
-            (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
+        (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
 
+        _addAmount(account_, amount_, isEarning_, balance_);
+    }
+
+    function _addAmount(address account_, uint240 amount_, bool isEarning_, uint240 balance_) internal {
+        unchecked {
             if (isEarning_) {
                 uint128 currentIndex_ = currentIndex();
 
@@ -248,9 +252,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _subtractAmount(address account_, uint240 amount_) internal {
-        unchecked {
-            (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
+        (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
 
+        _subtractAmount(account_, amount_, isEarning_, balance_);
+    }
+
+    function _subtractAmount(address account_, uint240 amount_, bool isEarning_, uint240 balance_) internal {
+        unchecked {
             if (isEarning_) {
                 uint128 currentIndex_ = currentIndex();
 
@@ -314,13 +322,15 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     function _setBalanceInfo(address account_, bool isEarning_, uint128 index_, uint240 amount_) internal {
-        _balances[account_] = isEarning_
-            ? BalanceInfo.wrap(
-                (uint256(1) << 248) |
-                    (uint256(index_) << 112) |
-                    uint256(IndexingMath.getPrincipalAmountRoundedDown(amount_, index_))
-            )
-            : BalanceInfo.wrap(uint256(amount_));
+        if (isEarning_) {
+            _setEarningBalanceInfo(account_, index_, IndexingMath.getPrincipalAmountRoundedDown(amount_, index_));
+        } else {
+            _balances[account_] = BalanceInfo.wrap(uint256(amount_));
+        }
+    }
+
+    function _setEarningBalanceInfo(address account_, uint128 index_, uint112 principal_) internal {
+        _balances[account_] = BalanceInfo.wrap((uint256(1) << 248) | (uint256(index_) << 112) | uint256(principal_));
     }
 
     function _transfer(address sender_, address recipient_, uint256 amount_) internal override {
@@ -328,8 +338,36 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(sender_, recipient_, amount_);
 
-        _subtractAmount(sender_, UIntMath.safe240(amount_));
-        _addAmount(recipient_, UIntMath.safe240(amount_));
+        (bool senderIsEarning_, , uint112 senderPrincipal_, uint240 senderBalance_) = _getBalanceInfo(sender_);
+        (bool recipientIsEarning_, , uint112 recipientPrincipal_, uint240 recipientBalance_) = _getBalanceInfo(
+            recipient_
+        );
+
+        // NOTE: Return early if sender and recipient are the same.
+        if (sender_ == recipient_) {
+            if (senderIsEarning_) {
+                _claim(sender_, currentIndex());
+            }
+
+            return;
+        }
+
+        if (senderIsEarning_ && recipientIsEarning_) {
+            uint128 currentIndex_ = currentIndex();
+            _claim(sender_, currentIndex_);
+            _claim(recipient_, currentIndex_);
+
+            uint112 principalAmount_ = IndexingMath.getPrincipalAmountRoundedDown(
+                UIntMath.safe240(amount_),
+                currentIndex_
+            );
+
+            _setEarningBalanceInfo(sender_, currentIndex_, senderPrincipal_ - principalAmount_);
+            _setEarningBalanceInfo(recipient_, currentIndex_, recipientPrincipal_ + principalAmount_);
+        } else {
+            _subtractAmount(sender_, UIntMath.safe240(amount_), senderIsEarning_, senderBalance_);
+            _addAmount(recipient_, UIntMath.safe240(amount_), recipientIsEarning_, recipientBalance_);
+        }
     }
 
     function _addTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
