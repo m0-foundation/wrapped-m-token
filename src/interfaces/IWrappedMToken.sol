@@ -165,17 +165,20 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Whether earning is enabled for the entire wrapper.
     function isEarningEnabled() external view returns (bool isEnabled);
 
+    /// @notice Whether earning has been enabled at least once or not.
+    function wasEarningEnabled() external view returns (bool wasEnabled);
+
     /// @notice The account that can bypass TTG and call the `migrate(address migrator)` function.
     function migrationAdmin() external view returns (address migrationAdmin);
 
     /// @notice The address of the M Token contract.
     function mToken() external view returns (address mToken);
 
-    /// @notice The portion of total supply that is not earning yield.
-    function totalNonEarningSupply() external view returns (uint240 totalSupply);
-
     /// @notice The address of the TTG registrar.
     function registrar() external view returns (address registrar);
+
+    /// @notice The portion of total supply that is not earning yield.
+    function totalNonEarningSupply() external view returns (uint240 totalSupply);
 
     /// @notice The accrued yield of the portion of total supply that is earning yield.
     function totalAccruedYield() external view returns (uint240 yield);

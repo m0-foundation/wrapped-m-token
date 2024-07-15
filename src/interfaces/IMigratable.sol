@@ -11,9 +11,9 @@ interface IMigratable {
 
     /**
      * @notice Emitted when a migration to a new implementation is performed.
-     * @param  migrator          The account that stopped earning.
-     * @param  oldImplementation The account that stopped earning.
-     * @param  newImplementation The account that stopped earning.
+     * @param  migrator          The address that performed the migration.
+     * @param  oldImplementation The address of the old implementation.
+     * @param  newImplementation The address of the new implementation.
      */
     event Migrated(address indexed migrator, address indexed oldImplementation, address indexed newImplementation);
 
@@ -29,7 +29,7 @@ interface IMigratable {
     /// @notice Emitted when the delegatecall to a migrator fails.
     error MigrationFailed();
 
-    /// @notice Emitted when calling `stopEarning` for an account approved as earner by TTG.
+    /// @notice Emitted when the zero address is passed as a migrator.
     error ZeroMigrator();
 
     /* ============ Interactive Functions ============ */
@@ -39,6 +39,6 @@ interface IMigratable {
 
     /* ============ View/Pure Functions ============ */
 
-    /// @notice Returns the address of the implementation contract.
+    /// @notice Returns the address of the current implementation contract.
     function implementation() external view returns (address implementation);
 }

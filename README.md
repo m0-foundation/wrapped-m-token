@@ -18,7 +18,7 @@ You may have to install the following tools to use this repository:
 Install dependencies:
 
 ```bash
-yarn
+npm install
 forge install
 ```
 
@@ -43,7 +43,7 @@ forge compile
 Forge is used for coverage, run it with:
 
 ```bash
-yarn coverage
+npm run coverage
 ```
 
 You can then consult the report by opening `coverage/index.html`:
@@ -75,7 +75,7 @@ forge test --mt <test-case-name>
 To run slither:
 
 ```bash
-yarn slither
+npm run slither
 ```
 
 ### Code quality
@@ -83,19 +83,19 @@ yarn slither
 [Prettier](https://prettier.io) is used to format Solidity code. Use it by running:
 
 ```bash
-yarn prettier
+npm run prettier
 ```
 
 [Solhint](https://protofire.github.io/solhint/) is used to lint Solidity files. Run it with:
 
 ```bash
-yarn solhint
+npm run solhint
 ```
 
 Or to autofix some issues:
 
 ```bash
-yarn solhint-fix
+npm run solhint-fix
 ```
 
 ### CI
@@ -124,5 +124,5 @@ You will need to uncomment them to activate them.
 Forge is used to generate the documentation. Run it with:
 
 ```bash
-yarn doc
+npm run doc
 ```

@@ -17,10 +17,10 @@ interface IRegistrarLike {
     function get(bytes32 key) external view returns (bytes32 value);
 
     /**
-     * @notice Returns whether `list` contains `account`.
+     * @notice Returns whether `list` contains `account` or not.
      * @param  list     The key for some list.
      * @param  account  The address of some account.
-     * @return contains Whether `list` contains `account`.
+     * @return contains Whether `list` contains `account` or not.
      */
     function listContains(bytes32 list, address account) external view returns (bool contains);
 
