@@ -19,6 +19,11 @@ library IndexingMath {
         if (y_ == 0) revert DivisionByZero();
 
         unchecked {
+            // NOTE: While `uint256(x) * EXP_SCALED_ONE` can technically overflow, these divide/multiply functions are
+            //       only used for the purpose of principal/present amount calculations for continuous indexing, and
+            //       so for an `x` to be large enough to overflow this, it would have to be a possible result of
+            //       `multiply112By128Down` or `multiply112By128Up`, which would already satisfy
+            //       `uint256(x) * EXP_SCALED_ONE < type(uint240).max`.
             return UIntMath.safe112((uint256(x_) * EXP_SCALED_ONE) / y_);
         }
     }
@@ -27,6 +32,11 @@ library IndexingMath {
         if (y_ == 0) revert DivisionByZero();
 
         unchecked {
+            // NOTE: While `uint256(x) * EXP_SCALED_ONE` can technically overflow, these divide/multiply functions are
+            //       only used for the purpose of principal/present amount calculations for continuous indexing, and
+            //       so for an `x` to be large enough to overflow this, it would have to be a possible result of
+            //       `multiply112By128Down` or `multiply112By128Up`, which would already satisfy
+            //       `uint256(x) * EXP_SCALED_ONE < type(uint240).max`.
             return UIntMath.safe128((uint256(x_) * EXP_SCALED_ONE) / y_);
         }
     }
