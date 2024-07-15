@@ -213,16 +213,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(address(0), recipient_, amount_);
 
-        (bool isEarning_, , , ) = _getBalanceInfo(recipient_);
-
-        if (!isEarning_) return _addNonEarningAmount(recipient_, amount_);
-
-        uint128 currentIndex_ = currentIndex();
-
-        _claim(recipient_, currentIndex_);
-
-        // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
-        _addEarningAmount(recipient_, amount_, currentIndex_);
+        _addAmount(recipient_, amount_);
     }
 
     function _burn(address account_, uint240 amount_) internal {
@@ -230,54 +221,48 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(msg.sender, address(0), amount_);
 
-        (bool isEarning_, , , ) = _getBalanceInfo(account_);
-
-        if (!isEarning_) return _subtractNonEarningAmount(account_, amount_);
-
-        uint128 currentIndex_ = currentIndex();
-
-        _claim(account_, currentIndex_);
-
-        // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
-        _subtractEarningAmount(account_, amount_, currentIndex_);
+        _subtractAmount(account_, amount_);
     }
 
-    function _addNonEarningAmount(address recipient_, uint240 amount_) internal {
+    function _addAmount(address account_, uint240 amount_) internal {
+        (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
+
         unchecked {
-            (, , , uint240 balance_) = _getBalanceInfo(recipient_);
-            _setBalanceInfo(recipient_, false, 0, balance_ + amount_);
-            totalNonEarningSupply += amount_;
+            if (isEarning_) {
+                uint128 currentIndex_ = currentIndex();
+                _claim(account_, currentIndex_);
+
+                // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
+                (, , , balance_) = _getBalanceInfo(account_);
+                _setBalanceInfo(account_, true, currentIndex_, balance_ + amount_);
+                _addTotalEarningSupply(amount_, currentIndex_);
+            } else {
+                _setBalanceInfo(account_, false, 0, balance_ + amount_);
+                totalNonEarningSupply += amount_;
+            }
         }
     }
 
-    function _subtractNonEarningAmount(address account_, uint240 amount_) internal {
+    function _subtractAmount(address account_, uint240 amount_) internal {
+        (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
+
         unchecked {
-            (, , , uint240 balance_) = _getBalanceInfo(account_);
+            if (isEarning_) {
+                uint128 currentIndex_ = currentIndex();
+                _claim(account_, currentIndex_);
 
-            if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
+                // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
+                (, , , balance_) = _getBalanceInfo(account_);
+                if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
 
-            _setBalanceInfo(account_, false, 0, balance_ - amount_);
-            totalNonEarningSupply -= amount_;
-        }
-    }
+                _setBalanceInfo(account_, true, currentIndex_, balance_ - amount_);
+                _subtractTotalEarningSupply(amount_, currentIndex_);
+            } else {
+                if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
 
-    function _addEarningAmount(address recipient_, uint240 amount_, uint128 currentIndex_) internal {
-        unchecked {
-            (, , , uint240 balance_) = _getBalanceInfo(recipient_);
-
-            _setBalanceInfo(recipient_, true, currentIndex_, balance_ + amount_);
-            _addTotalEarningSupply(amount_, currentIndex_);
-        }
-    }
-
-    function _subtractEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
-        unchecked {
-            (, , , uint240 balance_) = _getBalanceInfo(account_);
-
-            if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
-
-            _setBalanceInfo(account_, true, currentIndex_, balance_ - amount_);
-            _subtractTotalEarningSupply(amount_, currentIndex_);
+                _setBalanceInfo(account_, false, 0, balance_ - amount_);
+                totalNonEarningSupply -= amount_;
+            }
         }
     }
 
@@ -317,7 +302,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             emit Claimed(account_, claimOverrideRecipient_, yield_);
 
             // NOTE: Watch out for a long chain of earning claim override recipients.
-            _transfer(account_, claimOverrideRecipient_, yield_, currentIndex_);
+            _transfer(account_, claimOverrideRecipient_, yield_);
         }
     }
 
@@ -331,28 +316,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             : BalanceInfo.wrap(uint256(amount_));
     }
 
-    function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
+    function _transfer(address sender_, address recipient_, uint256 amount_) internal override {
         _revertIfInvalidRecipient(recipient_);
-
-        _claim(sender_, currentIndex_);
-        _claim(recipient_, currentIndex_);
 
         emit Transfer(sender_, recipient_, amount_);
 
-        (bool senderIsEarning_, , , ) = _getBalanceInfo(sender_);
-        (bool recipientIsEarning_, , , ) = _getBalanceInfo(recipient_);
-
-        senderIsEarning_
-            ? _subtractEarningAmount(sender_, amount_, currentIndex_)
-            : _subtractNonEarningAmount(sender_, amount_);
-
-        recipientIsEarning_
-            ? _addEarningAmount(recipient_, amount_, currentIndex_)
-            : _addNonEarningAmount(recipient_, amount_);
-    }
-
-    function _transfer(address sender_, address recipient_, uint256 amount_) internal override {
-        _transfer(sender_, recipient_, UIntMath.safe240(amount_), currentIndex());
+        _subtractAmount(sender_, UIntMath.safe240(amount_));
+        _addAmount(recipient_, UIntMath.safe240(amount_));
     }
 
     function _addTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
