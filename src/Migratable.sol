@@ -33,7 +33,8 @@ abstract contract Migratable is IMigratable {
 
         address oldImplementation_ = implementation();
 
-        migrator_.delegatecall("");
+        (bool success_, ) = migrator_.delegatecall("");
+        if (!success_) revert MigrationFailed();
 
         address newImplementation_ = implementation();
 
