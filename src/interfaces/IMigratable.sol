@@ -9,6 +9,9 @@ interface IMigratable {
 
     error InvalidMigrator();
 
+    /// @notice Emitted when the delegatecall to the migrator fails.
+    error MigrationFailed();
+
     error ZeroMigrator();
 
     function migrate() external;
