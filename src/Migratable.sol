@@ -16,12 +16,14 @@ abstract contract Migratable is IMigratable {
 
     /* ============ Interactive Functions ============ */
 
+    /// @inheritdoc IMigratable
     function migrate() external {
         _migrate(_getMigrator());
     }
 
     /* ============ View/Pure Functions ============ */
 
+    /// @inheritdoc IMigratable
     function implementation() public view returns (address implementation_) {
         assembly {
             implementation_ := sload(_IMPLEMENTATION_SLOT)
