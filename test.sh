@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-. .env
+if [ -z "$MAINNET_RPC_URL" ]; then
+	. .env
+fi
 
 gas=false
 verbose=false

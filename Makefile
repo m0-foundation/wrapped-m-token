@@ -23,22 +23,22 @@ build:
 	./build.sh -p production
 
 tests:
-	./test.sh -p $(profile)
+	MAINNET_RPC_URL=$(MAINNET_RPC_URL) ./test.sh -p $(profile)
 
 fuzz:
-	./test.sh -t testFuzz -p $(profile)
+	MAINNET_RPC_URL=$(MAINNET_RPC_URL) ./test.sh -t testFuzz -p $(profile)
 
 integration:
-	./test.sh -d test/integration -p $(profile)
+	MAINNET_RPC_URL=$(MAINNET_RPC_URL) ./test.sh -d test/integration -p $(profile)
 
 invariant:
-	./test.sh -d test/invariant -p $(profile)
+	MAINNET_RPC_URL=$(MAINNET_RPC_URL) ./test.sh -d test/invariant -p $(profile)
 
 coverage:
-	FOUNDRY_PROFILE=$(profile) forge coverage --no-match-path 'test/invariant/**/*.sol' --report lcov && lcov --extract lcov.info --rc lcov_branch_coverage=1 --rc derive_function_end_line=0 -o lcov.info 'src/*' && genhtml lcov.info --rc branch_coverage=1 --rc derive_function_end_line=0 -o coverage
+	FOUNDRY_PROFILE=$(profile) MAINNET_RPC_URL=$(MAINNET_RPC_URL) forge coverage --no-match-path 'test/in*/**/*.sol' --report lcov && lcov --extract lcov.info --rc lcov_branch_coverage=1 --rc derive_function_end_line=0 -o lcov.info 'src/*' && genhtml lcov.info --rc branch_coverage=1 --rc derive_function_end_line=0 -o coverage
 
 gas-report:
-	FOUNDRY_PROFILE=$(profile) forge test --gas-report > gasreport.ansi
+	FOUNDRY_PROFILE=$(profile) forge test --no-match-path 'test/integration/**/*.sol' --gas-report > gasreport.ansi
 
 sizes:
 	./build.sh -p production -s
