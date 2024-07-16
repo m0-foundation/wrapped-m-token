@@ -10,7 +10,6 @@ import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 import { IndexingMath } from "./libs/IndexingMath.sol";
 
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
-import { IMigratable } from "./interfaces/IMigratable.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
 
@@ -439,14 +438,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _setBalanceInfo(address account_, bool isEarning_, uint128 index_, uint240 balance_) internal {
         // The balance info is encoded as follows:
+        //   - The most significant 1 bit is a flag for whether the account is earning or not.
+        //   - The next 15 bits are unused/empty.
         //   - If the account is an earner:
-        //     - The most significant 8 bits is a flag for whether the account is earning or not.
         //     - The next 128 bits are the index of the last interaction,
-        //     - The next and last 112 bits are the principal amount.
-        //   - If the account is not an earner, the 240 least significant bits are simply the present amount.
+        //     - The next (and least significant) 112 bits are the principal amount.
+        //   - If the account is not an earner:
+        //     - The 240 least significant bits are simply the present amount.
         _balances[account_] = isEarning_
             ? BalanceInfo.wrap(
-                (uint256(1) << 248) |
+                (uint256(1) << 255) |
                     (uint256(index_) << 112) |
                     uint256(IndexingMath.getPrincipalAmountRoundedDown(balance_, index_))
             )
@@ -572,15 +573,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     ) internal view returns (bool isEarning_, uint128 index_, uint112 principal_, uint240 balance_) {
         uint256 unwrapped_ = BalanceInfo.unwrap(_balances[account_]);
 
-        // The most significant 8 bits is always a flag for whether the account is earning or not.
-        isEarning_ = (unwrapped_ >> 248) != 0;
+        // The most significant 1 bit is always a flag for whether the account is earning or not.
+        // The next 15 bits are empty.
+        isEarning_ = (unwrapped_ >> 255) != 0;
 
-        // If the account is not an earner, the 240 least significant bits are simply the present balance.
+        // For a non-earner, the 240 least significant bits are simply the present balance.
         if (!isEarning_) return (isEarning_, uint128(0), uint112(0), uint240(unwrapped_));
 
-        // If the account is an earner, the next 128 bits are the index of the last interaction and the last 112 bits
-        // are the principal amount from which the present balance can be computed.
-        index_ = uint128((unwrapped_ << 8) >> 120);
+        // For an earner, the next 128 bits are the index of the last interaction and the next (and least significant)
+        // 112 bits are the principal amount, from which the present balance can then be computed.
+        index_ = uint128(unwrapped_ >> 112); // Shift out the 112 principal bits and cast to ignore the flag bit.
         principal_ = uint112(unwrapped_);
         balance_ = IndexingMath.getPresentAmountRoundedDown(principal_, index_);
     }
