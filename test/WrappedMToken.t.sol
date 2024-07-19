@@ -427,12 +427,12 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.claimFor(_alice);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), 1664);
+        assertEq(_wrappedMToken.balanceOf(_alice), 1666);
 
         vm.prank(_alice);
         _wrappedMToken.transfer(_alice, 500);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), 1664);
+        assertEq(_wrappedMToken.balanceOf(_alice), 1666);
     }
 
     /* ============ startEarningFor ============ */

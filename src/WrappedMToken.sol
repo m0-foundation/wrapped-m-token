@@ -201,22 +201,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function accruedYieldOf(address account_) external view returns (uint240 yield_) {
         (bool isEarning_, , uint112 principal_, uint240 balance_) = _getBalanceInfo(account_);
 
-        if (!isEarning_) return 0;
-
-        uint128 currentIndex_ = currentIndex();
-
-        // NOTE: Since `_claim` computes the balance including yield, updates the account by recomputing an account
-        //       principal at the current index, then fetches the balance again in order to be maximally conservative,
-        //       This function needs to match the math in order to provide a consistent view of the accrued yield.
-        uint240 balanceIncludingAccruedYield_ = IndexingMath.getPresentAmountRoundedDown(
-            IndexingMath.getPrincipalAmountRoundedDown(
-                IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex_),
-                currentIndex_
-            ),
-            currentIndex_
-        );
-
-        return balanceIncludingAccruedYield_ > balance_ ? balanceIncludingAccruedYield_ - balance_ : 0;
+        return isEarning_ ? IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex()) - balance_ : 0;
     }
 
     /// @inheritdoc IERC20
@@ -386,23 +371,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return yield_        The accrued yield that was claimed.
      */
     function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
-        (bool isEarner_, uint128 index_, uint112 principal_, uint240 startingBalance_) = _getBalanceInfo(account_);
+        (bool isEarner_, uint128 index_, , uint240 startingBalance_) = _getBalanceInfo(account_);
 
         if (!isEarner_) return 0;
 
         if (currentIndex_ == index_) return 0;
 
-        // Overwrite the balance info with the new index and present amount.
-        _setBalanceInfo(
-            account_,
-            true,
-            currentIndex_,
-            IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex_)
-        );
+        _updateIndex(account_, currentIndex_);
 
-        // NOTE: Need to get `endingBalance_` from `_getBalanceInfo` since the true balance is the result of rounding
-        //       down while dividing to a principal amount in `_setBalanceInfo` and then rounding down while multiplying
-        //       to a present amount in `_getBalanceInfo`.
         (, , , uint240 endingBalance_) = _getBalanceInfo(account_);
 
         unchecked {
@@ -452,6 +428,19 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
                     uint256(IndexingMath.getPrincipalAmountRoundedDown(balance_, index_))
             )
             : BalanceInfo.wrap(uint256(balance_));
+    }
+
+    /**
+     * @dev   Overwrites the index bits with a new index for `account_`.
+     * @param account_ The account whose balance information is being updated.
+     * @param index_   The index of their last interaction.
+     */
+    function _updateIndex(address account_, uint128 index_) internal {
+        uint256 unwrapped_ = BalanceInfo.unwrap(_balances[account_]);
+
+        unwrapped_ &= ~(uint256(type(uint128).max) << 112); // Clear the index bits (See `_setBalanceInfo` for layout).
+
+        _balances[account_] = BalanceInfo.wrap(unwrapped_ | (uint256(index_) << 112));
     }
 
     /**
