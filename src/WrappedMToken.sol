@@ -10,7 +10,6 @@ import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 import { IndexingMath } from "./libs/IndexingMath.sol";
 
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
-import { IMigratable } from "./interfaces/IMigratable.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
 
@@ -82,15 +81,17 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function wrap(address recipient_, uint256 amount_) external {
-        _mint(recipient_, UIntMath.safe240(amount_));
-
+        // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
         IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
+
+        _mint(recipient_, UIntMath.safe240(amount_));
     }
 
     /// @inheritdoc IWrappedMToken
     function unwrap(address recipient_, uint256 amount_) external {
         _burn(msg.sender, UIntMath.safe240(amount_));
 
+        // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
         IMTokenLike(mToken).transfer(recipient_, amount_);
     }
 
@@ -150,8 +151,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (isEarning_) return;
 
-        emit StartedEarning(account_);
-
         uint128 currentIndex_ = currentIndex();
 
         _setBalanceInfo(account_, true, currentIndex_, balance_);
@@ -160,6 +159,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             totalNonEarningSupply -= balance_;
         }
+
+        emit StartedEarning(account_);
     }
 
     /// @inheritdoc IWrappedMToken
@@ -174,14 +175,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (!isEarning_) return;
 
-        emit StoppedEarning(account_);
-
         _setBalanceInfo(account_, false, 0, balance_);
         _subtractTotalEarningSupply(balance_, currentIndex_);
 
         unchecked {
             totalNonEarningSupply += balance_;
         }
+
+        emit StoppedEarning(account_);
     }
 
     /* ============ Temporary Admin Migration ============ */
@@ -281,18 +282,20 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _revertIfInsufficientAmount(amount_);
         _revertIfInvalidRecipient(recipient_);
 
-        emit Transfer(address(0), recipient_, amount_);
-
         (bool isEarning_, , , ) = _getBalanceInfo(recipient_);
 
-        if (!isEarning_) return _addNonEarningAmount(recipient_, amount_);
+        if (isEarning_) {
+            uint128 currentIndex_ = currentIndex();
 
-        uint128 currentIndex_ = currentIndex();
+            _claim(recipient_, currentIndex_);
 
-        _claim(recipient_, currentIndex_);
+            // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
+            _addEarningAmount(recipient_, amount_, currentIndex_);
+        } else {
+            _addNonEarningAmount(recipient_, amount_);
+        }
 
-        // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
-        _addEarningAmount(recipient_, amount_, currentIndex_);
+        emit Transfer(address(0), recipient_, amount_);
     }
 
     /**
@@ -303,18 +306,20 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _burn(address account_, uint240 amount_) internal {
         _revertIfInsufficientAmount(amount_);
 
-        emit Transfer(msg.sender, address(0), amount_);
-
         (bool isEarning_, , , ) = _getBalanceInfo(account_);
 
-        if (!isEarning_) return _subtractNonEarningAmount(account_, amount_);
+        if (isEarning_) {
+            uint128 currentIndex_ = currentIndex();
 
-        uint128 currentIndex_ = currentIndex();
+            _claim(account_, currentIndex_);
 
-        _claim(account_, currentIndex_);
+            // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
+            _subtractEarningAmount(account_, amount_, currentIndex_);
+        } else {
+            _subtractNonEarningAmount(account_, amount_);
+        }
 
-        // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
-        _subtractEarningAmount(account_, amount_, currentIndex_);
+        emit Transfer(account_, address(0), amount_);
     }
 
     /**
