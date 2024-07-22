@@ -95,11 +95,23 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function wrap(address recipient, uint256 amount) external;
 
     /**
+     * @notice Wraps all the M from the caller into wM for `recipient`.
+     * @param  recipient The account receiving the minted wM.
+     */
+    function wrap(address recipient) external;
+
+    /**
      * @notice Unwraps `amount` wM from the caller into M for `recipient`.
      * @param  recipient The account receiving the withdrawn M.
      * @param  amount    The amount of wM burned and M withdrawn.
      */
     function unwrap(address recipient, uint256 amount) external;
+
+    /**
+     * @notice Unwraps all the wM from the caller into M for `recipient`.
+     * @param  recipient The account receiving the withdrawn M.
+     */
+    function unwrap(address recipient) external;
 
     /**
      * @notice Claims any claimable yield for `account`.
