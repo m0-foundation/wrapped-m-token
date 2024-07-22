@@ -96,9 +96,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function unwrap(address recipient_) external {
-        (, , , uint240 balance_) = _getBalanceInfo(msg.sender);
-
-        _unwrap(msg.sender, recipient_, balance_ + accruedYieldOf(msg.sender));
+        _unwrap(msg.sender, recipient_, uint240(balanceWithYieldOf(msg.sender)));
     }
 
     /// @inheritdoc IWrappedMToken
@@ -214,8 +212,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IERC20
-    function balanceOf(address account_) external view returns (uint256 balance_) {
+    function balanceOf(address account_) public view returns (uint256 balance_) {
         (, , , balance_) = _getBalanceInfo(account_);
+    }
+
+    /// @inheritdoc IWrappedMToken
+    function balanceWithYieldOf(address account_) public view returns (uint256 balance_) {
+        return balanceOf(account_) + accruedYieldOf(account_);
     }
 
     /// @inheritdoc IWrappedMToken
@@ -562,10 +565,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param amount_    The amount of M deposited and wM minted.
      */
     function _wrap(address account_, address recipient_, uint240 amount_) internal {
+        uint256 startingBalance_ = IMTokenLike(mToken).balanceOf(address(this));
+
         // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
         IMTokenLike(mToken).transferFrom(account_, address(this), amount_);
 
-        _mint(recipient_, amount_);
+        // NOTE: When this WrappedMToken contract is earning, any amount of M sent to it is converted to a principal
+        //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
+        //       amount less than `amount_`. In order to capture the real increase in M, the difference between the
+        //       starting and ending M balance is minted as WrappedM.
+        _mint(recipient_, UIntMath.safe240(IMTokenLike(mToken).balanceOf(address(this)) - startingBalance_));
     }
 
     /**
