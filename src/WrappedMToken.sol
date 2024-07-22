@@ -234,7 +234,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function excess() public view returns (uint240 excess_) {
         unchecked {
             uint240 balance_ = uint240(IMTokenLike(mToken).balanceOf(address(this)));
-            uint240 earmarked_ = uint240(totalSupply()) + totalAccruedYield();
+            uint240 earmarked_ = totalNonEarningSupply + _projectedEarningSupply(currentIndex());
 
             return balance_ > earmarked_ ? balance_ - earmarked_ : 0;
         }
@@ -242,7 +242,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function totalAccruedYield() public view returns (uint240 yield_) {
-        return _getTotalAccruedYield(currentIndex());
+        uint240 projectedEarningSupply_ = _projectedEarningSupply(currentIndex());
+        uint240 earningSupply_ = totalEarningSupply();
+
+        unchecked {
+            return projectedEarningSupply_ <= earningSupply_ ? 0 : projectedEarningSupply_ - earningSupply_;
+        }
     }
 
     /// @inheritdoc IWrappedMToken
@@ -605,26 +610,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /**
-     * @dev    Returns the accrued yield of the portion of total supply that is earning yield.
-     * @param  currentIndex_ The index up to which to compute accrued yield.
-     * @return yield_        The accrued yield.
-     */
-    function _getTotalAccruedYield(uint128 currentIndex_) internal view returns (uint240 yield_) {
-        // NOTE: Round up to overestimate the earning supply plus all accrued yield, such that:
-        //       `projectedEarningSupply_ >= Sum of all (present earning balances + accrued yield)`.
-        uint240 projectedEarningSupply_ = IndexingMath.getPresentAmountRoundedUp(
-            _principalOfTotalEarningSupply,
-            currentIndex_
-        );
-
-        uint240 earningSupply_ = totalEarningSupply();
-
-        unchecked {
-            return projectedEarningSupply_ <= earningSupply_ ? 0 : projectedEarningSupply_ - earningSupply_;
-        }
-    }
-
-    /**
      * @dev    Returns whether `account_` is a TTG-approved earner.
      * @param  account_    The account being queried.
      * @return isApproved_ True if the account_ is a TTG-approved earner, false otherwise.
@@ -633,6 +618,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         return
             IRegistrarLike(registrar).get(_EARNERS_LIST_IGNORED) != bytes32(0) ||
             IRegistrarLike(registrar).listContains(_EARNERS_LIST, account_);
+    }
+
+    function _projectedEarningSupply(uint128 currentIndex_) internal view returns (uint240 supply_) {
+        // NOTE: Round up to overestimate the earning supply plus all accrued yield, such that:
+        //       `projectedEarningSupply_ >= Sum of all (present earning balances + accrued yield)`.
+        return IndexingMath.getPresentAmountRoundedUp(_principalOfTotalEarningSupply, currentIndex_);
     }
 
     /**

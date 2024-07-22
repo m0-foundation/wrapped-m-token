@@ -373,7 +373,7 @@ contract IntegrationTests is Test {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 250_000000);
         assertEq(_wrappedMToken.totalSupply(), 402_496405);
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
-        assertEq(_wrappedMToken.excess(), _excess);
+        assertEq(_wrappedMToken.excess(), _excess += 1);
 
         assertGe(
             _wrapperBalanceOfM,
@@ -407,7 +407,7 @@ contract IntegrationTests is Test {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 250_000000);
         assertEq(_wrappedMToken.totalSupply(), 402_496405);
         assertEq(_wrappedMToken.totalAccruedYield(), 3_806926);
-        assertEq(_wrappedMToken.excess(), _excess += 6_303333);
+        assertEq(_wrappedMToken.excess(), _excess += 6_303332);
 
         assertGe(
             _wrapperBalanceOfM,
