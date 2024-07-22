@@ -476,11 +476,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         (bool senderIsEarning_, , , uint240 senderBalance_) = _getBalanceInfo(sender_);
         (bool recipientIsEarning_, , , uint240 recipientBalance_) = _getBalanceInfo(recipient_);
 
-        if (senderBalance_ < amount_) revert InsufficientBalance(sender_, senderBalance_, amount_);
-
         // If the sender and recipient are both earning or both non-earning, update their balances without affecting
         // the total earning and non-earning supply storage variables.
         if (senderIsEarning_ == recipientIsEarning_) {
+            if (senderBalance_ < amount_) revert InsufficientBalance(sender_, senderBalance_, amount_);
+
             // NOTE: `_setBalanceInfo` ignores `index_` passed for non-earners.
             unchecked {
                 _setBalanceInfo(sender_, senderIsEarning_, currentIndex_, senderBalance_ - amount_);
