@@ -578,7 +578,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         isEarning_ = (unwrapped_ >> 255) != 0;
 
         // For a non-earner, the 240 least significant bits are simply the present balance.
-        if (!isEarning_) return (isEarning_, uint128(0), uint112(0), uint240(unwrapped_));
+        if (!isEarning_) return (false, uint128(0), uint112(0), uint240(unwrapped_));
 
         // For an earner, the next 128 bits are the index of the last interaction and the next (and least significant)
         // 112 bits are the principal amount, from which the present balance can then be computed.
