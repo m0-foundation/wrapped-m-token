@@ -152,7 +152,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit StartedEarning(account_);
 
-        uint128 currentIndex_ = currentIndex();
+        // NOTE: Use `currentIndex()` if/when upgrading to support `startEarningFor` while earning is disabled.
+        uint128 currentIndex_ = _currentMIndex();
 
         _setBalanceInfo(account_, true, currentIndex_, balance_);
         _addTotalEarningSupply(balance_, currentIndex_);
