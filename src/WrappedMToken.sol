@@ -81,18 +81,24 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function wrap(address recipient_, uint256 amount_) external {
-        // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
-        IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
+        _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+    }
 
-        _mint(recipient_, UIntMath.safe240(amount_));
+    /// @inheritdoc IWrappedMToken
+    function wrap(address recipient_) external {
+        _wrap(msg.sender, recipient_, UIntMath.safe240(IMTokenLike(mToken).balanceOf(msg.sender)));
     }
 
     /// @inheritdoc IWrappedMToken
     function unwrap(address recipient_, uint256 amount_) external {
-        _burn(msg.sender, UIntMath.safe240(amount_));
+        _unwrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+    }
 
-        // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
-        IMTokenLike(mToken).transfer(recipient_, amount_);
+    /// @inheritdoc IWrappedMToken
+    function unwrap(address recipient_) external {
+        (, , , uint240 balance_) = _getBalanceInfo(msg.sender);
+
+        _unwrap(msg.sender, recipient_, balance_ + accruedYieldOf(msg.sender));
     }
 
     /// @inheritdoc IWrappedMToken
@@ -201,7 +207,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ View/Pure Functions ============ */
 
     /// @inheritdoc IWrappedMToken
-    function accruedYieldOf(address account_) external view returns (uint240 yield_) {
+    function accruedYieldOf(address account_) public view returns (uint240 yield_) {
         (bool isEarning_, , uint112 principal_, uint240 balance_) = _getBalanceInfo(account_);
 
         return isEarning_ ? IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex()) - balance_ : 0;
@@ -547,6 +553,32 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _setTotalEarningSupply(uint240 amount_, uint112 principal_) internal {
         _indexOfTotalEarningSupply = (principal_ == 0) ? 0 : IndexingMath.divide240by112Down(amount_, principal_);
         _principalOfTotalEarningSupply = principal_;
+    }
+
+    /**
+     * @dev   Wraps `amount` M from `account_` into wM for `recipient`.
+     * @param account_   The account from which M is deposited.
+     * @param recipient_ The account receiving the minted wM.
+     * @param amount_    The amount of M deposited and wM minted.
+     */
+    function _wrap(address account_, address recipient_, uint240 amount_) internal {
+        // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
+        IMTokenLike(mToken).transferFrom(account_, address(this), amount_);
+
+        _mint(recipient_, amount_);
+    }
+
+    /**
+     * @dev   Unwraps `amount` wM from `account_` into M for `recipient`.
+     * @param account_   The account from which WM is burned.
+     * @param recipient_ The account receiving the withdrawn M.
+     * @param amount_    The amount of wM burned and M withdrawn.
+     */
+    function _unwrap(address account_, address recipient_, uint240 amount_) internal {
+        _burn(account_, amount_);
+
+        // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
+        IMTokenLike(mToken).transfer(recipient_, amount_);
     }
 
     /* ============ Internal View/Pure Functions ============ */
