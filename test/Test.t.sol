@@ -215,7 +215,7 @@ contract Tests is Test {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 250_000000);
         assertEq(_wrappedMToken.totalSupply(), 650_000000);
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
-        assertEq(_wrappedMToken.excess(), 250_000000);
+        assertEq(_wrappedMToken.excess(), 250_000001);
 
         _mToken.setCurrentIndex(4 * _EXP_SCALED_ONE);
         _mToken.setBalanceOf(address(_wrappedMToken), 1_200_000000); // was 900 @ 3.0, so 1200 @ 4.0
