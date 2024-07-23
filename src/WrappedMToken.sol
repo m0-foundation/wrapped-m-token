@@ -10,7 +10,6 @@ import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 import { IndexingMath } from "./libs/IndexingMath.sol";
 
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
-import { IMigratable } from "./interfaces/IMigratable.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
 
@@ -202,22 +201,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function accruedYieldOf(address account_) external view returns (uint240 yield_) {
         (bool isEarning_, , uint112 principal_, uint240 balance_) = _getBalanceInfo(account_);
 
-        if (!isEarning_) return 0;
-
-        uint128 currentIndex_ = currentIndex();
-
-        // NOTE: Since `_claim` computes the balance including yield, updates the account by recomputing an account
-        //       principal at the current index, then fetches the balance again in order to be maximally conservative,
-        //       This function needs to match the math in order to provide a consistent view of the accrued yield.
-        uint240 balanceIncludingAccruedYield_ = IndexingMath.getPresentAmountRoundedDown(
-            IndexingMath.getPrincipalAmountRoundedDown(
-                IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex_),
-                currentIndex_
-            ),
-            currentIndex_
-        );
-
-        return balanceIncludingAccruedYield_ > balance_ ? balanceIncludingAccruedYield_ - balance_ : 0;
+        return isEarning_ ? IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex()) - balance_ : 0;
     }
 
     /// @inheritdoc IERC20
@@ -387,23 +371,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return yield_        The accrued yield that was claimed.
      */
     function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
-        (bool isEarner_, uint128 index_, uint112 principal_, uint240 startingBalance_) = _getBalanceInfo(account_);
+        (bool isEarner_, uint128 index_, , uint240 startingBalance_) = _getBalanceInfo(account_);
 
         if (!isEarner_) return 0;
 
         if (currentIndex_ == index_) return 0;
 
-        // Overwrite the balance info with the new index and present amount.
-        _setBalanceInfo(
-            account_,
-            true,
-            currentIndex_,
-            IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex_)
-        );
+        _updateIndex(account_, currentIndex_);
 
-        // NOTE: Need to get `endingBalance_` from `_getBalanceInfo` since the true balance is the result of rounding
-        //       down while dividing to a principal amount in `_setBalanceInfo` and then rounding down while multiplying
-        //       to a present amount in `_getBalanceInfo`.
         (, , , uint240 endingBalance_) = _getBalanceInfo(account_);
 
         unchecked {
@@ -439,18 +414,33 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _setBalanceInfo(address account_, bool isEarning_, uint128 index_, uint240 balance_) internal {
         // The balance info is encoded as follows:
+        //   - The most significant 1 bit is a flag for whether the account is earning or not.
+        //   - The next 15 bits are unused/empty.
         //   - If the account is an earner:
-        //     - The most significant 8 bits is a flag for whether the account is earning or not.
         //     - The next 128 bits are the index of the last interaction,
-        //     - The next and last 112 bits are the principal amount.
-        //   - If the account is not an earner, the 240 least significant bits are simply the present amount.
+        //     - The next (and least significant) 112 bits are the principal amount.
+        //   - If the account is not an earner:
+        //     - The 240 least significant bits are simply the present amount.
         _balances[account_] = isEarning_
             ? BalanceInfo.wrap(
-                (uint256(1) << 248) |
+                (uint256(1) << 255) |
                     (uint256(index_) << 112) |
                     uint256(IndexingMath.getPrincipalAmountRoundedDown(balance_, index_))
             )
             : BalanceInfo.wrap(uint256(balance_));
+    }
+
+    /**
+     * @dev   Overwrites the index bits with a new index for `account_`.
+     * @param account_ The account whose balance information is being updated.
+     * @param index_   The index of their last interaction.
+     */
+    function _updateIndex(address account_, uint128 index_) internal {
+        uint256 unwrapped_ = BalanceInfo.unwrap(_balances[account_]);
+
+        unwrapped_ &= ~(uint256(type(uint128).max) << 112); // Clear the index bits (See `_setBalanceInfo` for layout).
+
+        _balances[account_] = BalanceInfo.wrap(unwrapped_ | (uint256(index_) << 112));
     }
 
     /**
@@ -572,15 +562,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     ) internal view returns (bool isEarning_, uint128 index_, uint112 principal_, uint240 balance_) {
         uint256 unwrapped_ = BalanceInfo.unwrap(_balances[account_]);
 
-        // The most significant 8 bits is always a flag for whether the account is earning or not.
-        isEarning_ = (unwrapped_ >> 248) != 0;
+        // The most significant 1 bit is always a flag for whether the account is earning or not.
+        // The next 15 bits are empty.
+        isEarning_ = (unwrapped_ >> 255) != 0;
 
-        // If the account is not an earner, the 240 least significant bits are simply the present balance.
-        if (!isEarning_) return (isEarning_, uint128(0), uint112(0), uint240(unwrapped_));
+        // For a non-earner, the 240 least significant bits are simply the present balance.
+        if (!isEarning_) return (false, uint128(0), uint112(0), uint240(unwrapped_));
 
-        // If the account is an earner, the next 128 bits are the index of the last interaction and the last 112 bits
-        // are the principal amount from which the present balance can be computed.
-        index_ = uint128((unwrapped_ << 8) >> 120);
+        // For an earner, the next 128 bits are the index of the last interaction and the next (and least significant)
+        // 112 bits are the principal amount, from which the present balance can then be computed.
+        index_ = uint128(unwrapped_ >> 112); // Shift out the 112 principal bits and cast to ignore the flag bit.
         principal_ = uint112(unwrapped_);
         balance_ = IndexingMath.getPresentAmountRoundedDown(principal_, index_);
     }
