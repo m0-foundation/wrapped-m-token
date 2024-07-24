@@ -2,58 +2,9 @@
 
 pragma solidity 0.8.23;
 
-import { Test } from "../../lib/forge-std/src/Test.sol";
+import { TestBase } from "./TestBase.sol";
 
-import { Proxy } from "../../src/Proxy.sol";
-
-import { WrappedMToken } from "../../src/WrappedMToken.sol";
-
-interface IRegistrarLike {
-    function addToList(bytes32 list, address account) external;
-
-    function removeFromList(bytes32 list, address account) external;
-
-    function setKey(bytes32 key, bytes32 value) external;
-}
-
-interface IMTokenLike {
-    function approve(address spender, uint256 amount) external returns (bool success);
-
-    function transfer(address recipient, uint256 amount) external returns (bool success);
-
-    function balanceOf(address account) external view returns (uint256 balance);
-
-    function currentIndex() external view returns (uint128 index);
-
-    function isEarning(address account) external view returns (bool earning);
-
-    function totalEarningSupply() external view returns (uint240 supply);
-
-    function totalNonEarningSupply() external view returns (uint240 supply);
-}
-
-contract IntegrationTests is Test {
-    IMTokenLike internal constant _mToken = IMTokenLike(0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b);
-
-    address internal constant _minterGateway = 0xf7f9638cb444D65e5A40bF5ff98ebE4ff319F04E;
-    address internal constant _registrar = 0x119FbeeDD4F4f4298Fb59B720d5654442b81ae2c;
-    address internal constant _vault = 0xd7298f620B0F752Cf41BD818a16C756d9dCAA34f;
-    address internal constant _standardGovernor = 0xB024aC5a7c6bC92fbACc8C3387E628a07e1Da016;
-    address internal constant _mSource = 0x20b3a4119eAB75ffA534aC8fC5e9160BdcaF442b;
-
-    bytes32 internal constant _EARNERS_LIST = "earners";
-
-    address internal _wrappedMTokenImplementation;
-
-    WrappedMToken internal _wrappedMToken;
-
-    address internal _alice = makeAddr("alice");
-    address internal _bob = makeAddr("bob");
-    address internal _carol = makeAddr("carol");
-    address internal _dave = makeAddr("dave");
-
-    address internal _migrationAdmin = makeAddr("migrationAdmin");
-
+contract ProtocolIntegrationTests is TestBase {
     uint256 internal _wrapperBalanceOfM;
     uint256 internal _totalEarningSupplyOfM;
 
@@ -69,9 +20,8 @@ contract IntegrationTests is Test {
 
     uint256 internal _excess;
 
-    function setUp() external {
-        _wrappedMTokenImplementation = address(new WrappedMToken(address(_mToken), _migrationAdmin));
-        _wrappedMToken = WrappedMToken(address(new Proxy(_wrappedMTokenImplementation)));
+    function setUp() public override {
+        super.setUp();
 
         _addToList(_EARNERS_LIST, address(_wrappedMToken));
         _addToList(_EARNERS_LIST, _alice);
@@ -603,38 +553,5 @@ contract IntegrationTests is Test {
         assertEq(_wrappedMToken.excess(), _excess -= _excess);
 
         assertGe(_wrapperBalanceOfM = _mToken.balanceOf(address(_wrappedMToken)), 0);
-    }
-
-    function _addToList(bytes32 list_, address account_) internal {
-        vm.prank(_standardGovernor);
-        IRegistrarLike(_registrar).addToList(list_, account_);
-    }
-
-    function _removeFomList(bytes32 list_, address account_) internal {
-        vm.prank(_standardGovernor);
-        IRegistrarLike(_registrar).removeFromList(list_, account_);
-    }
-
-    function _giveM(address account_, uint256 amount_) internal {
-        vm.prank(_mSource);
-        _mToken.transfer(account_, amount_);
-    }
-
-    function _wrap(address account_, address recipient_, uint256 amount_) internal {
-        vm.prank(account_);
-        _mToken.approve(address(_wrappedMToken), amount_);
-
-        vm.prank(account_);
-        _wrappedMToken.wrap(recipient_, amount_);
-    }
-
-    function _unwrap(address account_, address recipient_, uint256 amount_) internal {
-        vm.prank(account_);
-        _wrappedMToken.unwrap(recipient_, amount_);
-    }
-
-    function _transferWM(address sender_, address recipient_, uint256 amount_) internal {
-        vm.prank(sender_);
-        _wrappedMToken.transfer(recipient_, amount_);
     }
 }
