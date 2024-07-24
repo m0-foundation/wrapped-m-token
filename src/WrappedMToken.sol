@@ -553,10 +553,17 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _subtractTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
         unchecked {
+            uint240 totalEarningSupply_ = totalEarningSupply();
+
+            if (amount_ >= totalEarningSupply_) return _setTotalEarningSupply(0, 0);
+
+            uint112 principalOfTotalEarningSupply_ = _principalOfTotalEarningSupply;
             uint112 principal_ = IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
 
+            if (principal_ >= principalOfTotalEarningSupply_) return _setTotalEarningSupply(0, 0);
+
             // Decrement the total earning supply and principal proportionally.
-            _setTotalEarningSupply(totalEarningSupply() - amount_, _principalOfTotalEarningSupply - principal_);
+            _setTotalEarningSupply(totalEarningSupply() - amount_, principalOfTotalEarningSupply_ - principal_);
         }
     }
 
