@@ -89,12 +89,17 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_wrap_invalidRecipient() external {
+        _mToken.setBalanceOf(_alice, 1_000);
+
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InvalidRecipient.selector, address(0)));
 
+        vm.prank(_alice);
         _wrappedMToken.wrap(address(0), 1_000);
     }
 
     function test_wrap_invalidAmount() external {
+        _mToken.setBalanceOf(_alice, uint256(type(uint240).max) + 1);
+
         vm.expectRevert(UIntMath.InvalidUInt240.selector);
 
         vm.prank(_alice);
@@ -102,6 +107,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_wrap_toNonEarner() external {
+        _mToken.setBalanceOf(_alice, 1_000);
+
         vm.prank(_alice);
         _wrappedMToken.wrap(_alice, 1_000);
 
@@ -117,6 +124,8 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.enableEarning();
 
         _wrappedMToken.setAccountOf(_alice, true, _EXP_SCALED_ONE, 0);
+
+        _mToken.setBalanceOf(_alice, 1_002);
 
         vm.prank(_alice);
         _wrappedMToken.wrap(_alice, 999);
@@ -182,6 +191,8 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.setBalanceOf(_alice, 1_000);
 
+        _mToken.setBalanceOf(address(_wrappedMToken), 1_000);
+
         vm.prank(_alice);
         _wrappedMToken.unwrap(_alice, 500);
 
@@ -210,6 +221,8 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setAccountOf(_alice, true, _currentIndex, 1_000);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 999);
+
+        _mToken.setBalanceOf(address(_wrappedMToken), 1_000);
 
         vm.prank(_alice);
         _wrappedMToken.unwrap(_alice, 1);

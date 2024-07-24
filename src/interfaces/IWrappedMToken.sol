@@ -161,6 +161,20 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     function accruedYieldOf(address account) external view returns (uint240 yield);
 
+    /**
+     * @notice Returns the token balance of `account` including any accrued yield.
+     * @param  account The address of some account.
+     * @return balance The token balance of `account` including any accrued yield.
+     */
+    function balanceWithYieldOf(address account) external view returns (uint256 balance);
+
+    /**
+     * @notice Returns the recipient to override as the destination for an account's claim of yield.
+     * @param  account   The account being queried.
+     * @return recipient The address of the recipient, if any, to override as the destination of claimed yield.
+     */
+    function claimOverrideRecipientFor(address account) external view returns (address recipient);
+
     /// @notice The current index of the wrapper's earning mechanism.
     function currentIndex() external view returns (uint128 index);
 

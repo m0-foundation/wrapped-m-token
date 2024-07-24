@@ -96,9 +96,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function unwrap(address recipient_) external {
-        (, , , uint240 balance_) = _getBalanceInfo(msg.sender);
-
-        _unwrap(msg.sender, recipient_, balance_ + accruedYieldOf(msg.sender));
+        _unwrap(msg.sender, recipient_, uint240(balanceWithYieldOf(msg.sender)));
     }
 
     /// @inheritdoc IWrappedMToken
@@ -214,8 +212,25 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IERC20
-    function balanceOf(address account_) external view returns (uint256 balance_) {
+    function balanceOf(address account_) public view returns (uint256 balance_) {
         (, , , balance_) = _getBalanceInfo(account_);
+    }
+
+    /// @inheritdoc IWrappedMToken
+    function balanceWithYieldOf(address account_) public view returns (uint256 balance_) {
+        return balanceOf(account_) + accruedYieldOf(account_);
+    }
+
+    /// @inheritdoc IWrappedMToken
+    function claimOverrideRecipientFor(address account_) public view returns (address recipient_) {
+        return
+            address(
+                uint160(
+                    uint256(
+                        IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)))
+                    )
+                )
+            );
     }
 
     /// @inheritdoc IWrappedMToken
@@ -410,7 +425,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(address(0), account_, yield_);
 
-        address claimOverrideRecipient_ = _getClaimOverrideRecipient(account_);
+        address claimOverrideRecipient_ = claimOverrideRecipientFor(account_);
 
         // Emit the appropriate `Claimed` and `Transfer` events, depending on the claim override recipient
         if (claimOverrideRecipient_ == address(0)) {
@@ -562,10 +577,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param amount_    The amount of M deposited and wM minted.
      */
     function _wrap(address account_, address recipient_, uint240 amount_) internal {
+        uint256 startingBalance_ = IMTokenLike(mToken).balanceOf(address(this));
+
         // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
         IMTokenLike(mToken).transferFrom(account_, address(this), amount_);
 
-        _mint(recipient_, amount_);
+        // NOTE: When this WrappedMToken contract is earning, any amount of M sent to it is converted to a principal
+        //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
+        //       amount less than `amount_`. In order to capture the real increase in M, the difference between the
+        //       starting and ending M balance is minted as WrappedM.
+        _mint(recipient_, UIntMath.safe240(IMTokenLike(mToken).balanceOf(address(this)) - startingBalance_));
     }
 
     /**
@@ -618,22 +639,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         index_ = uint128(unwrapped_ >> 112); // Shift out the 112 principal bits and cast to ignore the flag bit.
         principal_ = uint112(unwrapped_);
         balance_ = IndexingMath.getPresentAmountRoundedDown(principal_, index_);
-    }
-
-    /**
-     * @dev    Returns the recipient to override as the destination for an account's claim of yield.
-     * @param  account_   The account being queried.
-     * @return recipient_ The address of the recipient, if any, to override as the destination of claimed yield.
-     */
-    function _getClaimOverrideRecipient(address account_) internal view returns (address recipient_) {
-        return
-            address(
-                uint160(
-                    uint256(
-                        IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)))
-                    )
-                )
-            );
     }
 
     /// @dev Returns the address of the contract to use as a migrator, if any.

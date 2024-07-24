@@ -10,11 +10,17 @@ contract MockM {
     mapping(address account => uint256 balance) public balanceOf;
     mapping(address account => bool isEarning) public isEarning;
 
-    function transfer(address, uint256) external returns (bool success_) {
+    function transfer(address recipient_, uint256 amount_) external returns (bool success_) {
+        balanceOf[msg.sender] -= amount_;
+        balanceOf[recipient_] += amount_;
+
         return true;
     }
 
-    function transferFrom(address, address, uint256) external returns (bool success_) {
+    function transferFrom(address sender_, address recipient_, uint256 amount_) external returns (bool success_) {
+        balanceOf[sender_] -= amount_;
+        balanceOf[recipient_] += amount_;
+
         return true;
     }
 
