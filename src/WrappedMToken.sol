@@ -81,16 +81,22 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function wrap(address recipient_, uint256 amount_) external {
-        _mint(recipient_, UIntMath.safe240(amount_));
+        _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+    }
 
-        IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
+    /// @inheritdoc IWrappedMToken
+    function wrap(address recipient_) external {
+        _wrap(msg.sender, recipient_, UIntMath.safe240(IMTokenLike(mToken).balanceOf(msg.sender)));
     }
 
     /// @inheritdoc IWrappedMToken
     function unwrap(address recipient_, uint256 amount_) external {
-        _burn(msg.sender, UIntMath.safe240(amount_));
+        _unwrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+    }
 
-        IMTokenLike(mToken).transfer(recipient_, amount_);
+    /// @inheritdoc IWrappedMToken
+    function unwrap(address recipient_) external {
+        _unwrap(msg.sender, recipient_, uint240(balanceWithYieldOf(msg.sender)));
     }
 
     /// @inheritdoc IWrappedMToken
@@ -149,8 +155,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (isEarning_) return;
 
-        emit StartedEarning(account_);
-
         // NOTE: Use `currentIndex()` if/when upgrading to support `startEarningFor` while earning is disabled.
         uint128 currentIndex_ = _currentMIndex();
 
@@ -160,6 +164,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             totalNonEarningSupply -= balance_;
         }
+
+        emit StartedEarning(account_);
     }
 
     /// @inheritdoc IWrappedMToken
@@ -174,14 +180,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (!isEarning_) return;
 
-        emit StoppedEarning(account_);
-
         _setBalanceInfo(account_, false, 0, balance_);
         _subtractTotalEarningSupply(balance_, currentIndex_);
 
         unchecked {
             totalNonEarningSupply += balance_;
         }
+
+        emit StoppedEarning(account_);
     }
 
     /* ============ Temporary Admin Migration ============ */
@@ -199,15 +205,32 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ View/Pure Functions ============ */
 
     /// @inheritdoc IWrappedMToken
-    function accruedYieldOf(address account_) external view returns (uint240 yield_) {
+    function accruedYieldOf(address account_) public view returns (uint240 yield_) {
         (bool isEarning_, , uint112 principal_, uint240 balance_) = _getBalanceInfo(account_);
 
         return isEarning_ ? IndexingMath.getPresentAmountRoundedDown(principal_, currentIndex()) - balance_ : 0;
     }
 
     /// @inheritdoc IERC20
-    function balanceOf(address account_) external view returns (uint256 balance_) {
+    function balanceOf(address account_) public view returns (uint256 balance_) {
         (, , , balance_) = _getBalanceInfo(account_);
+    }
+
+    /// @inheritdoc IWrappedMToken
+    function balanceWithYieldOf(address account_) public view returns (uint256 balance_) {
+        return balanceOf(account_) + accruedYieldOf(account_);
+    }
+
+    /// @inheritdoc IWrappedMToken
+    function claimOverrideRecipientFor(address account_) public view returns (address recipient_) {
+        return
+            address(
+                uint160(
+                    uint256(
+                        IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)))
+                    )
+                )
+            );
     }
 
     /// @inheritdoc IWrappedMToken
@@ -271,18 +294,20 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _revertIfInsufficientAmount(amount_);
         _revertIfInvalidRecipient(recipient_);
 
-        emit Transfer(address(0), recipient_, amount_);
-
         (bool isEarning_, , , ) = _getBalanceInfo(recipient_);
 
-        if (!isEarning_) return _addNonEarningAmount(recipient_, amount_);
+        if (isEarning_) {
+            uint128 currentIndex_ = currentIndex();
 
-        uint128 currentIndex_ = currentIndex();
+            _claim(recipient_, currentIndex_);
 
-        _claim(recipient_, currentIndex_);
+            // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
+            _addEarningAmount(recipient_, amount_, currentIndex_);
+        } else {
+            _addNonEarningAmount(recipient_, amount_);
+        }
 
-        // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
-        _addEarningAmount(recipient_, amount_, currentIndex_);
+        emit Transfer(address(0), recipient_, amount_);
     }
 
     /**
@@ -293,18 +318,20 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _burn(address account_, uint240 amount_) internal {
         _revertIfInsufficientAmount(amount_);
 
-        emit Transfer(msg.sender, address(0), amount_);
-
         (bool isEarning_, , , ) = _getBalanceInfo(account_);
 
-        if (!isEarning_) return _subtractNonEarningAmount(account_, amount_);
+        if (isEarning_) {
+            uint128 currentIndex_ = currentIndex();
 
-        uint128 currentIndex_ = currentIndex();
+            _claim(account_, currentIndex_);
 
-        _claim(account_, currentIndex_);
+            // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
+            _subtractEarningAmount(account_, amount_, currentIndex_);
+        } else {
+            _subtractNonEarningAmount(account_, amount_);
+        }
 
-        // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
-        _subtractEarningAmount(account_, amount_, currentIndex_);
+        emit Transfer(account_, address(0), amount_);
     }
 
     /**
@@ -398,7 +425,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(address(0), account_, yield_);
 
-        address claimOverrideRecipient_ = _getClaimOverrideRecipient(account_);
+        address claimOverrideRecipient_ = claimOverrideRecipientFor(account_);
 
         // Emit the appropriate `Claimed` and `Transfer` events, depending on the claim override recipient
         if (claimOverrideRecipient_ == address(0)) {
@@ -543,6 +570,38 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _principalOfTotalEarningSupply = principal_;
     }
 
+    /**
+     * @dev   Wraps `amount` M from `account_` into wM for `recipient`.
+     * @param account_   The account from which M is deposited.
+     * @param recipient_ The account receiving the minted wM.
+     * @param amount_    The amount of M deposited and wM minted.
+     */
+    function _wrap(address account_, address recipient_, uint240 amount_) internal {
+        uint256 startingBalance_ = IMTokenLike(mToken).balanceOf(address(this));
+
+        // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
+        IMTokenLike(mToken).transferFrom(account_, address(this), amount_);
+
+        // NOTE: When this WrappedMToken contract is earning, any amount of M sent to it is converted to a principal
+        //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
+        //       amount less than `amount_`. In order to capture the real increase in M, the difference between the
+        //       starting and ending M balance is minted as WrappedM.
+        _mint(recipient_, UIntMath.safe240(IMTokenLike(mToken).balanceOf(address(this)) - startingBalance_));
+    }
+
+    /**
+     * @dev   Unwraps `amount` wM from `account_` into M for `recipient`.
+     * @param account_   The account from which WM is burned.
+     * @param recipient_ The account receiving the withdrawn M.
+     * @param amount_    The amount of wM burned and M withdrawn.
+     */
+    function _unwrap(address account_, address recipient_, uint240 amount_) internal {
+        _burn(account_, amount_);
+
+        // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
+        IMTokenLike(mToken).transfer(recipient_, amount_);
+    }
+
     /* ============ Internal View/Pure Functions ============ */
 
     /// @dev  Returns the current index of the M Token.
@@ -580,22 +639,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         index_ = uint128(unwrapped_ >> 112); // Shift out the 112 principal bits and cast to ignore the flag bit.
         principal_ = uint112(unwrapped_);
         balance_ = IndexingMath.getPresentAmountRoundedDown(principal_, index_);
-    }
-
-    /**
-     * @dev    Returns the recipient to override as the destination for an account's claim of yield.
-     * @param  account_   The account being queried.
-     * @return recipient_ The address of the recipient, if any, to override as the destination of claimed yield.
-     */
-    function _getClaimOverrideRecipient(address account_) internal view returns (address recipient_) {
-        return
-            address(
-                uint160(
-                    uint256(
-                        IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)))
-                    )
-                )
-            );
     }
 
     /// @dev Returns the address of the contract to use as a migrator, if any.

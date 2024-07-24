@@ -95,11 +95,23 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function wrap(address recipient, uint256 amount) external;
 
     /**
+     * @notice Wraps all the M from the caller into wM for `recipient`.
+     * @param  recipient The account receiving the minted wM.
+     */
+    function wrap(address recipient) external;
+
+    /**
      * @notice Unwraps `amount` wM from the caller into M for `recipient`.
      * @param  recipient The account receiving the withdrawn M.
      * @param  amount    The amount of wM burned and M withdrawn.
      */
     function unwrap(address recipient, uint256 amount) external;
+
+    /**
+     * @notice Unwraps all the wM from the caller into M for `recipient`.
+     * @param  recipient The account receiving the withdrawn M.
+     */
+    function unwrap(address recipient) external;
 
     /**
      * @notice Claims any claimable yield for `account`.
@@ -148,6 +160,20 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      * @return yield   The amount of yield that is claimable.
      */
     function accruedYieldOf(address account) external view returns (uint240 yield);
+
+    /**
+     * @notice Returns the token balance of `account` including any accrued yield.
+     * @param  account The address of some account.
+     * @return balance The token balance of `account` including any accrued yield.
+     */
+    function balanceWithYieldOf(address account) external view returns (uint256 balance);
+
+    /**
+     * @notice Returns the recipient to override as the destination for an account's claim of yield.
+     * @param  account   The account being queried.
+     * @return recipient The address of the recipient, if any, to override as the destination of claimed yield.
+     */
+    function claimOverrideRecipientFor(address account) external view returns (address recipient);
 
     /// @notice The current index of the wrapper's earning mechanism.
     function currentIndex() external view returns (uint128 index);
