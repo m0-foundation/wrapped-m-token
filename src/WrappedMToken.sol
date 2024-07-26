@@ -499,27 +499,36 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         (bool senderIsEarning_, , , uint240 senderBalance_) = _getBalanceInfo(sender_);
         (bool recipientIsEarning_, , , uint240 recipientBalance_) = _getBalanceInfo(recipient_);
 
+        // NOTE: Compute the actual amount to transfer such that the recipient receives at least `amount_` of present
+        //       balance increase.
+        uint240 actualAmount_ = recipientIsEarning_
+            ? IndexingMath.getPresentAmountRoundedUp(
+                IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_),
+                currentIndex_
+            )
+            : amount_;
+
         // If the sender and recipient are both earning or both non-earning, update their balances without affecting
         // the total earning and non-earning supply storage variables.
         if (senderIsEarning_ == recipientIsEarning_) {
-            if (senderBalance_ < amount_) revert InsufficientBalance(sender_, senderBalance_, amount_);
+            if (senderBalance_ < actualAmount_) revert InsufficientBalance(sender_, senderBalance_, actualAmount_);
 
             // NOTE: `_setBalanceInfo` ignores `index_` passed for non-earners.
             unchecked {
-                _setBalanceInfo(sender_, senderIsEarning_, currentIndex_, senderBalance_ - amount_);
-                _setBalanceInfo(recipient_, recipientIsEarning_, currentIndex_, recipientBalance_ + amount_);
+                _setBalanceInfo(sender_, senderIsEarning_, currentIndex_, senderBalance_ - actualAmount_);
+                _setBalanceInfo(recipient_, recipientIsEarning_, currentIndex_, recipientBalance_ + actualAmount_);
             }
 
             return;
         }
 
         senderIsEarning_
-            ? _subtractEarningAmount(sender_, amount_, currentIndex_)
-            : _subtractNonEarningAmount(sender_, amount_);
+            ? _subtractEarningAmount(sender_, actualAmount_, currentIndex_)
+            : _subtractNonEarningAmount(sender_, actualAmount_);
 
         recipientIsEarning_
-            ? _addEarningAmount(recipient_, amount_, currentIndex_)
-            : _addNonEarningAmount(recipient_, amount_);
+            ? _addEarningAmount(recipient_, actualAmount_, currentIndex_)
+            : _addNonEarningAmount(recipient_, actualAmount_);
     }
 
     /**

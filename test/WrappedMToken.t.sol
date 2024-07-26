@@ -370,17 +370,19 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.setAccountOf(_bob, true, _currentIndex, 500);
 
+        assertEq(_wrappedMToken.internalBalanceOf(_bob), 499);
+
         vm.prank(_alice);
         _wrappedMToken.transfer(_bob, 500);
 
-        assertEq(_wrappedMToken.internalBalanceOf(_alice), 500);
+        assertEq(_wrappedMToken.internalBalanceOf(_alice), 499);
 
-        assertEq(_wrappedMToken.internalPrincipalOf(_bob), 908);
+        assertEq(_wrappedMToken.internalPrincipalOf(_bob), 909);
         assertEq(_wrappedMToken.internalIndexOf(_bob), _currentIndex);
-        assertEq(_wrappedMToken.internalBalanceOf(_bob), 998);
+        assertEq(_wrappedMToken.internalBalanceOf(_bob), 999);
 
-        assertEq(_wrappedMToken.totalNonEarningSupply(), 500);
-        assertEq(_wrappedMToken.totalEarningSupply(), 1_001);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 499);
+        assertEq(_wrappedMToken.totalEarningSupply(), 1_002);
     }
 
     function test_transfer_fromEarner_toEarner() external {
@@ -395,16 +397,18 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.setAccountOf(_bob, true, _currentIndex, 500);
 
+        assertEq(_wrappedMToken.internalBalanceOf(_bob), 499);
+
         vm.prank(_alice);
         _wrappedMToken.transfer(_bob, 500);
 
-        assertEq(_wrappedMToken.internalPrincipalOf(_alice), 453);
+        assertEq(_wrappedMToken.internalPrincipalOf(_alice), 452);
         assertEq(_wrappedMToken.internalIndexOf(_alice), _currentIndex);
-        assertEq(_wrappedMToken.internalBalanceOf(_alice), 498);
+        assertEq(_wrappedMToken.internalBalanceOf(_alice), 497);
 
-        assertEq(_wrappedMToken.internalPrincipalOf(_bob), 908);
+        assertEq(_wrappedMToken.internalPrincipalOf(_bob), 909);
         assertEq(_wrappedMToken.internalIndexOf(_bob), _currentIndex);
-        assertEq(_wrappedMToken.internalBalanceOf(_bob), 998);
+        assertEq(_wrappedMToken.internalBalanceOf(_bob), 999);
 
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalEarningSupply(), 1_501);
