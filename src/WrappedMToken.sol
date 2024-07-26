@@ -266,7 +266,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @inheritdoc IWrappedMToken
     function totalAccruedYield() public view returns (uint240 yield_) {
         uint240 projectedEarningSupply_ = _projectedEarningSupply(currentIndex());
-        uint240 earningSupply_ = totalEarningSupply();
+
+        // NOTE: Round down to overestimate the total accrued yield.
+        uint240 earningSupply_ = IndexingMath.getPresentAmountRoundedDown(
+            _principalOfTotalEarningSupply,
+            _indexOfTotalEarningSupply
+        );
 
         unchecked {
             return projectedEarningSupply_ <= earningSupply_ ? 0 : projectedEarningSupply_ - earningSupply_;
@@ -279,7 +284,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IERC20
-    function totalSupply() public view returns (uint256 totalSupply_) {
+    function totalSupply() external view returns (uint256 totalSupply_) {
         return totalEarningSupply() + totalNonEarningSupply;
     }
 
@@ -582,6 +587,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param principal_ The principal amount of total earning supply.
      */
     function _setTotalEarningSupply(uint240 amount_, uint112 principal_) internal {
+        // NOTE: Rounding down here ensures `totalEarningSupply()` is its largest conservative estimate.
         _indexOfTotalEarningSupply = (principal_ == 0) ? 0 : IndexingMath.divide240by112Down(amount_, principal_);
         _principalOfTotalEarningSupply = principal_;
     }

@@ -29,6 +29,14 @@ contract TestBase is Test {
     address internal _bob = makeAddr("bob");
     address internal _carol = makeAddr("carol");
     address internal _dave = makeAddr("dave");
+    address internal _eric = makeAddr("eric");
+    address internal _frank = makeAddr("frank");
+    address internal _grace = makeAddr("grace");
+    address internal _henry = makeAddr("henry");
+    address internal _ivan = makeAddr("ivan");
+    address internal _judy = makeAddr("judy");
+
+    address[] internal _accounts = [_alice, _bob, _carol, _dave, _eric, _frank, _grace, _henry, _ivan, _judy];
 
     address internal _migrationAdmin = makeAddr("migrationAdmin");
 
@@ -66,9 +74,22 @@ contract TestBase is Test {
         _wrappedMToken.wrap(recipient_, amount_);
     }
 
+    function _wrap(address account_, address recipient_) internal {
+        vm.prank(account_);
+        _mToken.approve(address(_wrappedMToken), type(uint256).max);
+
+        vm.prank(account_);
+        _wrappedMToken.wrap(recipient_);
+    }
+
     function _unwrap(address account_, address recipient_, uint256 amount_) internal {
         vm.prank(account_);
         _wrappedMToken.unwrap(recipient_, amount_);
+    }
+
+    function _unwrap(address account_, address recipient_) internal {
+        vm.prank(account_);
+        _wrappedMToken.unwrap(recipient_);
     }
 
     function _transferWM(address sender_, address recipient_, uint256 amount_) internal {

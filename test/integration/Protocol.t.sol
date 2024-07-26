@@ -2,6 +2,10 @@
 
 pragma solidity 0.8.23;
 
+// import { console2 } from "../../lib/forge-std/src/Test.sol";
+
+import { Invariants } from "../utils/Invariants.sol";
+
 import { TestBase } from "./TestBase.sol";
 
 contract ProtocolIntegrationTests is TestBase {
@@ -60,7 +64,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 99_999999);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalSupply(), 99_999999);
-        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.totalAccruedYield(), 1);
         assertEq(_wrappedMToken.excess(), 0);
 
         assertGe(
@@ -85,7 +89,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 99_999999);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 50_000000);
         assertEq(_wrappedMToken.totalSupply(), 149_999999);
-        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.totalAccruedYield(), 1);
         assertEq(_wrappedMToken.excess(), 0);
 
         assertGe(
@@ -114,7 +118,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 99_999999);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 50_000000);
         assertEq(_wrappedMToken.totalSupply(), 149_999999);
-        assertEq(_wrappedMToken.totalAccruedYield(), 1_240508);
+        assertEq(_wrappedMToken.totalAccruedYield(), 1_240509);
         assertEq(_wrappedMToken.excess(), _excess = 62_0254);
 
         assertGe(
@@ -140,7 +144,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 299_999998);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 50_000000);
         assertEq(_wrappedMToken.totalSupply(), 349_999998);
-        assertEq(_wrappedMToken.totalAccruedYield(), 1_240508);
+        assertEq(_wrappedMToken.totalAccruedYield(), 1_240509);
         assertEq(_wrappedMToken.excess(), _excess);
 
         assertGe(
@@ -166,7 +170,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 299_999998);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 200_000000);
         assertEq(_wrappedMToken.totalSupply(), 499_999998);
-        assertEq(_wrappedMToken.totalAccruedYield(), 1_240508);
+        assertEq(_wrappedMToken.totalAccruedYield(), 1_240509);
         assertEq(_wrappedMToken.excess(), _excess);
 
         assertGe(
@@ -188,7 +192,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 301_240506);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 200_000000);
         assertEq(_wrappedMToken.totalSupply(), 501_240506);
-        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.totalAccruedYield(), 1);
         assertEq(_wrappedMToken.excess(), _excess);
 
         assertGe(
@@ -225,7 +229,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 301_240506);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 200_000000);
         assertEq(_wrappedMToken.totalSupply(), 501_240506);
-        assertEq(_wrappedMToken.totalAccruedYield(), 7_520181);
+        assertEq(_wrappedMToken.totalAccruedYield(), 7_520182);
         assertEq(_wrappedMToken.excess(), _excess += 5_008294);
 
         assertGe(
@@ -300,7 +304,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 102_496403);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 299_999999);
         assertEq(_wrappedMToken.totalSupply(), 402_496402);
-        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.totalAccruedYield(), 1);
         assertEq(_wrappedMToken.excess(), _excess = 2_496404);
 
         assertGe(
@@ -356,7 +360,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 152_496404);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 249_999998);
         assertEq(_wrappedMToken.totalSupply(), 402_496402);
-        assertEq(_wrappedMToken.totalAccruedYield(), 3_806926);
+        assertEq(_wrappedMToken.totalAccruedYield(), 3_806927);
         assertEq(_wrappedMToken.excess(), _excess += 6_303332);
 
         assertGe(
@@ -416,7 +420,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 100_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 303_767878);
         assertEq(_wrappedMToken.totalSupply(), 403_767878);
-        assertEq(_wrappedMToken.totalAccruedYield(), 1_240508);
+        assertEq(_wrappedMToken.totalAccruedYield(), 1_240509);
         assertEq(_wrappedMToken.excess(), _excess -= 1);
 
         assertGe(
@@ -437,7 +441,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 200_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 203_767878);
         assertEq(_wrappedMToken.totalSupply(), 403_767878);
-        assertEq(_wrappedMToken.totalAccruedYield(), 1_240507);
+        assertEq(_wrappedMToken.totalAccruedYield(), 1_240508);
         assertEq(_wrappedMToken.excess(), _excess += 1);
 
         assertGe(
@@ -460,7 +464,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 200_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 203_767878);
         assertEq(_wrappedMToken.totalSupply(), 403_767878);
-        assertEq(_wrappedMToken.totalAccruedYield(), 6_264284);
+        assertEq(_wrappedMToken.totalAccruedYield(), 6_264285);
         assertEq(_wrappedMToken.excess(), _excess += 5_211901);
 
         assertGe(
@@ -479,7 +483,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 200_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 99_999999);
         assertEq(_wrappedMToken.totalSupply(), 299_999999);
-        assertEq(_wrappedMToken.totalAccruedYield(), 6_264284);
+        assertEq(_wrappedMToken.totalAccruedYield(), 6_264285);
         assertEq(_wrappedMToken.excess(), _excess -= 1);
 
         assertGe(
@@ -499,7 +503,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), 100_000002);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 99_999999);
         assertEq(_wrappedMToken.totalSupply(), 200_000001);
-        assertEq(_wrappedMToken.totalAccruedYield(), 2_496405);
+        assertEq(_wrappedMToken.totalAccruedYield(), 2_496406);
         assertEq(_wrappedMToken.excess(), _excess -= 2);
 
         assertGe(
@@ -553,5 +557,133 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.excess(), _excess -= _excess);
 
         assertGe(_wrapperBalanceOfM = _mToken.balanceOf(address(_wrappedMToken)), 0);
+    }
+
+    /// forge-config: default.fuzz.runs = 100
+    /// forge-config: ci.fuzz.runs = 100
+    function testFuzz_full_xxx(uint256 seed_) external {
+        // function test_full_xxx() external {
+        //     uint256 seed_ = 73493754168793994280059127272691295850463831950328726122439408000180001177600;
+
+        vm.skip(false);
+
+        for (uint256 index_; index_ < _accounts.length; ++index_) {
+            _giveM(_accounts[index_], 100_000e6);
+        }
+
+        for (uint256 index_; index_ < 1000; ++index_) {
+            // console2.log("--------");
+
+            uint256 timeDelta_ = (seed_ = uint256(keccak256(abi.encodePacked(seed_)))) % 30 days;
+
+            vm.warp(vm.getBlockTimestamp() + timeDelta_);
+
+            assertTrue(Invariants.checkInvariant1(address(_wrappedMToken), _accounts), "Invariant 1 Failed.");
+            assertTrue(Invariants.checkInvariant2(address(_wrappedMToken), _accounts), "Invariant 2 Failed.");
+
+            // Skipping this because it cannot be trivially achieved yet.
+            // assertTrue(Invariants.checkInvariant3(address(_wrappedMToken), address(_mToken)), "Invariant 3 Failed.");
+
+            // console2.log("");
+            // console2.log("--------");
+            // console2.log("Wrapper has %s M", _mToken.balanceOf(address(_wrappedMToken)));
+
+            address account1_ = _accounts[((seed_ = uint256(keccak256(abi.encodePacked(seed_)))) % _accounts.length)];
+            address account2_ = _accounts[((seed_ = uint256(keccak256(abi.encodePacked(seed_)))) % _accounts.length)];
+
+            uint256 account1Balance_ = _wrappedMToken.balanceOf(account1_);
+
+            // console2.log("%s has %s wM", account1_, account1Balance_);
+
+            // 25% chance to transfer
+            if (((seed_ % 100) >= 75) && (account1Balance_ != 0)) {
+                uint256 amount_ = ((seed_ = uint256(keccak256(abi.encodePacked(seed_)))) % (account1Balance_ / 2)) * 2;
+
+                // amount_ = amount_ >= account1Balance_ ? account1Balance_ : amount_; // 50% chance of entire balance.
+
+                // console2.log("%s transferring %s to %s", account1_, amount_, account2_);
+
+                _transferWM(account1_, account2_, amount_);
+
+                continue;
+            }
+
+            uint256 account1BalanceOfM_ = _mToken.balanceOf(account1_);
+
+            // console2.log("%s has %s M", account1_, account1BalanceOfM_);
+
+            // 20% chance to wrap
+            if (((seed_ % 100) >= 55) && (account1BalanceOfM_ != 0)) {
+                uint256 amount_ = ((seed_ = uint256(keccak256(abi.encodePacked(seed_)))) % account1BalanceOfM_) * 2;
+
+                // 50% chance of wrapping entire M balance.
+                if (amount_ >= account1BalanceOfM_) {
+                    // console2.log("%s wrapping all their M to %s", account1_, account2_);
+
+                    _wrap(account1_, account2_);
+                } else {
+                    // console2.log("%s wrapping %s to %s", account1_, amount_, account2_);
+
+                    _wrap(account1_, account2_, amount_);
+                }
+
+                continue;
+            }
+
+            // 15% chance to claim
+            if (((seed_ % 100) >= 40) && (account1Balance_ != 0)) {
+                // console2.log("%s claiming yield", account1_);
+
+                _wrappedMToken.claimFor(account1_);
+
+                continue;
+            }
+
+            // 20% chance to unwrap
+            if (((seed_ % 100) >= 20) && (account1Balance_ != 0)) {
+                uint256 amount_ = ((seed_ = uint256(keccak256(abi.encodePacked(seed_)))) % account1Balance_) * 2;
+
+                // 50% chance of unwrapping entire WM balance.
+                if (amount_ >= account1Balance_) {
+                    // console2.log("%s unwrapping all their WM to %s", account1_, account2_);
+
+                    _unwrap(account1_, account2_);
+                } else {
+                    // console2.log("%s unwrapping %s to %s", account1_, amount_, account2_);
+
+                    _unwrap(account1_, account2_, amount_);
+                }
+
+                continue;
+            }
+
+            // 10% chance to start/stop earning
+            if ((seed_ % 100) >= 10) {
+                if (_wrappedMToken.isEarning(account1_)) {
+                    _removeFomList(_EARNERS_LIST, account1_);
+
+                    // console2.log("%s stopping earning", account1_);
+
+                    _wrappedMToken.stopEarningFor(account1_);
+                } else {
+                    _addToList(_EARNERS_LIST, account1_);
+
+                    // console2.log("%s starting earning", account1_);
+
+                    _wrappedMToken.startEarningFor(account1_);
+                }
+
+                continue;
+            }
+
+            // 5% chance to claim excess
+            if ((seed_ % 100) >= 0) {
+                // console2.log("Claiming excess");
+
+                _wrappedMToken.claimExcess();
+
+                continue;
+            }
+        }
     }
 }
