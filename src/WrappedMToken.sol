@@ -579,7 +579,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
         //       amount less than `amount_`. In order to capture the real increase in M, the difference between the
         //       starting and ending M balance is minted as WrappedM.
-        _mint(recipient_, UIntMath.safe240(IMTokenLike(mToken).balanceOf(address(this)) - startingBalance_));
+        uint240 mintedAmount_ = excess() > 0
+            ? amount_
+            : UIntMath.safe240(IMTokenLike(mToken).balanceOf(address(this)) - startingBalance_);
+        _mint(recipient_, mintedAmount_);
     }
 
     /**
