@@ -168,14 +168,16 @@ contract UniswapV3IntegrationTests is TestBase {
 
     function testFuzz_uniswapV3_earning(uint256 wmAlice_, uint256 bobUsdc_, uint256 wmDave_) public {
         wmAlice_ = bound(wmAlice_, 1, type(uint256).max); // Uniswap fails for 0 amounts
-        wmAlice_ = wmAlice_ % _mToken.balanceOf(_mSource);
+        bobUsdc_ = bound(bobUsdc_, 1, type(uint256).max);
+        wmDave_ = bound(wmAlice_, 1, type(uint256).max);
+
+        wmAlice_ = wmAlice_ % (_mToken.balanceOf(_mSource) - 2e5);
         bobUsdc_ = bobUsdc_ % 1e12;
 
         _giveM(_alice, wmAlice_ + 1e5);
         _wrap(_alice, _alice, wmAlice_ + 1e5);
-
-        wmDave_ = bound(wmAlice_, 1, type(uint256).max);
-        wmDave_ = wmDave_ % (_mToken.balanceOf(_mSource));
+        
+        wmDave_ = wmDave_ % (_mToken.balanceOf(_mSource) - 1e5);
 
         deal(_USDC, _alice, wmAlice_ + 1e5);
 
