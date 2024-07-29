@@ -481,11 +481,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
         _revertIfInvalidRecipient(recipient_);
+        _revertIfInsufficientAmount(amount_);
 
         emit Transfer(sender_, recipient_, amount_);
 
-        (bool senderIsEarning_, , , uint240 senderBalance_) = _getBalanceInfo(sender_);
-        (bool recipientIsEarning_, , , uint240 recipientBalance_) = _getBalanceInfo(recipient_);
+        (bool senderIsEarning_, , , ) = _getBalanceInfo(sender_);
+        (bool recipientIsEarning_, , , ) = _getBalanceInfo(recipient_);
 
         // NOTE: Compute the actual amount to transfer such that the recipient receives at least `amount_` of present
         //       balance increase.
