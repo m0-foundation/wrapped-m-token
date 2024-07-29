@@ -493,9 +493,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(sender_, recipient_, amount_);
 
-        // Return early if sender and recipient are the same account.
-        if (sender_ == recipient_) return;
-
         (bool senderIsEarning_, , , uint240 senderBalance_) = _getBalanceInfo(sender_);
         (bool recipientIsEarning_, , , uint240 recipientBalance_) = _getBalanceInfo(recipient_);
 
@@ -512,6 +509,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         // the total earning and non-earning supply storage variables.
         if (senderIsEarning_ == recipientIsEarning_) {
             if (senderBalance_ < actualAmount_) revert InsufficientBalance(sender_, senderBalance_, actualAmount_);
+
+            // Return early if sender and recipient are the same account.
+            if (sender_ == recipient_) return;
 
             // NOTE: `_setBalanceInfo` ignores `index_` passed for non-earners.
             unchecked {
