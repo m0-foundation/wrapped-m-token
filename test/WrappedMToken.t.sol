@@ -351,6 +351,40 @@ contract WrappedMTokenTests is Test {
         _assertAndLimit(_alice, wrapAmount_ - unWrapAmount_, "alice balance");
     }
 
+    function testFuzz_onlyFullUnwrap(bool earn_, uint240 wrapAmount_, uint128 idxIncrease_) external {
+        wrapAmount_ = wrapAmount_ % (uint240(type(uint112).max) * _currentIndex / _EXP_SCALED_ONE + 3);
+
+        if (earn_) {
+            _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+            _wrappedMToken.enableEarning();
+            _registrar.setListContains(_EARNERS_LIST, _alice, true);
+            _wrappedMToken.startEarningFor(_alice);
+        }
+
+        if (wrapAmount_ > 0) {
+            _mToken.setBalanceOf(address(_alice), wrapAmount_);
+            vm.prank(_alice);
+            _wrappedMToken.wrap(_alice, wrapAmount_);
+        }
+
+        uint128 newIndex_ = _currentIndex + idxIncrease_ % _EXP_SCALED_ONE;
+        _mToken.setCurrentIndex(newIndex_);
+        _mToken.setBalanceOf(address(_wrappedMToken), wrapAmount_ * newIndex_ / _currentIndex);
+
+        bool revertCond1 = wrapAmount_ == 0 || earn_ && wrapAmount_ <= 1;
+
+        if (revertCond1) vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
+
+        vm.prank(_alice);
+        _wrappedMToken.unwrap(_alice);
+
+        if (revertCond1) return;
+        
+        uint256 supply_ = earn_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply();
+        _assertApproxEqRatio(supply_, 0, "total earning supply");
+        _assertAndLimit(_alice, 0, "alice balance");
+    }
+
     function testFuzz_onlyTransfer(
         bool aliceEarn_, 
         bool bobEarn_, 
