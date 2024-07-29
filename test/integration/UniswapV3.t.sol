@@ -166,6 +166,105 @@ contract UniswapV3IntegrationTests is TestBase {
         swapAmountOut_ = _swap(_dave, _dave, address(_wrappedMToken), _USDC, 100_000e6);
     }
 
+    function testFuzz_uniswapV3_earning(uint256 wmAlice_, uint256 bobUsdc_, uint256 wmDave_) public {
+        wmAlice_ = bound(wmAlice_, 1, type(uint256).max); // Uniswap fails for 0 amounts
+        wmAlice_ = wmAlice_ % _mToken.balanceOf(_mSource);
+        bobUsdc_ = bobUsdc_ % 1e12;
+
+        _giveM(_alice, wmAlice_ + 1e5);
+        _wrap(_alice, _alice, wmAlice_ + 1e5);
+
+        wmDave_ = bound(wmAlice_, 1, type(uint256).max);
+        wmDave_ = wmDave_ % (_mToken.balanceOf(_mSource));
+
+        deal(_USDC, _alice, wmAlice_ + 1e5);
+
+        _mintNewPosition(_alice, _alice, wmAlice_);
+
+        assertEq(_mToken.balanceOf(_alice), 0);
+        _assertApproxEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += wmAlice_ + 1e5, "Wrapped M balance 1");
+        assertEq(_mToken.balanceOf(_pool), 0);
+
+        _assertApproxEq(_wrappedMToken.balanceOf(_alice), 1e5, "Alice WM balance");
+        _assertApproxEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += wmAlice_, "Pool WM balance");
+
+        assertEq(IERC20(_USDC).balanceOf(_alice), 1e5);
+        assertEq(IERC20(_USDC).balanceOf(_pool), wmAlice_);
+
+        _setClaimOverrideRecipient(_pool, _carol);
+
+        _addToList(_EARNERS_LIST, _pool);
+        _wrappedMToken.startEarningFor(_pool);
+
+        // Check that the pool is earning WM
+        assertTrue(_wrappedMToken.isEarning(_pool));
+
+        assertEq(_wrappedMToken.claimOverrideRecipientFor(_pool), _carol);
+
+        _assertApproxEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM, "Pool WM balance earning");
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), 0);
+
+        uint128 idx_ = _mToken.currentIndex();
+
+        // Move 1 year forward and check that yield has accrued
+        vm.warp(block.timestamp + 365 days);
+
+        uint128 newIdx_ = _mToken.currentIndex();
+
+        // Wrapped M is earning M and has accrued yield.
+        _assertApproxEq(
+            _mToken.balanceOf(address(_wrappedMToken)), 
+            _wrapperBalanceOfM = _wrapperBalanceOfM * newIdx_ / idx_, 
+            "Wrapped M balance 2"
+        );
+
+        // `startEarningFor` has been called so WM yield has accrued in the pool.
+        _assertApproxEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM, "Pool WM balance 2");
+        _assertApproxEq(
+            _wrappedMToken.accruedYieldOf(_pool),
+            _poolAccruedYield = _poolBalanceOfWM * newIdx_ / idx_ - _poolBalanceOfWM,
+            "Pool accrued yield"
+        );
+
+        // No excess yield has accrued in the wrapped M contract since the pool is the only earner.
+        _assertApproxEq(_wrappedMToken.excess(), 1e5 * newIdx_ / idx_ - 1e5, "Excess yield"); 
+
+        // _USDC balance is unchanged since no swap has been performed.
+        assertEq(IERC20(_USDC).balanceOf(_pool), wmAlice_);
+
+        // Bob decides to swap 1M _USDC in exchange of WM.
+        deal(_USDC, _bob, bobUsdc_);
+
+        uint256 swapAmountOut_ = _swap(_bob, _bob, _USDC, address(_wrappedMToken), bobUsdc_);
+
+        // Check pool liquidity after the swap
+        assertEq(IERC20(_USDC).balanceOf(_bob), 0);
+        assertEq(IERC20(_USDC).balanceOf(_pool), wmAlice_ + bobUsdc_);
+
+        _assertApproxEq(_wrappedMToken.balanceOf(_bob), swapAmountOut_, "Bob WM balance");
+
+        // The swap has triggered a WM transfer and the yield has been claimed toi carol for the pool.
+        _assertApproxEq(_wrappedMToken.balanceOf(_carol), _poolAccruedYield, "Carol WM balance");
+        _assertApproxEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= swapAmountOut_ + 2, "Pool WM balance 3");
+        _assertApproxEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield, "Pool accrued yield 2");
+
+        _addToList(_EARNERS_LIST, _dave);
+        _wrappedMToken.startEarningFor(_dave);
+
+        // NOTE: Give 100e6 more so that rounding errors do not prevent _swap of 1_000_000e6.
+        _giveM(_dave, wmDave_ + 1e5);
+        _wrap(_dave, _dave, wmDave_ + 1e5);
+
+        _assertApproxEq(_wrappedMToken.balanceOf(_dave), wmDave_ + 1e5, "Dave WM balance");
+
+        swapAmountOut_ = _swap(_dave, _dave, address(_wrappedMToken), _USDC, wmDave_);
+    }
+
+    function _assertApproxEq(uint256 a, uint256 b, string memory message) internal pure {
+        assertGe(a + 100, b, string.concat(message, " not greater"));
+        assertGe(b + 100, a, string.concat(message, " not smaller"));
+    }
+
     function _createPool() internal returns (address pool_) {
         pool_ = _factory.createPool(address(_wrappedMToken), _USDC, _POOL_FEE);
         IUniswapV3Pool(pool_).initialize(Utils.encodePriceSqrt(1, 1));
