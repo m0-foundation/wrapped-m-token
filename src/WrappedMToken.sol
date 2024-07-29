@@ -297,12 +297,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         (bool isEarning_, , , ) = _getBalanceInfo(recipient_);
 
         if (isEarning_) {
-            uint128 currentIndex_ = currentIndex();
-
-            _claim(recipient_, currentIndex_);
-
             // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
-            _addEarningAmount(recipient_, amount_, currentIndex_);
+            _addEarningAmount(recipient_, amount_, currentIndex());
         } else {
             _addNonEarningAmount(recipient_, amount_);
         }
@@ -321,12 +317,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         (bool isEarning_, , , ) = _getBalanceInfo(account_);
 
         if (isEarning_) {
-            uint128 currentIndex_ = currentIndex();
-
-            _claim(account_, currentIndex_);
-
             // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
-            _subtractEarningAmount(account_, amount_, currentIndex_);
+            _subtractEarningAmount(account_, amount_, currentIndex());
         } else {
             _subtractNonEarningAmount(account_, amount_);
         }
@@ -373,6 +365,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _addEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
         // NOTE: Can be `unchecked` because the max amount of wrappable M is never greater than `type(uint240).max`.
         unchecked {
+            _claim(account_, currentIndex_);
+
             (, , , uint240 balance_) = _getBalanceInfo(account_);
 
             _setBalanceInfo(account_, true, currentIndex_, balance_ + amount_);
@@ -388,6 +382,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _subtractEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
         unchecked {
+            _claim(account_, currentIndex_);
+
             (, , , uint240 balance_) = _getBalanceInfo(account_);
 
             if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
@@ -486,49 +482,29 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
         _revertIfInvalidRecipient(recipient_);
 
-        // Claims for both the sender and recipient are required before transferring since add an subtract functions
-        // assume accounts' balances are up-to-date with the current index.
-        _claim(sender_, currentIndex_);
-        _claim(recipient_, currentIndex_);
-
         emit Transfer(sender_, recipient_, amount_);
-
-        // Return early if sender and recipient are the same account.
-        if (sender_ == recipient_) return;
 
         (bool senderIsEarning_, , , uint240 senderBalance_) = _getBalanceInfo(sender_);
         (bool recipientIsEarning_, , , uint240 recipientBalance_) = _getBalanceInfo(recipient_);
 
         // NOTE: Compute the actual amount to transfer such that the recipient receives at least `amount_` of present
         //       balance increase.
-        uint240 actualAmount_ = recipientIsEarning_
+        uint240 recipientAmount_ = recipientIsEarning_
             ? IndexingMath.getPresentAmountRoundedUp(
                 IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_),
                 currentIndex_
             )
             : amount_;
 
-        // If the sender and recipient are both earning or both non-earning, update their balances without affecting
-        // the total earning and non-earning supply storage variables.
-        if (senderIsEarning_ == recipientIsEarning_) {
-            if (senderBalance_ < actualAmount_) revert InsufficientBalance(sender_, senderBalance_, actualAmount_);
-
-            // NOTE: `_setBalanceInfo` ignores `index_` passed for non-earners.
-            unchecked {
-                _setBalanceInfo(sender_, senderIsEarning_, currentIndex_, senderBalance_ - actualAmount_);
-                _setBalanceInfo(recipient_, recipientIsEarning_, currentIndex_, recipientBalance_ + actualAmount_);
-            }
-
-            return;
-        }
+        uint240 senderAmount_ = excess() > 0 ? amount_ : recipientAmount_;
 
         senderIsEarning_
-            ? _subtractEarningAmount(sender_, actualAmount_, currentIndex_)
-            : _subtractNonEarningAmount(sender_, actualAmount_);
+            ? _subtractEarningAmount(sender_, senderAmount_, currentIndex_)
+            : _subtractNonEarningAmount(sender_, senderAmount_);
 
         recipientIsEarning_
-            ? _addEarningAmount(recipient_, actualAmount_, currentIndex_)
-            : _addNonEarningAmount(recipient_, actualAmount_);
+            ? _addEarningAmount(recipient_, recipientAmount_, currentIndex_)
+            : _addNonEarningAmount(recipient_, recipientAmount_);
     }
 
     /**
