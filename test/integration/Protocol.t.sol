@@ -311,16 +311,16 @@ contract ProtocolIntegrationTests is TestBase {
         _transferWM(_dave, _bob, 50_000000);
 
         // Assert Bob (Earner)
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalance += 49_999999);
+        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalance += 50_000000);
         assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
 
         // Assert Dave (Non-Earner)
-        assertEq(_wrappedMToken.balanceOf(_dave), _daveBalance -= 50_000000);
+        assertEq(_wrappedMToken.balanceOf(_dave), _daveBalance -= 50_000001);
         assertEq(_wrappedMToken.accruedYieldOf(_dave), 0);
 
         // Assert Globals
-        assertEq(_wrappedMToken.totalEarningSupply(), 152_496403);
-        assertEq(_wrappedMToken.totalNonEarningSupply(), 249_999999);
+        assertEq(_wrappedMToken.totalEarningSupply(), 152_496404);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 249_999998);
         assertEq(_wrappedMToken.totalSupply(), 402_496402);
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
         assertEq(_wrappedMToken.excess(), _excess += 1);
@@ -353,8 +353,8 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.accruedYieldOf(_dave), 0);
 
         // Assert Globals
-        assertEq(_wrappedMToken.totalEarningSupply(), 152_496403);
-        assertEq(_wrappedMToken.totalNonEarningSupply(), 249_999999);
+        assertEq(_wrappedMToken.totalEarningSupply(), 152_496404);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 249_999998);
         assertEq(_wrappedMToken.totalSupply(), 402_496402);
         assertEq(_wrappedMToken.totalAccruedYield(), 3_806926);
         assertEq(_wrappedMToken.excess(), _excess += 6_303332);

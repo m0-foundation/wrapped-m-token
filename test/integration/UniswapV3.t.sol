@@ -54,7 +54,7 @@ contract UniswapV3IntegrationTests is TestBase {
         assertFalse(_wrappedMToken.isEarning(_pool));
     }
 
-    function test_uniswapV3Position_nonEarning() external {
+    function test_uniswapV3_nonEarning() external {
         // NOTE: Give 100e6 more so that rounding errors do not prevent _mintNewPosition of 1_000_000e6.
         _giveM(_alice, 1_000_100e6);
         _wrap(_alice, _alice, 1_000_100e6);
@@ -90,7 +90,7 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(IERC20(_USDC).balanceOf(_pool), 1_000_000e6);
     }
 
-    function test_uniswapV3Position_earning() public {
+    function test_uniswapV3_earning() public {
         // NOTE: Give 100e6 more so that rounding errors do not prevent _mintNewPosition of 1_000_000e6.
         _giveM(_alice, 1_000_100e6);
         _wrap(_alice, _alice, 1_000_100e6);
@@ -141,7 +141,7 @@ contract UniswapV3IntegrationTests is TestBase {
         // Bob decides to swap 1M _USDC in exchange of WM.
         deal(_USDC, _bob, 100_000e6);
 
-        uint256 swapAmountOut_ = _swap(_bob, _bob, _USDC, 100_000e6);
+        uint256 swapAmountOut_ = _swap(_bob, _bob, _USDC, address(_wrappedMToken), 100_000e6);
 
         // Check pool liquidity after the swap
         assertEq(IERC20(_USDC).balanceOf(_bob), 0);
@@ -153,6 +153,17 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= (swapAmountOut_ + 2));
         assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+
+        _addToList(_EARNERS_LIST, _dave);
+        _wrappedMToken.startEarningFor(_dave);
+
+        // NOTE: Give 100e6 more so that rounding errors do not prevent _swap of 1_000_000e6.
+        _giveM(_dave, 100_100e6);
+        _wrap(_dave, _dave, 100_100e6);
+
+        assertEq(_wrappedMToken.balanceOf(_dave), 100_099_999999);
+
+        swapAmountOut_ = _swap(_dave, _dave, address(_wrappedMToken), _USDC, 100_000e6);
     }
 
     function _createPool() internal returns (address pool_) {
@@ -200,13 +211,14 @@ contract UniswapV3IntegrationTests is TestBase {
         address account_,
         address recipient_,
         address tokenIn_,
+        address tokenOut_,
         uint256 amountIn_
     ) internal returns (uint256 amountOut_) {
         _approve(tokenIn_, account_, address(_router), amountIn_);
 
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: tokenIn_,
-            tokenOut: tokenIn_ == _USDC ? address(_wrappedMToken) : _USDC,
+            tokenOut: tokenOut_,
             fee: _POOL_FEE,
             recipient: recipient_,
             deadline: block.timestamp + 30 minutes,
