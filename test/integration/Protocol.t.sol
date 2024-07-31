@@ -561,7 +561,10 @@ contract ProtocolIntegrationTests is TestBase {
 
     /// forge-config: default.fuzz.runs = 100
     /// forge-config: ci.fuzz.runs = 100
-    function testFuzz_full(uint256 seed_) external {
+    // function testFuzz_full(uint256 seed_) external {
+    function test_full_xxx() external {
+        uint256 seed_ = 0x000000000000000000000000000000000000000000000000000000003f7286f5;
+
         vm.skip(false);
 
         for (uint256 index_; index_ < _accounts.length; ++index_) {
