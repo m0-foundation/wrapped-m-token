@@ -216,16 +216,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function accruedYieldOf(address account_) public view returns (uint240 yield_) {
         if (!_accounts[account_].isEarning) return 0;
 
-        uint240 startingBalance_ = _accounts[account_].balance;
-
-        uint240 endingBalance_ = IndexingMath.getPresentAmountRoundedDown(
-            IndexingMath.getPrincipalAmountRoundedDown(startingBalance_, _accounts[account_].lastIndex),
-            currentIndex()
-        );
-
-        unchecked {
-            return (endingBalance_ <= startingBalance_) ? 0 : endingBalance_ - startingBalance_;
-        }
+        return _getAccruedYield(_accounts[account_].balance, _accounts[account_].lastIndex, currentIndex());
     }
 
     /// @inheritdoc IERC20
@@ -296,7 +287,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IERC20
-    function totalSupply() public view returns (uint256 totalSupply_) {
+    function totalSupply() external view returns (uint256 totalSupply_) {
         return totalEarningSupply() + totalNonEarningSupply;
     }
 
@@ -422,19 +413,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         uint240 startingBalance_ = _accounts[account_].balance;
 
-        uint240 endingBalance_ = IndexingMath.getPresentAmountRoundedDown(
-            IndexingMath.getPrincipalAmountRoundedDown(startingBalance_, index_),
-            currentIndex_
-        );
+        yield_ = _getAccruedYield(startingBalance_, index_, currentIndex_);
 
         _accounts[account_].lastIndex = currentIndex_;
 
         unchecked {
-            if (endingBalance_ <= startingBalance_) return 0;
+            if (yield_ == 0) return 0;
 
-            yield_ = endingBalance_ - startingBalance_;
-
-            _accounts[account_].balance = (startingBalance_ + yield_);
+            _accounts[account_].balance = startingBalance_ + yield_;
 
             // Update the total earning supply to account for the yield, where the principal has not changed.
             _setTotalEarningSupply(totalEarningSupply() + yield_, _principalOfTotalEarningSupply);
@@ -547,6 +533,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param principal_ The principal amount of total earning supply.
      */
     function _setTotalEarningSupply(uint240 amount_, uint112 principal_) internal {
+        // NOTE: Rounding down here ensures `totalEarningSupply()` is its largest conservative estimate.
         _indexOfTotalEarningSupply = (principal_ == 0) ? 0 : IndexingMath.divide240by112Down(amount_, principal_);
         _principalOfTotalEarningSupply = principal_;
     }
@@ -585,14 +572,36 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Internal View/Pure Functions ============ */
 
-    /// @dev  Returns the current index of the M Token.
+    /// @dev Returns the current index of the M Token.
     function _currentMIndex() internal view returns (uint128 index_) {
         return IMTokenLike(mToken).currentIndex();
     }
 
-    /// @dev  Returns the earning index from the last `disableEarning` call.
+    /// @dev Returns the earning index from the last `disableEarning` call.
     function _lastDisableEarningIndex() internal view returns (uint128 index_) {
         return wasEarningEnabled() ? _unsafeAccess(_enableDisableEarningIndices, 1) : 0;
+    }
+
+    /**
+     * @dev    Compute the yield given an account's balance, last index, and the current index.
+     * @param  balance_      The token balance of an earning account.
+     * @param  lastIndex_    The index of ast interaction for the account.
+     * @param  currentIndex_ The current index.
+     * @return yield_        The yield accrued since the last interaction.
+     */
+    function _getAccruedYield(
+        uint240 balance_,
+        uint128 lastIndex_,
+        uint128 currentIndex_
+    ) internal pure returns (uint240 yield_) {
+        uint240 balanceWithYield_ = IndexingMath.getPresentAmountRoundedDown(
+            IndexingMath.getPrincipalAmountRoundedDown(balance_, lastIndex_),
+            currentIndex_
+        );
+
+        unchecked {
+            return (balanceWithYield_ <= balance_) ? 0 : balanceWithYield_ - balance_;
+        }
     }
 
     /// @dev Returns the address of the contract to use as a migrator, if any.
