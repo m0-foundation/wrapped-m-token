@@ -8,22 +8,19 @@ contract WrappedMTokenHarness is WrappedMToken {
     constructor(address mToken_, address migrationAdmin_) WrappedMToken(mToken_, migrationAdmin_) {}
 
     function setIsEarningOf(address account_, bool isEarning_) external {
-        (, uint128 index_, , uint240 balance_) = _getBalanceInfo(account_);
-        _setBalanceInfo(account_, isEarning_, index_, balance_);
+        _accounts[account_].isEarning = isEarning_;
     }
 
-    function setIndexOf(address account_, uint256 index_) external {
-        (bool isEarning_, , , uint240 balance_) = _getBalanceInfo(account_);
-        _setBalanceInfo(account_, isEarning_, uint128(index_), balance_);
+    function setLastIndexOf(address account_, uint256 index_) external {
+        _accounts[account_].lastIndex = uint128(index_);
     }
 
-    function setBalanceOf(address account_, uint256 balance_) external {
-        (bool isEarning_, uint128 index_, , ) = _getBalanceInfo(account_);
-        _setBalanceInfo(account_, isEarning_, index_, uint240(balance_));
+    function setAccountOf(address account_, uint256 balance_, uint256 index_) external {
+        _accounts[account_] = Account(true, uint240(balance_), uint128(index_));
     }
 
-    function setAccountOf(address account_, bool isEarning_, uint256 index_, uint256 balance_) external {
-        _setBalanceInfo(account_, isEarning_, uint128(index_), uint240(balance_));
+    function setAccountOf(address account_, uint256 balance_) external {
+        _accounts[account_] = Account(false, uint240(balance_), 0);
     }
 
     function setTotalNonEarningSupply(uint256 totalNonEarningSupply_) external {
@@ -34,26 +31,12 @@ contract WrappedMTokenHarness is WrappedMToken {
         _principalOfTotalEarningSupply = uint112(principalOfTotalEarningSupply_);
     }
 
-    function setIndexOfTotalEarningSupply(uint256 indexOfTotalEarningSupply_) external {
+    function setLastIndexOfTotalEarningSupply(uint256 indexOfTotalEarningSupply_) external {
         _indexOfTotalEarningSupply = uint128(indexOfTotalEarningSupply_);
     }
 
-    function internalBalanceInfo(
-        address account_
-    ) external view returns (bool isEarning_, uint128 index_, uint112 principal_, uint240 balance_) {
-        (isEarning_, index_, principal_, balance_) = _getBalanceInfo(account_);
-    }
-
-    function internalBalanceOf(address account_) external view returns (uint240 balance_) {
-        (, , , balance_) = _getBalanceInfo(account_);
-    }
-
-    function internalIndexOf(address account_) external view returns (uint128 index_) {
-        (, index_, , ) = _getBalanceInfo(account_);
-    }
-
-    function internalPrincipalOf(address account_) external view returns (uint112 principal_) {
-        (, , principal_, ) = _getBalanceInfo(account_);
+    function lastIndexOf(address account_) external view returns (uint128 index_) {
+        return _accounts[account_].lastIndex;
     }
 
     function principalOfTotalEarningSupply() external view returns (uint240 principalOfTotalEarningSupply_) {

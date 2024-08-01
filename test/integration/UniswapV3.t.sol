@@ -119,7 +119,7 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(_wrappedMToken.claimOverrideRecipientFor(_pool), _carol);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= 1);
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
         assertEq(_wrappedMToken.accruedYieldOf(_pool), 0);
 
         // Move 1 year forward and check that yield has accrued
@@ -130,7 +130,7 @@ contract UniswapV3IntegrationTests is TestBase {
 
         // `startEarningFor` has been called so WM yield has accrued in the pool.
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 51_271_096376);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 51_271_096375);
 
         // No excess yield has accrued in the wrapped M contract since the pool is the only earner.
         assertEq(_wrappedMToken.excess(), 5_127109);
@@ -149,10 +149,26 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.balanceOf(_bob), swapAmountOut_);
 
         // The swap has triggered a WM transfer and the yield has been claimed toi carol for the pool.
-        assertEq(_wrappedMToken.balanceOf(_carol), _poolAccruedYield);
+        assertEq(_wrappedMToken.balanceOf(_carol), 51_271_096375); // _poolAccruedYield
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= (swapAmountOut_ + 2));
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= swapAmountOut_);
         assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+
+        // Move 1 year forward and check that yield has accrued
+        vm.warp(block.timestamp + 365 days);
+
+        // Wrapped M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 53_905_211681);
+
+        // `startEarningFor` has been called so WM yield has accrued in the pool.
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 46_610_511346);
+
+        // No excess yield has accrued in the wrapped M contract since the pool is the only earner.
+        assertEq(_wrappedMToken.excess(), 7299_827442);
+
+        // _USDC balance is unchanged since no swap has been performed.
+        assertEq(IERC20(_USDC).balanceOf(_pool), 1_100_000e6);
 
         _addToList(_EARNERS_LIST, _dave);
         _wrappedMToken.startEarningFor(_dave);
@@ -164,6 +180,17 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.balanceOf(_dave), 100_099_999999);
 
         swapAmountOut_ = _swap(_dave, _dave, address(_wrappedMToken), _USDC, 100_000e6);
+
+        // Check pool liquidity after the swap
+        assertEq(IERC20(_USDC).balanceOf(_bob), 0);
+        assertEq(IERC20(_USDC).balanceOf(_pool), 991_002_695340);
+        assertEq(_wrappedMToken.balanceOf(_bob), 90_900_826360);
+
+        // The swap has triggered a WM transfer and the yield has been claimed toi carol for the pool.
+        assertEq(_wrappedMToken.balanceOf(_carol), 97_881_607721); // previous + _poolAccruedYield
+
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
     }
 
     function _createPool() internal returns (address pool_) {
