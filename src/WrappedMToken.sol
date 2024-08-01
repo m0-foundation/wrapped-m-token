@@ -155,15 +155,17 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (!isEarningEnabled()) revert EarningIsDisabled();
 
-        if (_accounts[account_].isEarning) return;
+        Account storage accountInfo_ = _accounts[account_];
+
+        if (accountInfo_.isEarning) return;
 
         // NOTE: Use `currentIndex()` if/when upgrading to support `startEarningFor` while earning is disabled.
         uint128 currentIndex_ = _currentMIndex();
 
-        _accounts[account_].isEarning = true;
-        _accounts[account_].lastIndex = currentIndex_;
+        accountInfo_.isEarning = true;
+        accountInfo_.lastIndex = currentIndex_;
 
-        uint240 balance_ = _accounts[account_].balance;
+        uint240 balance_ = accountInfo_.balance;
 
         _addTotalEarningSupply(balance_, currentIndex_);
 
@@ -182,12 +184,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         _claim(account_, currentIndex_);
 
-        if (!_accounts[account_].isEarning) return;
+        Account storage accountInfo_ = _accounts[account_];
 
-        _accounts[account_].isEarning = false;
-        _accounts[account_].lastIndex = 0;
+        if (!accountInfo_.isEarning) return;
 
-        uint240 balance_ = _accounts[account_].balance;
+        accountInfo_.isEarning = false;
+        accountInfo_.lastIndex = 0;
+
+        uint240 balance_ = accountInfo_.balance;
 
         _subtractTotalEarningSupply(balance_, currentIndex_);
 
@@ -214,18 +218,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function accruedYieldOf(address account_) public view returns (uint240 yield_) {
-        if (!_accounts[account_].isEarning) return 0;
+        Account storage accountInfo_ = _accounts[account_];
 
-        uint240 startingBalance_ = _accounts[account_].balance;
+        if (!accountInfo_.isEarning) return 0;
 
-        uint240 endingBalance_ = IndexingMath.getPresentAmountRoundedDown(
-            IndexingMath.getPrincipalAmountRoundedDown(startingBalance_, _accounts[account_].lastIndex),
-            currentIndex()
-        );
-
-        unchecked {
-            return (endingBalance_ <= startingBalance_) ? 0 : endingBalance_ - startingBalance_;
-        }
+        return _getAccruedYield(accountInfo_.balance, accountInfo_.lastIndex, currentIndex());
     }
 
     /// @inheritdoc IERC20
@@ -296,7 +293,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IERC20
-    function totalSupply() public view returns (uint256 totalSupply_) {
+    function totalSupply() external view returns (uint256 totalSupply_) {
         return totalEarningSupply() + totalNonEarningSupply;
     }
 
@@ -367,11 +364,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _subtractNonEarningAmount(address account_, uint240 amount_) internal {
         unchecked {
-            uint240 balance_ = _accounts[account_].balance;
+            Account storage accountInfo_ = _accounts[account_];
+
+            uint240 balance_ = accountInfo_.balance;
 
             if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
 
-            _accounts[account_].balance -= amount_;
+            accountInfo_.balance = balance_ - amount_;
             totalNonEarningSupply -= amount_;
         }
     }
@@ -398,11 +397,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _subtractEarningAmount(address account_, uint240 amount_, uint128 currentIndex_) internal {
         unchecked {
-            uint240 balance_ = _accounts[account_].balance;
+            Account storage accountInfo_ = _accounts[account_];
+
+            uint240 balance_ = accountInfo_.balance;
 
             if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
 
-            _accounts[account_].balance -= amount_;
+            accountInfo_.balance = balance_ - amount_;
             _subtractTotalEarningSupply(amount_, currentIndex_);
         }
     }
@@ -414,27 +415,24 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return yield_        The accrued yield that was claimed.
      */
     function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
-        if (!_accounts[account_].isEarning) return 0;
+        Account storage accountInfo_ = _accounts[account_];
 
-        uint128 index_ = _accounts[account_].lastIndex;
+        if (!accountInfo_.isEarning) return 0;
+
+        uint128 index_ = accountInfo_.lastIndex;
 
         if (currentIndex_ == index_) return 0;
 
-        uint240 startingBalance_ = _accounts[account_].balance;
+        uint240 startingBalance_ = accountInfo_.balance;
 
-        uint240 endingBalance_ = IndexingMath.getPresentAmountRoundedDown(
-            IndexingMath.getPrincipalAmountRoundedDown(startingBalance_, index_),
-            currentIndex_
-        );
+        yield_ = _getAccruedYield(startingBalance_, index_, currentIndex_);
 
-        _accounts[account_].lastIndex = currentIndex_;
+        accountInfo_.lastIndex = currentIndex_;
 
         unchecked {
-            if (endingBalance_ <= startingBalance_) return 0;
+            if (yield_ == 0) return 0;
 
-            yield_ = endingBalance_ - startingBalance_;
-
-            _accounts[account_].balance = (startingBalance_ + yield_);
+            accountInfo_.balance = startingBalance_ + yield_;
 
             // Update the total earning supply to account for the yield, where the principal has not changed.
             _setTotalEarningSupply(totalEarningSupply() + yield_, _principalOfTotalEarningSupply);
@@ -472,26 +470,29 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         emit Transfer(sender_, recipient_, amount_);
 
+        Account storage senderAccountInfo_ = _accounts[sender_];
+        Account storage recipientAccountInfo_ = _accounts[recipient_];
+
         // If the sender and recipient are both earning or both non-earning, update their balances without affecting
         // the total earning and non-earning supply storage variables.
-        if (_accounts[sender_].isEarning == _accounts[recipient_].isEarning) {
-            uint240 senderBalance_ = _accounts[sender_].balance;
+        if (senderAccountInfo_.isEarning == recipientAccountInfo_.isEarning) {
+            uint240 senderBalance_ = senderAccountInfo_.balance;
 
             if (senderBalance_ < amount_) revert InsufficientBalance(sender_, senderBalance_, amount_);
 
             unchecked {
-                _accounts[sender_].balance = senderBalance_ - amount_;
-                _accounts[recipient_].balance += amount_;
+                senderAccountInfo_.balance = senderBalance_ - amount_;
+                recipientAccountInfo_.balance += amount_;
             }
 
             return;
         }
 
-        _accounts[sender_].isEarning
+        senderAccountInfo_.isEarning
             ? _subtractEarningAmount(sender_, amount_, currentIndex_)
             : _subtractNonEarningAmount(sender_, amount_);
 
-        _accounts[recipient_].isEarning
+        recipientAccountInfo_.isEarning
             ? _addEarningAmount(recipient_, amount_, currentIndex_)
             : _addNonEarningAmount(recipient_, amount_);
     }
@@ -547,6 +548,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param principal_ The principal amount of total earning supply.
      */
     function _setTotalEarningSupply(uint240 amount_, uint112 principal_) internal {
+        // NOTE: Rounding down here ensures `totalEarningSupply()` is its largest conservative estimate.
         _indexOfTotalEarningSupply = (principal_ == 0) ? 0 : IndexingMath.divide240by112Down(amount_, principal_);
         _principalOfTotalEarningSupply = principal_;
     }
@@ -585,14 +587,36 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Internal View/Pure Functions ============ */
 
-    /// @dev  Returns the current index of the M Token.
+    /// @dev Returns the current index of the M Token.
     function _currentMIndex() internal view returns (uint128 index_) {
         return IMTokenLike(mToken).currentIndex();
     }
 
-    /// @dev  Returns the earning index from the last `disableEarning` call.
+    /// @dev Returns the earning index from the last `disableEarning` call.
     function _lastDisableEarningIndex() internal view returns (uint128 index_) {
         return wasEarningEnabled() ? _unsafeAccess(_enableDisableEarningIndices, 1) : 0;
+    }
+
+    /**
+     * @dev    Compute the yield given an account's balance, last index, and the current index.
+     * @param  balance_      The token balance of an earning account.
+     * @param  lastIndex_    The index of ast interaction for the account.
+     * @param  currentIndex_ The current index.
+     * @return yield_        The yield accrued since the last interaction.
+     */
+    function _getAccruedYield(
+        uint240 balance_,
+        uint128 lastIndex_,
+        uint128 currentIndex_
+    ) internal pure returns (uint240 yield_) {
+        uint240 balanceWithYield_ = IndexingMath.getPresentAmountRoundedDown(
+            IndexingMath.getPrincipalAmountRoundedDown(balance_, lastIndex_),
+            currentIndex_
+        );
+
+        unchecked {
+            return (balanceWithYield_ <= balance_) ? 0 : balanceWithYield_ - balance_;
+        }
     }
 
     /// @dev Returns the address of the contract to use as a migrator, if any.

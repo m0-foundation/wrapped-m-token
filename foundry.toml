@@ -18,7 +18,7 @@ build_info = true
 sizes = true
 
 [fuzz]
-runs = 5_000
+runs = 100
 
 [invariant]
 runs = 512            # The number of calls to make in the invariant tests
@@ -27,6 +27,7 @@ fail_on_revert = true # Fail the test if the contract reverts
 
 [profile.ci]
 optimizer = true
+optimizer_runs = 999999
 
 [profile.ci.fuzz]
 runs = 10_000
