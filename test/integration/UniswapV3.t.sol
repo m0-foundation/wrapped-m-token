@@ -203,7 +203,7 @@ contract UniswapV3IntegrationTests is TestBase {
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC);
 
-        /* ============ Dave Swaps Exact wM for USDC ============ */
+        /* ============ Dave (Earner) Swaps Exact wM for USDC ============ */
 
         _addToList(_EARNERS_LIST, _dave);
         _wrappedMToken.startEarningFor(_dave);
@@ -217,15 +217,151 @@ contract UniswapV3IntegrationTests is TestBase {
 
         swapAmountOut_ = _swapExactInput(_dave, _dave, address(_wrappedMToken), _USDC, 100_000e6);
 
-        // Check pool liquidity after the swap
-        assertEq(IERC20(_USDC).balanceOf(_dave), _daveBalanceOfUSDC += 108_997_304660);
-        assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= 108_997_304660);
-        assertEq(_wrappedMToken.balanceOf(_bob), _daveBalanceOfWM -= 9_199_173639);
+        // Check pool liquidity after the swap.
+        assertEq(IERC20(_USDC).balanceOf(_dave), _daveBalanceOfUSDC += swapAmountOut_);
+        assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= swapAmountOut_);
 
         // The swap has triggered a wM transfer and the yield has been claimed to carol for the pool.
         assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+    }
+
+    function testFuzz_uniswapV3_earning(uint256 aliceAmount_, uint256 bobUsdc_, uint256 daveWrappedM_) public {
+        aliceAmount_ = bound(aliceAmount_, 1e6, _mToken.balanceOf(_mSource) / 10);
+        bobUsdc_ = bound(bobUsdc_, 1e6, 1e12);
+        daveWrappedM_ = bound(daveWrappedM_, 1e6, _mToken.balanceOf(_mSource) / 10);
+
+        /* ============ Alice Mints New LP Position ============ */
+
+        _giveM(_alice, aliceAmount_ + 2);
+        _wrap(_alice, _alice, aliceAmount_ + 2);
+
+        assertApproxEqAbs(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += aliceAmount_, 3);
+
+        deal(_USDC, _alice, aliceAmount_);
+
+        _mintNewPosition(_alice, _alice, aliceAmount_);
+
+        assertApproxEqAbs(_wrappedMToken.balanceOf(_alice), 0, 10);
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += aliceAmount_);
+
+        assertEq(IERC20(_USDC).balanceOf(_alice), 0);
+        assertEq(IERC20(_USDC).balanceOf(_pool), aliceAmount_);
+
+        /* ============ Pool Becomes An Earner ============ */
+
+        _setClaimOverrideRecipient(_pool, _carol);
+
+        _addToList(_EARNERS_LIST, _pool);
+        _wrappedMToken.startEarningFor(_pool);
+
+        // Check that the pool is earning WM
+        assertTrue(_wrappedMToken.isEarning(_pool));
+
+        assertEq(_wrappedMToken.claimOverrideRecipientFor(_pool), _carol);
+
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield);
+
+        /* ============ First 1-Year Time Warp ============ */
+
+        uint128 index_ = _mToken.currentIndex();
+
+        // Move 1 year forward and check that yield has accrued.
+        vm.warp(vm.getBlockTimestamp() + 365 days);
+
+        uint128 newIndex_ = _mToken.currentIndex();
+
+        // Wrapped M is earning M and has accrued yield.
+        assertApproxEqAbs(
+            _mToken.balanceOf(address(_wrappedMToken)),
+            _wrapperBalanceOfM = (_wrapperBalanceOfM * newIndex_) / index_,
+            10
+        );
+
+        // `startEarningFor` has been called so WM yield has accrued in the pool.
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
+
+        assertApproxEqAbs(
+            _poolAccruedYield += _wrappedMToken.accruedYieldOf(_pool),
+            (_poolBalanceOfWM * newIndex_) / index_ - _poolBalanceOfWM,
+            10
+        );
+
+        // No excess yield has accrued in the wrapped M contract since the pool is the only earner.
+        assertApproxEqAbs(_wrappedMToken.excess(), 0, 10);
+
+        // _USDC balance is unchanged since no swap has been performed.
+        assertEq(IERC20(_USDC).balanceOf(_pool), aliceAmount_);
+
+        /* ============ Bob Swaps Exact USDC for wM ============ */
+
+        deal(_USDC, _bob, bobUsdc_);
+
+        uint256 swapOutWM_ = _swapExactInput(_bob, _bob, _USDC, address(_wrappedMToken), bobUsdc_);
+
+        // Check pool liquidity after the swap
+        assertEq(IERC20(_USDC).balanceOf(_bob), 0);
+        assertEq(IERC20(_USDC).balanceOf(_pool), aliceAmount_ + bobUsdc_);
+        assertEq(_wrappedMToken.balanceOf(_bob), swapOutWM_);
+
+        // The swap has triggered a wM transfer and the yield has been claimed to carol for the pool.
+        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= swapOutWM_);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+
+        /* ============ Second 1-Year Time Warp ============ */
+
+        index_ = _mToken.currentIndex();
+
+        // Move 1 year forward and check that yield has accrued.
+        vm.warp(vm.getBlockTimestamp() + 365 days);
+
+        newIndex_ = _mToken.currentIndex();
+
+        // Wrapped M is earning M and has accrued yield.
+        assertApproxEqAbs(
+            _mToken.balanceOf(address(_wrappedMToken)),
+            _wrapperBalanceOfM = (_wrapperBalanceOfM * newIndex_) / index_,
+            10
+        );
+
+        // `startEarningFor` has been called so WM yield has accrued in the pool.
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
+
+        assertApproxEqAbs(
+            _poolAccruedYield += _wrappedMToken.accruedYieldOf(_pool),
+            (_poolBalanceOfWM * newIndex_) / index_ - _poolBalanceOfWM,
+            10
+        );
+
+        // USDC balance is unchanged since no swap has been performed.
+        assertEq(IERC20(_USDC).balanceOf(_pool), aliceAmount_ + bobUsdc_);
+
+        /* ============ Dave (Earner) Swaps Exact wM for USDC ============ */
+
+        _addToList(_EARNERS_LIST, _dave);
+        _wrappedMToken.startEarningFor(_dave);
+
+        // NOTE: Give 2 more so that rounding errors do not prevent _swap.
+        _giveM(_dave, daveWrappedM_ + 2);
+        _wrap(_dave, _dave, daveWrappedM_ + 2);
+
+        assertApproxEqAbs(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += daveWrappedM_, 6);
+
+        uint256 swapOutUSDC_ = _swapExactInput(_dave, _dave, address(_wrappedMToken), _USDC, daveWrappedM_);
+
+        // Check pool liquidity after the swap.
+        assertEq(IERC20(_USDC).balanceOf(_dave), swapOutUSDC_);
+        assertEq(IERC20(_USDC).balanceOf(_pool), aliceAmount_ + bobUsdc_ - swapOutUSDC_);
+
+        // The swap has triggered a wM transfer and the yield has been claimed to carol for the pool.
+        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += daveWrappedM_);
         assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
     }
 
