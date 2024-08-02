@@ -15,9 +15,7 @@ import { Proxy } from "../src/Proxy.sol";
 import { MockM, MockRegistrar } from "./utils/Mocks.sol";
 import { WrappedMTokenHarness } from "./utils/WrappedMTokenHarness.sol";
 
-// NOTE: Due to `_indexOfTotalEarningSupply` a helper to overestimate `totalEarningSupply()`, there is little reason
-//       to programmatically expect its value rather than ensuring `totalEarningSupply()` is acceptable.
-
+// TODO: Test for `totalAccruedYield()`.
 // TODO: All operations involving earners should include demonstration of accrued yield being added t their balance.
 
 contract WrappedMTokenTests is Test {
@@ -116,8 +114,8 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 1_000);
+        assertEq(_wrappedMToken.totalEarningSupply(), 0);
         assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
-        assertEq(_wrappedMToken.indexOfTotalEarningSupply(), 0);
     }
 
     function test_wrap_toEarner() external {
@@ -197,16 +195,16 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.balanceOf(_alice), 500);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 500);
+        assertEq(_wrappedMToken.totalEarningSupply(), 0);
         assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
-        assertEq(_wrappedMToken.indexOfTotalEarningSupply(), 0);
 
         vm.prank(_alice);
         _wrappedMToken.unwrap(_alice, 500);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
+        assertEq(_wrappedMToken.totalEarningSupply(), 0);
         assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
-        assertEq(_wrappedMToken.indexOfTotalEarningSupply(), 0);
     }
 
     function test_unwrap_fromEarner() external {
@@ -215,9 +213,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.enableEarning();
 
         _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
-        _wrappedMToken.setLastIndexOfTotalEarningSupply(_currentIndex);
-
-        assertEq(_wrappedMToken.totalEarningSupply(), 1_000);
+        _wrappedMToken.setTotalEarningSupply(1_000);
 
         _wrappedMToken.setAccountOf(_alice, 1_000, _currentIndex);
 
@@ -309,8 +305,8 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.balanceOf(_bob), 1_000);
 
         assertEq(_wrappedMToken.totalNonEarningSupply(), 1_500);
+        assertEq(_wrappedMToken.totalEarningSupply(), 0);
         assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
-        assertEq(_wrappedMToken.indexOfTotalEarningSupply(), 0);
     }
 
     function testFuzz_transfer_fromNonEarner_toNonEarner(
@@ -335,8 +331,8 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.balanceOf(_bob), bobBalance + transferAmount_);
 
         assertEq(_wrappedMToken.totalNonEarningSupply(), supply_);
+        assertEq(_wrappedMToken.totalEarningSupply(), 0);
         assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
-        assertEq(_wrappedMToken.indexOfTotalEarningSupply(), 0);
     }
 
     function test_transfer_fromEarner_toNonEarner() external {
@@ -345,9 +341,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.enableEarning();
 
         _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
-        _wrappedMToken.setLastIndexOfTotalEarningSupply(_currentIndex);
-
-        assertEq(_wrappedMToken.totalEarningSupply(), 1_000);
+        _wrappedMToken.setTotalEarningSupply(1_000);
 
         _wrappedMToken.setTotalNonEarningSupply(500);
 
@@ -383,9 +377,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.enableEarning();
 
         _wrappedMToken.setPrincipalOfTotalEarningSupply(454);
-        _wrappedMToken.setLastIndexOfTotalEarningSupply(_currentIndex);
-
-        assertEq(_wrappedMToken.totalEarningSupply(), 500);
+        _wrappedMToken.setTotalEarningSupply(500);
 
         _wrappedMToken.setTotalNonEarningSupply(1_000);
 
@@ -410,9 +402,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.enableEarning();
 
         _wrappedMToken.setPrincipalOfTotalEarningSupply(1_363);
-        _wrappedMToken.setLastIndexOfTotalEarningSupply(_currentIndex);
-
-        assertEq(_wrappedMToken.totalEarningSupply(), 1_500);
+        _wrappedMToken.setTotalEarningSupply(1_500);
 
         _wrappedMToken.setAccountOf(_alice, 1_000, _currentIndex);
         _wrappedMToken.setAccountOf(_bob, 500, _currentIndex);
@@ -441,8 +431,8 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
 
         assertEq(_wrappedMToken.totalNonEarningSupply(), 1_000);
+        assertEq(_wrappedMToken.totalEarningSupply(), 0);
         assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
-        assertEq(_wrappedMToken.indexOfTotalEarningSupply(), 0);
     }
 
     function test_transfer_earnerToSelf() external {
@@ -451,9 +441,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.enableEarning();
 
         _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
-        _wrappedMToken.setLastIndexOfTotalEarningSupply(_currentIndex);
-
-        assertEq(_wrappedMToken.totalEarningSupply(), 1_000);
+        _wrappedMToken.setTotalEarningSupply(1_000);
 
         _wrappedMToken.setAccountOf(_alice, 1_000, _currentIndex);
 
@@ -549,7 +537,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.enableEarning();
 
         _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
-        _wrappedMToken.setLastIndexOfTotalEarningSupply(_currentIndex);
+        _wrappedMToken.setTotalEarningSupply(1_000);
 
         _wrappedMToken.setAccountOf(_alice, 999, _currentIndex);
 
@@ -663,25 +651,6 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
     }
 
-    /* ============ totalNonEarningSupply ============ */
-    function test_totalNonEarningSupply() external {
-        _wrappedMToken.setTotalNonEarningSupply(500);
-
-        assertEq(_wrappedMToken.totalNonEarningSupply(), 500);
-
-        _wrappedMToken.setTotalNonEarningSupply(1_000);
-
-        assertEq(_wrappedMToken.totalNonEarningSupply(), 1_000);
-    }
-
-    function test_totalEarningSupply() external {
-        // TODO: more variations
-        _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
-        _wrappedMToken.setLastIndexOfTotalEarningSupply(_currentIndex);
-
-        assertEq(_wrappedMToken.totalEarningSupply(), 1_000);
-    }
-
     /* ============ totalSupply ============ */
     function test_totalSupply_onlyTotalNonEarningSupply() external {
         _wrappedMToken.setTotalNonEarningSupply(500);
@@ -694,25 +663,29 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_totalSupply_onlyTotalEarningSupply() external {
-        // TODO: more variations
-        _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
-        _wrappedMToken.setLastIndexOfTotalEarningSupply(_currentIndex);
+        _wrappedMToken.setTotalEarningSupply(500);
+
+        assertEq(_wrappedMToken.totalSupply(), 500);
+
+        _wrappedMToken.setTotalEarningSupply(1_000);
 
         assertEq(_wrappedMToken.totalSupply(), 1_000);
     }
 
     function test_totalSupply() external {
-        // TODO: more variations
-        _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
-        _wrappedMToken.setLastIndexOfTotalEarningSupply(_currentIndex);
+        _wrappedMToken.setTotalEarningSupply(400);
 
-        _wrappedMToken.setTotalNonEarningSupply(500);
+        _wrappedMToken.setTotalNonEarningSupply(600);
 
-        assertEq(_wrappedMToken.totalSupply(), 1_500);
+        assertEq(_wrappedMToken.totalSupply(), 1_000);
+
+        _wrappedMToken.setTotalEarningSupply(700);
+
+        assertEq(_wrappedMToken.totalSupply(), 1_300);
 
         _wrappedMToken.setTotalNonEarningSupply(1_000);
 
-        assertEq(_wrappedMToken.totalSupply(), 2_000);
+        assertEq(_wrappedMToken.totalSupply(), 1_700);
     }
 
     /* ============ currentIndex ============ */
@@ -751,9 +724,5 @@ contract WrappedMTokenTests is Test {
 
     function _getPresentAmountRoundedDown(uint112 principalAmount_, uint128 index_) internal pure returns (uint240) {
         return IndexingMath.multiply112By128Down(principalAmount_, index_);
-    }
-
-    function _getPresentAmountRoundedUp(uint112 principalAmount_, uint128 index_) internal pure returns (uint240) {
-        return IndexingMath.multiply112By128Up(principalAmount_, index_);
     }
 }

@@ -35,47 +35,34 @@ library Invariants {
         //     IWrappedMToken(wrappedMToken_).totalNonEarningSupply()
         // );
 
-        if (totalNonEarningSupply_ > IWrappedMToken(wrappedMToken_).totalNonEarningSupply()) return false;
+        if (totalNonEarningSupply_ != IWrappedMToken(wrappedMToken_).totalNonEarningSupply()) return false;
 
         // console2.log("Invariant 1: totalEarningSupply_  = %d ", totalEarningSupply_);
         // console2.log("Invariant 1: totalEarningSupply() = %d", IWrappedMToken(wrappedMToken_).totalEarningSupply());
 
-        if (totalEarningSupply_ > IWrappedMToken(wrappedMToken_).totalEarningSupply()) return false;
+        if (totalEarningSupply_ != IWrappedMToken(wrappedMToken_).totalEarningSupply()) return false;
 
         // console2.log("Invariant 1: totalSupply_  = %d ", totalSupply_);
         // console2.log("Invariant 1: totalSupply() = %d", IWrappedMToken(wrappedMToken_).totalSupply());
 
-        if (totalSupply_ > IWrappedMToken(wrappedMToken_).totalSupply()) return false;
+        if (totalSupply_ != IWrappedMToken(wrappedMToken_).totalSupply()) return false;
 
         return true;
     }
 
-    // Invariant 2: Sum of all earning accounts' balance and accrued yield is less than or equal to total earning supply and
-    //              total accrued yield.
+    // Invariant 2: Sum of all accounts' accrued yield is less than or equal to total accrued yield.
     function checkInvariant2(address wrappedMToken_, address[] memory accounts_) internal view returns (bool success_) {
-        uint256 totalEarningSupplyAndAccruedYield_;
+        uint256 totalAccruedYield_;
 
         for (uint256 index_; index_ < accounts_.length; ++index_) {
-            if (!IWrappedMToken(wrappedMToken_).isEarning(accounts_[index_])) continue;
-
-            totalEarningSupplyAndAccruedYield_ +=
-                IWrappedMToken(wrappedMToken_).balanceOf(accounts_[index_]) +
-                IWrappedMToken(wrappedMToken_).accruedYieldOf(accounts_[index_]);
+            totalAccruedYield_ += IWrappedMToken(wrappedMToken_).accruedYieldOf(accounts_[index_]);
         }
 
-        // console2.log(
-        //     "Invariant 2: totalEarningSupplyAndAccruedYield_         = %d ",
-        //     totalEarningSupplyAndAccruedYield_
-        // );
+        // console2.log("Invariant 2: totalAccruedYield_  = %d ", totalAccruedYield_);
 
-        // console2.log(
-        //     "Invariant 2: totalEarningSupply() + totalAccruedYield() = %d",
-        //     IWrappedMToken(wrappedMToken_).totalEarningSupply() + IWrappedMToken(wrappedMToken_).totalAccruedYield()
-        // );
+        // console2.log("Invariant 2: totalAccruedYield() = %d", IWrappedMToken(wrappedMToken_).totalAccruedYield());
 
-        return
-            IWrappedMToken(wrappedMToken_).totalEarningSupply() + IWrappedMToken(wrappedMToken_).totalAccruedYield() >=
-            totalEarningSupplyAndAccruedYield_;
+        return IWrappedMToken(wrappedMToken_).totalAccruedYield() >= totalAccruedYield_;
     }
 
     // Invariant 3: M Balance of wrapper is greater or equal to total supply, accrued yield, and excess.
