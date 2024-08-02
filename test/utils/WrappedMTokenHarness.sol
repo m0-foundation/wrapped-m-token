@@ -27,12 +27,12 @@ contract WrappedMTokenHarness is WrappedMToken {
         totalNonEarningSupply = uint240(totalNonEarningSupply_);
     }
 
-    function setPrincipalOfTotalEarningSupply(uint256 principalOfTotalEarningSupply_) external {
-        _principalOfTotalEarningSupply = uint112(principalOfTotalEarningSupply_);
+    function setTotalEarningSupply(uint256 totalEarningSupply_) external {
+        totalEarningSupply = uint240(totalEarningSupply_);
     }
 
-    function setLastIndexOfTotalEarningSupply(uint256 indexOfTotalEarningSupply_) external {
-        _indexOfTotalEarningSupply = uint128(indexOfTotalEarningSupply_);
+    function setPrincipalOfTotalEarningSupply(uint256 principalOfTotalEarningSupply_) external {
+        _principalOfTotalEarningSupply = uint112(principalOfTotalEarningSupply_);
     }
 
     function lastIndexOf(address account_) external view returns (uint128 index_) {
@@ -41,9 +41,5 @@ contract WrappedMTokenHarness is WrappedMToken {
 
     function principalOfTotalEarningSupply() external view returns (uint240 principalOfTotalEarningSupply_) {
         principalOfTotalEarningSupply_ = _principalOfTotalEarningSupply;
-    }
-
-    function indexOfTotalEarningSupply() external view returns (uint128 indexOfTotalEarningSupply_) {
-        indexOfTotalEarningSupply_ = _indexOfTotalEarningSupply;
     }
 }

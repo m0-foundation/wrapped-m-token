@@ -133,7 +133,7 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 51_271_096375);
 
         // No excess yield has accrued in the wrapped M contract since the pool is the only earner.
-        assertEq(_wrappedMToken.excess(), 5_127109);
+        assertEq(_wrappedMToken.excess(), 5_127110);
 
         // _USDC balance is unchanged since no swap has been performed.
         assertEq(IERC20(_USDC).balanceOf(_pool), 1_000_000e6);
@@ -165,7 +165,7 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 46_610_511346);
 
         // No excess yield has accrued in the wrapped M contract since the pool is the only earner.
-        assertEq(_wrappedMToken.excess(), 7299_827442);
+        assertEq(_wrappedMToken.excess(), 7299_827443);
 
         // _USDC balance is unchanged since no swap has been performed.
         assertEq(IERC20(_USDC).balanceOf(_pool), 1_100_000e6);
