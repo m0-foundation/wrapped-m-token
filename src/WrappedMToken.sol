@@ -569,8 +569,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         uint128 currentIndex_ = currentIndex();
 
-        // NOTE: Round down the M amount that `recipient_` will receive in favor of protocol,
-        //       applicable only if Wrapped M is earning yield
+        // If the wrapper is an M earner, adjust the transfer amount to ensure the decrement of it's M balance is limited to `amount_`.
         uint240 transferAmount_ = isEarningEnabled()
             ? IndexingMath.getPresentAmountRoundedDown(
                 IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_),
