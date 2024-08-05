@@ -53,6 +53,7 @@ contract MorphoBlueTests is TestBase {
 
     function test_initialState() external view {
         assertTrue(_mToken.isEarning(address(_wrappedMToken)));
+        assertEq(_wrappedMToken.isEarningEnabled(), true);
         assertFalse(_wrappedMToken.isEarning(_morphoFactory));
     }
 
