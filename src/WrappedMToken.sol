@@ -567,8 +567,18 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _unwrap(address account_, address recipient_, uint240 amount_) internal {
         _burn(account_, amount_);
 
+        uint128 currentIndex_ = currentIndex();
+
+        // If the wrapper is an M earner, adjust the transfer amount to ensure the decrement of it's M balance is limited to `amount_`.
+        uint240 transferAmount_ = isEarningEnabled()
+            ? IndexingMath.getPresentAmountRoundedDown(
+                IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_),
+                currentIndex_
+            )
+            : amount_;
+
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
-        IMTokenLike(mToken).transfer(recipient_, amount_);
+        IMTokenLike(mToken).transfer(recipient_, transferAmount_);
     }
 
     /* ============ Internal View/Pure Functions ============ */
