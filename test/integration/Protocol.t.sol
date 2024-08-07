@@ -589,15 +589,17 @@ contract ProtocolIntegrationTests is TestBase {
             address account1_ = _accounts[((seed_ = _getNewSeed(seed_)) % _accounts.length)];
             address account2_ = _accounts[((seed_ = _getNewSeed(seed_)) % _accounts.length)];
 
+            _giveM(account1_, 1_000e6);
+
             uint256 account1Balance_ = _wrappedMToken.balanceOf(account1_);
 
             // console2.log("%s has %s wM", account1_, account1Balance_);
 
             // 25% chance to transfer
             if (((seed_ % 100) >= 75) && (account1Balance_ != 0)) {
-                uint256 amount_ = ((seed_ = _getNewSeed(seed_)) % (account1Balance_ / 2)) * 2;
+                uint256 amount_ = ((seed_ = _getNewSeed(seed_)) % account1Balance_) * 2;
 
-                // amount_ = amount_ >= account1Balance_ ? account1Balance_ : amount_; // 50% chance of entire balance.
+                amount_ = amount_ >= account1Balance_ ? account1Balance_ : amount_; // 50% chance of entire balance.
 
                 // console2.log("%s transferring %s to %s", account1_, amount_, account2_);
 
@@ -611,8 +613,8 @@ contract ProtocolIntegrationTests is TestBase {
             // console2.log("%s has %s M", account1_, account1BalanceOfM_);
 
             // 20% chance to wrap
-            if (((seed_ % 100) >= 55) && (account1BalanceOfM_ != 0)) {
-                uint256 amount_ = ((seed_ = _getNewSeed(seed_)) % account1BalanceOfM_) * 2 + 10;
+            if ((seed_ % 100) >= 55) {
+                uint256 amount_ = (((seed_ = _getNewSeed(seed_)) % account1BalanceOfM_) * 2) + 10;
 
                 // 50% chance of wrapping entire M balance.
                 if (amount_ >= account1BalanceOfM_) {
@@ -639,11 +641,11 @@ contract ProtocolIntegrationTests is TestBase {
 
             // 20% chance to unwrap
             if (((seed_ % 100) >= 20) && (account1Balance_ != 0)) {
-                uint256 amount_ = ((seed_ = _getNewSeed(seed_)) % account1Balance_) * 2 + 1;
+                uint256 amount_ = (((seed_ = _getNewSeed(seed_)) % account1Balance_) * 2) + 10;
 
-                // 50% chance of unwrapping entire WM balance.
+                // 50% chance of unwrapping entire wM balance.
                 if (amount_ >= account1Balance_) {
-                    // console2.log("%s unwrapping all their WM to %s", account1_, account2_);
+                    // console2.log("%s unwrapping all their wM to %s", account1_, account2_);
 
                     _unwrap(account1_, account2_);
                 } else {
