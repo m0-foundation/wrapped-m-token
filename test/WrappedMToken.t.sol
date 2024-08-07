@@ -17,6 +17,7 @@ import { WrappedMTokenHarness } from "./utils/WrappedMTokenHarness.sol";
 
 // TODO: Test for `totalAccruedYield()`.
 // TODO: All operations involving earners should include demonstration of accrued yield being added t their balance.
+// TODO: Add relevant unit tests while earning enabled/disabled.
 
 contract WrappedMTokenTests is Test {
     uint56 internal constant _EXP_SCALED_ONE = 1e12;
@@ -110,7 +111,7 @@ contract WrappedMTokenTests is Test {
         _mToken.setBalanceOf(_alice, 1_000);
 
         vm.prank(_alice);
-        _wrappedMToken.wrap(_alice, 1_000);
+        assertEq(_wrappedMToken.wrap(_alice, 1_000), 1_000);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 1_000);
@@ -128,7 +129,7 @@ contract WrappedMTokenTests is Test {
         _mToken.setBalanceOf(_alice, 1_002);
 
         vm.prank(_alice);
-        _wrappedMToken.wrap(_alice, 999);
+        assertEq(_wrappedMToken.wrap(_alice, 999), 999);
 
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
         assertEq(_wrappedMToken.balanceOf(_alice), 999);
@@ -137,7 +138,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 999);
 
         vm.prank(_alice);
-        _wrappedMToken.wrap(_alice, 1);
+        assertEq(_wrappedMToken.wrap(_alice, 1), 1);
 
         // No change due to principal round down on wrap.
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
@@ -147,7 +148,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 1_000);
 
         vm.prank(_alice);
-        _wrappedMToken.wrap(_alice, 2);
+        assertEq(_wrappedMToken.wrap(_alice, 2), 2);
 
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_002);
@@ -301,7 +302,7 @@ contract WrappedMTokenTests is Test {
         _mToken.setBalanceOf(address(_wrappedMToken), 1_000);
 
         vm.prank(_alice);
-        _wrappedMToken.unwrap(_alice, 500);
+        assertEq(_wrappedMToken.unwrap(_alice, 500), 500);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 500);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 500);
@@ -309,7 +310,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
 
         vm.prank(_alice);
-        _wrappedMToken.unwrap(_alice, 500);
+        assertEq(_wrappedMToken.unwrap(_alice, 500), 500);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
@@ -330,7 +331,7 @@ contract WrappedMTokenTests is Test {
         _mToken.setBalanceOf(address(_wrappedMToken), 1_000);
 
         vm.prank(_alice);
-        _wrappedMToken.unwrap(_alice, 1);
+        assertEq(_wrappedMToken.unwrap(_alice, 1), 0);
 
         // Change due to principal round up on unwrap.
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
@@ -339,7 +340,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 999);
 
         vm.prank(_alice);
-        _wrappedMToken.unwrap(_alice, 999);
+        assertEq(_wrappedMToken.unwrap(_alice, 999), 998);
 
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
         assertEq(_wrappedMToken.balanceOf(_alice), 0);

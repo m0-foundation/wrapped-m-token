@@ -86,23 +86,23 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ Interactive Functions ============ */
 
     /// @inheritdoc IWrappedMToken
-    function wrap(address recipient_, uint256 amount_) external {
-        _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+    function wrap(address recipient_, uint256 amount_) external returns (uint240 wrapped_) {
+        return _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
     }
 
     /// @inheritdoc IWrappedMToken
-    function wrap(address recipient_) external {
-        _wrap(msg.sender, recipient_, UIntMath.safe240(IMTokenLike(mToken).balanceOf(msg.sender)));
+    function wrap(address recipient_) external returns (uint240 wrapped_) {
+        return _wrap(msg.sender, recipient_, UIntMath.safe240(IMTokenLike(mToken).balanceOf(msg.sender)));
     }
 
     /// @inheritdoc IWrappedMToken
-    function unwrap(address recipient_, uint256 amount_) external {
-        _unwrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+    function unwrap(address recipient_, uint256 amount_) external returns (uint240 unwrapped_) {
+        return _unwrap(msg.sender, recipient_, UIntMath.safe240(amount_));
     }
 
     /// @inheritdoc IWrappedMToken
-    function unwrap(address recipient_) external {
-        _unwrap(msg.sender, recipient_, uint240(balanceWithYieldOf(msg.sender)));
+    function unwrap(address recipient_) external returns (uint240 unwrapped_) {
+        return _unwrap(msg.sender, recipient_, uint240(balanceWithYieldOf(msg.sender)));
     }
 
     /// @inheritdoc IWrappedMToken
@@ -543,12 +543,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /**
-     * @dev   Wraps `amount` M from `account_` into wM for `recipient`.
-     * @param account_   The account from which M is deposited.
-     * @param recipient_ The account receiving the minted wM.
-     * @param amount_    The amount of M deposited and wM minted.
+     * @dev    Wraps `amount` M from `account_` into wM for `recipient`.
+     * @param  account_   The account from which M is deposited.
+     * @param  recipient_ The account receiving the minted wM.
+     * @param  amount_    The amount of M deposited.
+     * @return wrapped_   The amount of wM minted.
      */
-    function _wrap(address account_, address recipient_, uint240 amount_) internal {
+    function _wrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 wrapped_) {
         uint256 startingBalance_ = IMTokenLike(mToken).balanceOf(address(this));
 
         // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
@@ -558,20 +559,25 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
         //       amount less than `amount_`. In order to capture the real increase in M, the difference between the
         //       starting and ending M balance is minted as WrappedM.
-        _mint(recipient_, UIntMath.safe240(IMTokenLike(mToken).balanceOf(address(this)) - startingBalance_));
+        _mint(recipient_, wrapped_ = UIntMath.safe240(IMTokenLike(mToken).balanceOf(address(this)) - startingBalance_));
     }
 
     /**
-     * @dev   Unwraps `amount` wM from `account_` into M for `recipient`.
-     * @param account_   The account from which WM is burned.
-     * @param recipient_ The account receiving the withdrawn M.
-     * @param amount_    The amount of wM burned and M withdrawn.
+     * @dev    Unwraps `amount` wM from `account_` into M for `recipient`.
+     * @param  account_   The account from which WM is burned.
+     * @param  recipient_ The account receiving the withdrawn M.
+     * @param  amount_    The amount of wM burned.
+     * @return unwrapped_ The amount of M withdrawn.
      */
-    function _unwrap(address account_, address recipient_, uint240 amount_) internal {
+    function _unwrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 unwrapped_) {
         _burn(account_, amount_);
+
+        uint256 startingBalance_ = IMTokenLike(mToken).balanceOf(address(this));
 
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
         IMTokenLike(mToken).transfer(recipient_, _getSafeTransferableAmount(amount_, currentIndex()));
+
+        return UIntMath.safe240(startingBalance_ - IMTokenLike(mToken).balanceOf(address(this)));
     }
 
     /* ============ Internal View/Pure Functions ============ */
