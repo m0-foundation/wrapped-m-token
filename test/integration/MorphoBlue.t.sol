@@ -120,7 +120,7 @@ contract MorphoBlueTests is TestBase {
         assertEq(_wrappedMToken.accruedYieldOf(_morphoFactory), _morphoAccruedYield);
 
         // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), 82_462_608992);
+        assertEq(_wrappedMToken.excess(), 82_462_608991);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_morphoFactory), _morphoBalanceOfUSDC);
@@ -157,7 +157,7 @@ contract MorphoBlueTests is TestBase {
         assertEq(_wrappedMToken.accruedYieldOf(_morphoFactory), _morphoAccruedYield);
 
         // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), 168_324_918954);
+        assertEq(_wrappedMToken.excess(), 168_324_918953);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_morphoFactory), _morphoBalanceOfUSDC);
@@ -223,7 +223,7 @@ contract MorphoBlueTests is TestBase {
         assertEq(_wrappedMToken.accruedYieldOf(_morphoFactory), _morphoAccruedYield);
 
         // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), 51_276_223485);
+        assertEq(_wrappedMToken.excess(), 51_276_223483);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_morphoFactory), _morphoBalanceOfUSDC);
@@ -260,7 +260,7 @@ contract MorphoBlueTests is TestBase {
         assertEq(_wrappedMToken.accruedYieldOf(_morphoFactory), _morphoAccruedYield);
 
         // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), 105_181_435166);
+        assertEq(_wrappedMToken.excess(), 105_181_435164);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_morphoFactory), _morphoBalanceOfUSDC);
@@ -344,7 +344,7 @@ contract MorphoBlueTests is TestBase {
         assertEq(_wrappedMToken.accruedYieldOf(_morphoFactory), _morphoAccruedYield += 41_227_223004);
 
         // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), 41_235_385988);
+        assertEq(_wrappedMToken.excess(), 41_235_385987);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_morphoFactory), _morphoBalanceOfUSDC);
@@ -385,7 +385,7 @@ contract MorphoBlueTests is TestBase {
         assertEq(_wrappedMToken.accruedYieldOf(_morphoFactory), _morphoAccruedYield += 41226);
 
         // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), 127_097_654722);
+        assertEq(_wrappedMToken.excess(), 127_097_654721);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_morphoFactory), _morphoBalanceOfUSDC);
@@ -466,7 +466,7 @@ contract MorphoBlueTests is TestBase {
         assertEq(_wrappedMToken.accruedYieldOf(_morphoFactory), _morphoAccruedYield += 5_127_114764);
 
         // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), 46_149_108721);
+        assertEq(_wrappedMToken.excess(), 46_149_108720);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_morphoFactory), _morphoBalanceOfUSDC);
@@ -507,7 +507,7 @@ contract MorphoBlueTests is TestBase {
         assertEq(_wrappedMToken.accruedYieldOf(_morphoFactory), _morphoAccruedYield += 5126);
 
         // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), 100_054_315275);
+        assertEq(_wrappedMToken.excess(), 100_054_315274);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_morphoFactory), _morphoBalanceOfUSDC);

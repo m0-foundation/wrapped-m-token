@@ -65,7 +65,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalSupply(), 99_999999);
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
-        assertEq(_wrappedMToken.excess(), 1);
+        assertEq(_wrappedMToken.excess(), 0);
 
         assertGe(
             _wrapperBalanceOfM,
@@ -90,7 +90,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 50_000000);
         assertEq(_wrappedMToken.totalSupply(), 149_999999);
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
-        assertEq(_wrappedMToken.excess(), 1);
+        assertEq(_wrappedMToken.excess(), 0);
 
         assertGe(
             _wrapperBalanceOfM,
@@ -119,7 +119,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 50_000000);
         assertEq(_wrappedMToken.totalSupply(), 149_999999);
         assertEq(_wrappedMToken.totalAccruedYield(), 1_240507);
-        assertEq(_wrappedMToken.excess(), _excess = 62_0255);
+        assertEq(_wrappedMToken.excess(), _excess = 62_0254);
 
         assertGe(
             _wrapperBalanceOfM,
@@ -305,7 +305,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 299_999999);
         assertEq(_wrappedMToken.totalSupply(), 402_496401);
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
-        assertEq(_wrappedMToken.excess(), _excess = 2_496405);
+        assertEq(_wrappedMToken.excess(), _excess = 2_496404);
 
         assertGe(
             _wrapperBalanceOfM = _mToken.balanceOf(address(_wrappedMToken)),
@@ -385,7 +385,7 @@ contract ProtocolIntegrationTests is TestBase {
         vm.warp(vm.getBlockTimestamp() + 180 days);
 
         assertEq(_wrappedMToken.accruedYieldOf(_alice), _aliceAccruedYield += 2_496404);
-        assertEq(_wrappedMToken.excess(), _excess += 2_496405);
+        assertEq(_wrappedMToken.excess(), _excess += 2_496404);
 
         _giveM(_bob, 100_000000);
         _wrap(_bob, _bob, 100_000000);

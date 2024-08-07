@@ -272,10 +272,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @inheritdoc IWrappedMToken
     function excess() public view returns (uint240 excess_) {
         unchecked {
+            uint128 currentIndex_ = currentIndex();
             uint240 balance_ = uint240(IMTokenLike(mToken).balanceOf(address(this)));
-            uint240 earmarked_ = totalNonEarningSupply + _projectedEarningSupply(currentIndex());
+            uint240 earmarked_ = totalNonEarningSupply + _projectedEarningSupply(currentIndex_);
 
-            return balance_ > earmarked_ ? balance_ - earmarked_ : 0;
+            return balance_ > earmarked_ ? _getSafeTransferableAmount(balance_ - earmarked_, currentIndex_) : 0;
         }
     }
 
@@ -569,18 +570,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _unwrap(address account_, address recipient_, uint240 amount_) internal {
         _burn(account_, amount_);
 
-        uint128 currentIndex_ = currentIndex();
-
-        // If the wrapper is an M earner, adjust the transfer amount to ensure the decrement of it's M balance is limited to `amount_`.
-        uint240 transferAmount_ = isEarningEnabled()
-            ? IndexingMath.getPresentAmountRoundedDown(
-                IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_),
-                currentIndex_
-            )
-            : amount_;
-
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
-        IMTokenLike(mToken).transfer(recipient_, transferAmount_);
+        IMTokenLike(mToken).transfer(recipient_, _getSafeTransferableAmount(amount_, currentIndex()));
     }
 
     /* ============ Internal View/Pure Functions ============ */
@@ -615,6 +606,26 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             return (balanceWithYield_ <= balance_) ? 0 : balanceWithYield_ - balance_;
         }
+    }
+
+    /**
+     * @dev    Compute the adjusted amount that can safely be transferred out given the current index.
+     * @param  amount_       Some amount to be transferred out of the wrapper.
+     * @param  currentIndex_ The current index.
+     * @return safeAmount_   The adjusted amount that can safely be transferred out.
+     */
+    function _getSafeTransferableAmount(
+        uint240 amount_,
+        uint128 currentIndex_
+    ) internal view returns (uint240 safeAmount_) {
+        // If the wrapper is earning, adjust `amount_` to ensure it's M balance decrement is limited to `amount_`.
+        return
+            IMTokenLike(mToken).isEarning(address(this))
+                ? IndexingMath.getPresentAmountRoundedDown(
+                    IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_),
+                    currentIndex_
+                )
+                : amount_;
     }
 
     /// @dev Returns the address of the contract to use as a migrator, if any.
