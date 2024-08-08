@@ -523,19 +523,21 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param currentIndex_ The current index used to compute the principal amount.
      */
     function _subtractTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
+        if (amount_ >= totalEarningSupply) {
+            totalEarningSupply = 0;
+            _principalOfTotalEarningSupply = 0;
+
+            return;
+        }
+
         unchecked {
             uint112 principal_ = IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
 
-            if (principal_ >= _principalOfTotalEarningSupply || amount_ >= totalEarningSupply) {
-                totalEarningSupply = 0;
-                _principalOfTotalEarningSupply = 0;
+            _principalOfTotalEarningSupply -= (
+                principal_ > _principalOfTotalEarningSupply ? _principalOfTotalEarningSupply : principal_
+            );
 
-                return;
-            }
-
-            // Decrement the total earning supply and principal proportionally.
             totalEarningSupply -= amount_;
-            _principalOfTotalEarningSupply -= principal_;
         }
     }
 
