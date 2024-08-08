@@ -206,10 +206,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Temporary Admin Migration ============ */
 
-    /**
-     * @notice Performs an arbitrary migration by delegate-calling `migrator_`.
-     * @param  migrator_ The address of a migrator contract.
-     */
+    /// @inheritdoc IWrappedMToken
     function migrate(address migrator_) external {
         if (msg.sender != migrationAdmin) revert UnauthorizedMigration();
 
@@ -276,12 +273,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             uint240 balance_ = uint240(IMTokenLike(mToken).balanceOf(address(this)));
             uint240 earmarked_ = totalNonEarningSupply + _projectedEarningSupply(currentIndex_);
 
-            return balance_ > earmarked_ ? _getSafeTransferableAmount(balance_ - earmarked_, currentIndex_) : 0;
+            return balance_ > earmarked_ ? _getSafeTransferableM(balance_ - earmarked_, currentIndex_) : 0;
         }
     }
 
     /// @inheritdoc IWrappedMToken
-    function totalAccruedYield() public view returns (uint240 yield_) {
+    function totalAccruedYield() external view returns (uint240 yield_) {
         uint240 projectedEarningSupply_ = _projectedEarningSupply(currentIndex());
         uint240 earningSupply_ = totalEarningSupply;
 
@@ -436,18 +433,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             totalEarningSupply += yield_;
         }
 
+        address claimOverrideRecipient_ = claimOverrideRecipientFor(account_);
+        address claimRecipient_ = claimOverrideRecipient_ == address(0) ? account_ : claimOverrideRecipient_;
+
+        emit Claimed(account_, claimRecipient_, yield_);
         emit Transfer(address(0), account_, yield_);
 
-        address claimOverrideRecipient_ = claimOverrideRecipientFor(account_);
-
         // Emit the appropriate `Claimed` and `Transfer` events, depending on the claim override recipient
-        if (claimOverrideRecipient_ == address(0)) {
-            emit Claimed(account_, account_, yield_);
-        } else {
-            emit Claimed(account_, claimOverrideRecipient_, yield_);
-
+        if (claimRecipient_ != account_) {
             // NOTE: Watch out for a long chain of earning claim override recipients.
-            _transfer(account_, claimOverrideRecipient_, yield_, currentIndex_);
+            _transfer(account_, claimRecipient_, yield_, currentIndex_);
         }
     }
 
@@ -575,8 +570,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         uint256 startingBalance_ = IMTokenLike(mToken).balanceOf(address(this));
 
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
-        IMTokenLike(mToken).transfer(recipient_, _getSafeTransferableAmount(amount_, currentIndex()));
+        IMTokenLike(mToken).transfer(recipient_, _getSafeTransferableM(amount_, currentIndex()));
 
+        // NOTE: When this WrappedMToken contract is earning, any amount of M sent from it is converted to a principal
+        //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
+        //       amount more than `amount_`. In order to capture the real decrease in M, the difference between the
+        //       ending and starting M balance is returned.
         return UIntMath.safe240(startingBalance_ - IMTokenLike(mToken).balanceOf(address(this)));
     }
 
@@ -615,15 +614,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /**
-     * @dev    Compute the adjusted amount that can safely be transferred out given the current index.
+     * @dev    Compute the adjusted amount of M that can safely be transferred out given the current index.
      * @param  amount_       Some amount to be transferred out of the wrapper.
      * @param  currentIndex_ The current index.
      * @return safeAmount_   The adjusted amount that can safely be transferred out.
      */
-    function _getSafeTransferableAmount(
-        uint240 amount_,
-        uint128 currentIndex_
-    ) internal view returns (uint240 safeAmount_) {
+    function _getSafeTransferableM(uint240 amount_, uint128 currentIndex_) internal view returns (uint240 safeAmount_) {
         // If the wrapper is earning, adjust `amount_` to ensure it's M balance decrement is limited to `amount_`.
         return
             IMTokenLike(mToken).isEarning(address(this))

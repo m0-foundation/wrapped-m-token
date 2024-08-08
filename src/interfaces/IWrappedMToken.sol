@@ -19,7 +19,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      * @param  recipient The account that received the yield.
      * @param  yield     The amount of yield claimed.
      */
-    event Claimed(address indexed account, address indexed recipient, uint256 yield);
+    event Claimed(address indexed account, address indexed recipient, uint240 yield);
 
     /**
      * @notice Emitted when earning is enabled for the entire wrapper.
@@ -37,7 +37,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      * @notice Emitted when the wrapper's excess M is claimed.
      * @param  excess The amount of excess M claimed.
      */
-    event ExcessClaimed(uint256 excess);
+    event ExcessClaimed(uint240 excess);
 
     /**
      * @notice Emitted when `account` starts being an wM earner.
@@ -71,7 +71,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      * @param  balance The balance of the account.
      * @param  amount  The amount to decrement.
      */
-    error InsufficientBalance(address account, uint256 balance, uint256 amount);
+    error InsufficientBalance(address account, uint240 balance, uint240 amount);
 
     /// @notice Emitted when calling `startEarning` for an account not approved as earner by TTG.
     error NotApprovedEarner();
@@ -152,7 +152,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /**
      * @notice Performs an arbitrarily defined migration.
-     * @param  migrator The address of a migrator.
+     * @param  migrator The address of a migrator contract.
      */
     function migrate(address migrator) external;
 
