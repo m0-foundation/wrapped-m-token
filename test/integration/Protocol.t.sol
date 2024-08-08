@@ -233,7 +233,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.excess(), _excess += 5_008294);
 
         assertGe(
-            _wrapperBalanceOfM + 1, // TODO: Fix
+            _wrapperBalanceOfM,
             _aliceBalance + _aliceAccruedYield + _bobBalance + _bobAccruedYield + _carolBalance + _daveBalance + _excess
         );
     }
@@ -329,9 +329,8 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
         assertEq(_wrappedMToken.excess(), _excess += 1);
 
-        // NOTE: Due to rounding, this +1 is inevitable.
         assertGe(
-            _wrapperBalanceOfM + 1,
+            _wrapperBalanceOfM,
             _aliceBalance + _aliceAccruedYield + _bobBalance + _bobAccruedYield + _carolBalance + _daveBalance + _excess
         );
 
@@ -541,13 +540,13 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalSupply(), 0);
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
-        assertEq(_wrappedMToken.excess(), _excess + 1);
+        assertEq(_wrappedMToken.excess(), _excess += 1);
 
         assertGe(_wrapperBalanceOfM = _mToken.balanceOf(address(_wrappedMToken)), _excess);
 
         uint256 vaultStartingBalance_ = _mToken.balanceOf(_vault);
 
-        assertEq(_wrappedMToken.claimExcess(), _excess += 1);
+        assertEq(_wrappedMToken.claimExcess(), _excess);
         assertEq(_mToken.balanceOf(_vault), _excess + vaultStartingBalance_);
 
         // Assert Globals
@@ -555,7 +554,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalSupply(), 0);
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
-        assertEq(_wrappedMToken.excess(), 0);
+        assertEq(_wrappedMToken.excess(), _excess -= _excess);
 
         assertGe(_wrapperBalanceOfM = _mToken.balanceOf(address(_wrappedMToken)), 0);
     }

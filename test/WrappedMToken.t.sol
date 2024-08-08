@@ -61,10 +61,14 @@ contract WrappedMTokenTests is Test {
 
     /* ============ constructor ============ */
     function test_constructor() external view {
-        assertEq(_wrappedMToken.implementation(), address(_implementation));
+        assertEq(_wrappedMToken.migrationAdmin(), _migrationAdmin);
         assertEq(_wrappedMToken.mToken(), address(_mToken));
         assertEq(_wrappedMToken.registrar(), address(_registrar));
         assertEq(_wrappedMToken.vault(), _vault);
+        assertEq(_wrappedMToken.name(), "WrappedM by M^0");
+        assertEq(_wrappedMToken.symbol(), "wM");
+        assertEq(_wrappedMToken.decimals(), 6);
+        assertEq(_wrappedMToken.implementation(), address(_implementation));
     }
 
     function test_constructor_zeroMToken() external {
@@ -736,7 +740,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.balanceOf(_alice), 1_666);
     }
 
-    function testFuzz_transfer_xxx(
+    function testFuzz_transfer(
         bool earningEnabled_,
         bool aliceEarning_,
         bool bobEarning_,
@@ -747,8 +751,6 @@ contract WrappedMTokenTests is Test {
         uint128 currentIndex_,
         uint240 amount_
     ) external {
-        vm.skip(false);
-
         aliceEarning_ = earningEnabled_ && aliceEarning_;
         bobEarning_ = earningEnabled_ && bobEarning_;
 
@@ -959,7 +961,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.isEarning(_alice), false);
 
         assertEq(_wrappedMToken.totalNonEarningSupply(), 999);
-        assertEq(_wrappedMToken.totalEarningSupply(), 1); // TODO: Fix?
+        assertEq(_wrappedMToken.totalEarningSupply(), 1);
     }
 
     function testFuzz_stopEarningFor(uint240 balance_, uint128 accountIndex_, uint128 index_) external {
