@@ -436,10 +436,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         address claimOverrideRecipient_ = claimOverrideRecipientFor(account_);
         address claimRecipient_ = claimOverrideRecipient_ == address(0) ? account_ : claimOverrideRecipient_;
 
+        // Emit the appropriate `Claimed` and `Transfer` events, depending on the claim override recipient
         emit Claimed(account_, claimRecipient_, yield_);
         emit Transfer(address(0), account_, yield_);
 
-        // Emit the appropriate `Claimed` and `Transfer` events, depending on the claim override recipient
         if (claimRecipient_ != account_) {
             // NOTE: Watch out for a long chain of earning claim override recipients.
             _transfer(account_, claimRecipient_, yield_, currentIndex_);
