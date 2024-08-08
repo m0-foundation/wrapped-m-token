@@ -49,6 +49,7 @@ contract UniswapV3IntegrationTests is TestBase {
     uint256 internal _daveBalanceOfWM;
 
     uint256 internal _poolAccruedYield;
+    uint256 internal _bobAccruedYield;
 
     function setUp() public override {
         super.setUp();
@@ -62,6 +63,7 @@ contract UniswapV3IntegrationTests is TestBase {
 
     function test_initialState() external view {
         assertTrue(_mToken.isEarning(address(_wrappedMToken)));
+        assertEq(_wrappedMToken.isEarningEnabled(), true);
         assertFalse(_wrappedMToken.isEarning(_pool));
     }
 
@@ -164,13 +166,13 @@ contract UniswapV3IntegrationTests is TestBase {
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC);
 
-        /* ============ Bob Swaps USDC for wM ============ */
+        /* ============ Bob Swaps Exact USDC for wM ============ */
 
         deal(_USDC, _bob, 100_000e6);
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += 100_000e6);
 
-        uint256 swapAmountOut_ = _swap(_bob, _bob, _USDC, address(_wrappedMToken), 100_000e6);
+        uint256 swapAmountOut_ = _swapExactInput(_bob, _bob, _USDC, address(_wrappedMToken), 100_000e6);
 
         // Check pool liquidity after the swap
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC -= 100_000e6);
@@ -201,7 +203,7 @@ contract UniswapV3IntegrationTests is TestBase {
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC);
 
-        /* ============ Dave Swaps wM for USDC ============ */
+        /* ============ Dave Swaps Exact wM for USDC ============ */
 
         _addToList(_EARNERS_LIST, _dave);
         _wrappedMToken.startEarningFor(_dave);
@@ -213,7 +215,7 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.balanceOf(_dave), _daveBalanceOfWM += 100_099_999999);
         assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 100_099_999999);
 
-        swapAmountOut_ = _swap(_dave, _dave, address(_wrappedMToken), _USDC, 100_000e6);
+        swapAmountOut_ = _swapExactInput(_dave, _dave, address(_wrappedMToken), _USDC, 100_000e6);
 
         // Check pool liquidity after the swap
         assertEq(IERC20(_USDC).balanceOf(_dave), _daveBalanceOfUSDC += 108_997_304660);
@@ -225,6 +227,268 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
         assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+    }
+
+    function test_uniswapV3_exactInputOrOutputForEarnersAndNonEarners() public {
+        /* ============ Pool Becomes An Earner ============ */
+
+        _setClaimOverrideRecipient(_pool, _carol);
+
+        _addToList(_EARNERS_LIST, _pool);
+        _wrappedMToken.startEarningFor(_pool);
+
+        assertTrue(_wrappedMToken.isEarning(_pool));
+
+        assertEq(_wrappedMToken.claimOverrideRecipientFor(_pool), _carol);
+
+        /* ============ Alice Mints New LP Position ============ */
+
+        _giveM(_alice, 1_000_100e6);
+        _wrap(_alice, _alice, _mToken.balanceOf(_alice));
+
+        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_099_999999);
+
+        deal(_USDC, _alice, 1_000_100e6);
+
+        assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += 1_000_100e6);
+
+        _mintNewPosition(_alice, _alice, 1_000_000e6);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield);
+
+        assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 1_000_000e6);
+        assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC = 1_000_000e6);
+
+        // Totals checks: pool is the only earner.
+        assertEq(_wrappedMToken.totalEarningSupply(), _poolBalanceOfWM);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), _aliceBalanceOfWM);
+        assertEq(_wrappedMToken.totalAccruedYield(), _poolAccruedYield);
+
+        /* ============ 10-Day Time Warp ============ */
+
+        // Move 10 days forward and check that yield has accrued.
+        vm.warp(vm.getBlockTimestamp() + 10 days);
+
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 1_370_801702);
+
+        // Totals checks.
+        assertEq(_wrappedMToken.totalEarningSupply(), _poolBalanceOfWM);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), _aliceBalanceOfWM);
+        assertEq(_wrappedMToken.totalAccruedYield(), _poolAccruedYield);
+
+        /* ============ 2 Non-Earners and 2 Earners are Initialized ============ */
+
+        _giveM(_bob, 100_100e6);
+        _wrap(_bob, _bob, 100_100e6);
+
+        _giveM(_dave, 100_100e6);
+        _wrap(_dave, _dave, 100_100e6);
+
+        _addToList(_EARNERS_LIST, _eric);
+        _wrappedMToken.startEarningFor(_eric);
+
+        _giveM(_eric, 100_100e6);
+        _wrap(_eric, _eric, 100_100e6);
+
+        _addToList(_EARNERS_LIST, _frank);
+        _wrappedMToken.startEarningFor(_frank);
+
+        _giveM(_frank, 100_100e6);
+        _wrap(_frank, _frank, 100_100e6);
+
+        /* ============ Bob (Non-Earner) Swaps Exact wM for USDC ============ */
+
+        _swapExactInput(_bob, _bob, address(_wrappedMToken), _USDC, 100_000e6);
+
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
+
+        // Check that carol received yield.
+        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+
+        /* ============ 1-Day Time Warp ============ */
+
+        // Move 1 day forward and check that yield has accrued.
+        vm.warp(vm.getBlockTimestamp() + 1 days);
+
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 150_695251);
+
+        // Claim yield for the pool and check that carol received yield.
+        _wrappedMToken.claimFor(_pool);
+
+        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+
+        /* ============ 5-Day Time Warp ============ */
+
+        // Move 5 days forward and check that yield has accrued.
+        vm.warp(vm.getBlockTimestamp() + 5 days);
+
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 753_682738);
+
+        /* ============ Eric (Earner) Swaps Exact wM for USDC ============ */
+
+        _swapExactInput(_eric, _eric, address(_wrappedMToken), _USDC, 100_000e6);
+
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
+
+        // Check that carol received yield.
+        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+
+        /* ============ 3-Day Time Warp ============ */
+
+        // Move 3 days forward and check that yield has accrued.
+        vm.warp(vm.getBlockTimestamp() + 3 days);
+
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 493_252029);
+
+        /* ============ Dave (Non-Earner) Swaps wM for Exact USDC ============ */
+
+        // Option 3: Exact output parameter swap from non-earner
+        uint256 daveOutput_ = _swapExactOutput(_dave, _dave, address(_wrappedMToken), _USDC, 10_000e6);
+
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += daveOutput_);
+
+        // Check that carol received yield.
+        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+
+        /* ============ 7-Day Time Warp ============ */
+
+        // Move 7 day forward and check that yield has accrued.
+        vm.warp(vm.getBlockTimestamp() + 7 days);
+
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 1_165_220368);
+
+        /* ============ Frank (Earner) Swaps wM for Exact USDC ============ */
+
+        uint256 frankOutput_ = _swapExactOutput(_frank, _frank, address(_wrappedMToken), _USDC, 10_000e6);
+
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += frankOutput_);
+
+        // Check that carol received yield.
+        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+    }
+
+    function test_uniswapV3_increaseDecreaseLiquidityAndFees() public {
+        /* ============ Pool Becomes An Earner ============ */
+
+        _setClaimOverrideRecipient(_pool, _carol);
+
+        _addToList(_EARNERS_LIST, _pool);
+        _wrappedMToken.startEarningFor(_pool);
+
+        assertTrue(_wrappedMToken.isEarning(_pool));
+
+        assertEq(_wrappedMToken.claimOverrideRecipientFor(_pool), _carol);
+
+        /* ============ Fund Alice (Non-Earner) and Bob (Earner) ============ */
+
+        _giveM(_alice, 2_000_100e6);
+        _wrap(_alice, _alice, _mToken.balanceOf(_alice));
+
+        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 2_000_099_999999);
+
+        deal(_USDC, _alice, 2_000_100e6);
+
+        assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += 2_000_100e6);
+
+        _addToList(_EARNERS_LIST, _bob);
+        _wrappedMToken.startEarningFor(_bob);
+
+        _giveM(_bob, 2_000_100e6);
+        _wrap(_bob, _bob, _mToken.balanceOf(_bob));
+
+        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM += 2_000_100_000000);
+
+        deal(_USDC, _bob, 2_000_100e6);
+
+        assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += 2_000_100e6);
+
+        /* ============ Alice (Non-Earner) and Bob (Earner) Mint New LP Positions ============ */
+
+        (uint256 aliceTokenId_, , , ) = _mintNewPosition(_alice, _alice, 1_000_000e6);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
+
+        assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 1_000_000e6);
+        assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 1_000_000e6);
+
+        (uint256 bobTokenId_, , , ) = _mintNewPosition(_bob, _bob, 1_000_000e6);
+
+        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM -= 1_000_000e6);
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
+
+        assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC -= 1_000_000e6);
+        assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 1_000_000e6);
+
+        /* ============ 10-Day Time Warp ============ */
+
+        // Move 10 days forward and check that yield has accrued.
+        vm.warp(vm.getBlockTimestamp() + 10 days);
+
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), _bobAccruedYield += 550_891667);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 1_101_673168);
+
+        /* ============ Dave (Non-Earner) Swaps Exact wM for USDC ============ */
+
+        _giveM(_dave, 100_100e6);
+        _wrap(_dave, _dave, 100_100e6);
+
+        assertEq(_wrappedMToken.balanceOf(_dave), _daveBalanceOfWM += 100_099_999999);
+
+        _swapExactInput(_dave, _dave, address(_wrappedMToken), _USDC, 100_000e6);
+
+        assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= 95_229_024894);
+
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
+
+        // Check that carol received yield.
+        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+
+        /* ============ Alice (Non-Earner) And Bob (Earner) Collect Fees ============ */
+
+        (uint256 aliceAmountWM_, uint256 aliceAmountUSDC_) = _collect(_alice, aliceTokenId_);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += aliceAmountWM_);
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= aliceAmountWM_);
+
+        assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += aliceAmountUSDC_);
+        assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= aliceAmountUSDC_);
+
+        (uint256 bobAmountWM_, uint256 bobAmountUSDC_) = _collect(_bob, bobTokenId_);
+
+        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM += bobAmountWM_ + _bobAccruedYield);
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= bobAmountWM_);
+
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), _bobAccruedYield -= _bobAccruedYield);
+
+        assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += bobAmountUSDC_);
+        assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= bobAmountUSDC_);
+
+        /* ============ Alice (Non-Earner) Decreases Liquidity And Bob (Earner) Increases Liquidity ============ */
+
+        (aliceAmountWM_, aliceAmountUSDC_) = _decreaseLiquidityCurrentRange(_alice, aliceTokenId_, 500_000e6);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += aliceAmountWM_);
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= aliceAmountWM_);
+
+        assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += aliceAmountUSDC_);
+        assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= aliceAmountUSDC_);
+
+        (, bobAmountWM_, bobAmountUSDC_) = _increaseLiquidityCurrentRange(_bob, bobTokenId_, 100_000e6);
+
+        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM -= bobAmountWM_);
+        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += bobAmountWM_);
+
+        assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC -= bobAmountUSDC_);
+        assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += bobAmountUSDC_);
     }
 
     function _createPool() internal returns (address pool_) {
@@ -268,7 +532,61 @@ contract UniswapV3IntegrationTests is TestBase {
         (tokenId_, liquidity_, amount0_, amount1_) = _positionManager.mint(params_);
     }
 
-    function _swap(
+    function _increaseLiquidityCurrentRange(
+        address account_,
+        uint256 tokenId_,
+        uint256 amount_
+    ) internal returns (uint128 liquidity_, uint256 amount0_, uint256 amount1_) {
+        _approveWM(account_, address(_positionManager), amount_);
+        _approve(_USDC, account_, address(_positionManager), amount_);
+
+        INonfungiblePositionManager.IncreaseLiquidityParams memory params = INonfungiblePositionManager
+            .IncreaseLiquidityParams({
+                tokenId: tokenId_,
+                amount0Desired: amount_,
+                amount1Desired: amount_,
+                amount0Min: 0,
+                amount1Min: 0,
+                deadline: vm.getBlockTimestamp()
+            });
+
+        vm.prank(account_);
+        return _positionManager.increaseLiquidity(params);
+    }
+
+    function _decreaseLiquidityCurrentRange(
+        address account_,
+        uint256 tokenId_,
+        uint128 liquidity_
+    ) internal returns (uint256 amount0_, uint256 amount1_) {
+        INonfungiblePositionManager.DecreaseLiquidityParams memory params = INonfungiblePositionManager
+            .DecreaseLiquidityParams({
+                tokenId: tokenId_,
+                liquidity: liquidity_,
+                amount0Min: 0,
+                amount1Min: 0,
+                deadline: vm.getBlockTimestamp()
+            });
+
+        vm.prank(account_);
+        (amount0_, amount1_) = _positionManager.decreaseLiquidity(params);
+
+        _collect(account_, tokenId_);
+    }
+
+    function _collect(address account_, uint256 tokenId_) internal returns (uint256 amount0_, uint256 amount1_) {
+        INonfungiblePositionManager.CollectParams memory params = INonfungiblePositionManager.CollectParams({
+            tokenId: tokenId_,
+            recipient: account_,
+            amount0Max: type(uint128).max,
+            amount1Max: type(uint128).max
+        });
+
+        vm.prank(account_);
+        (amount0_, amount1_) = _positionManager.collect(params);
+    }
+
+    function _swapExactInput(
         address account_,
         address recipient_,
         address tokenIn_,
@@ -290,5 +608,29 @@ contract UniswapV3IntegrationTests is TestBase {
 
         vm.prank(account_);
         return _router.exactInputSingle(params);
+    }
+
+    function _swapExactOutput(
+        address account_,
+        address recipient_,
+        address tokenIn_,
+        address tokenOut_,
+        uint256 amountOut_
+    ) internal returns (uint256 amountIn_) {
+        _approve(tokenIn_, account_, address(_router), type(uint256).max);
+
+        ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter.ExactOutputSingleParams({
+            tokenIn: tokenIn_,
+            tokenOut: tokenOut_,
+            fee: _POOL_FEE,
+            recipient: recipient_,
+            deadline: vm.getBlockTimestamp() + 30 minutes,
+            amountOut: amountOut_,
+            amountInMaximum: type(uint256).max,
+            sqrtPriceLimitX96: 0
+        });
+
+        vm.prank(account_);
+        return _router.exactOutputSingle(params);
     }
 }
