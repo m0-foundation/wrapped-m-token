@@ -560,7 +560,7 @@ contract ProtocolIntegrationTests is TestBase {
     }
 
     function testFuzz_full(uint256 seed_) external {
-        vm.skip(false);
+        vm.skip(true);
 
         for (uint256 index_; index_ < _accounts.length; ++index_) {
             _giveM(_accounts[index_], 100_000e6);

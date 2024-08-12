@@ -8,11 +8,14 @@ profile ?=default
 update:; forge update
 
 # Deployment helpers
-deploy-local :
-	FOUNDRY_PROFILE=production forge script script/Deploy.s.sol --rpc-url localhost --broadcast -v
+deploy:
+	FOUNDRY_PROFILE=production forge script script/Deploy.s.sol --skip src --skip test --rpc-url mainnet --slow --broadcast -vvv --verify
 
-deploy-sepolia :
-	FOUNDRY_PROFILE=production forge script script/Deploy.s.sol --rpc-url sepolia --broadcast -vvv
+deploy-sepolia:
+	FOUNDRY_PROFILE=production forge script script/Deploy.s.sol --skip src --skip test --rpc-url sepolia --slow --broadcast -vvv
+
+deploy-local:
+	FOUNDRY_PROFILE=production forge script script/Deploy.s.sol --skip src --skip test --rpc-url localhost --slow --broadcast -v
 
 # Run slither
 slither :
