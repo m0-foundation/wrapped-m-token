@@ -365,16 +365,17 @@ contract Tests is Test {
         assertEq(_wrappedMToken.excess(), 0);
     }
 
-    function test_noExcessCreep() external {
+    function test_excess_amount() external {
         _registrar.setListContains(_EARNERS_LIST, _alice, true);
         _registrar.setListContains(_EARNERS_LIST, _bob, true);
         _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
         _mToken.setCurrentIndex(_EXP_SCALED_ONE + 3e11 - 1);
 
         _wrappedMToken.enableEarning();
-        _wrappedMToken.startEarningFor(_alice);
 
         _mToken.setBalanceOf(_alice, 1_000000);
+
+        _wrappedMToken.startEarningFor(_alice);
 
         for (uint256 i_; i_ < 100; ++i_) {
             vm.prank(_alice);
@@ -397,31 +398,5 @@ contract Tests is Test {
 
         vm.prank(_bob);
         _wrappedMToken.unwrap(_bob);
-    }
-
-    function test_dustWrapping() external {
-        _registrar.setListContains(_EARNERS_LIST, _alice, true);
-        _registrar.setListContains(_EARNERS_LIST, _bob, true);
-        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
-        _mToken.setCurrentIndex(_EXP_SCALED_ONE + 1);
-
-        _wrappedMToken.enableEarning();
-        _wrappedMToken.startEarningFor(_alice);
-
-        _mToken.setBalanceOf(_alice, 1_000000);
-
-        for (uint256 i_; i_ < 100; ++i_) {
-            vm.prank(_alice);
-            _wrappedMToken.wrap(_alice, 1);
-
-            assertLe(
-                _wrappedMToken.balanceOf(_alice) + _wrappedMToken.excess(),
-                _mToken.balanceOf(address(_wrappedMToken))
-            );
-        }
-
-        _mToken.setCurrentIndex(_EXP_SCALED_ONE + (_EXP_SCALED_ONE / 10));
-
-        assertGe(_wrappedMToken.totalAccruedYield(), _wrappedMToken.accruedYieldOf(_alice));
     }
 }

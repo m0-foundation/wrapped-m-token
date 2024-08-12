@@ -287,7 +287,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             uint128 currentIndex_ = currentIndex();
             uint240 balance_ = uint240(IMTokenLike(mToken).balanceOf(address(this)));
-            uint240 earmarked_ = totalNonEarningSupply + _projectedEarningSupply(currentIndex_);
+
+            uint240 earmarked_ = totalNonEarningSupply +
+                UIntMath.max240(totalEarningSupply, _projectedEarningSupply(currentIndex_));
 
             return balance_ > earmarked_ ? _getSafeTransferableM(balance_ - earmarked_, currentIndex_) : 0;
         }
@@ -525,7 +527,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             // Increment the total earning supply and principal proportionally.
             totalEarningSupply += amount_;
-            principalOfTotalEarningSupply += IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_);
+            principalOfTotalEarningSupply += IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
         }
     }
 
