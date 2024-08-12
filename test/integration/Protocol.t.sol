@@ -327,7 +327,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 249_999999);
         assertEq(_wrappedMToken.totalSupply(), 402_496401);
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
-        assertEq(_wrappedMToken.excess(), _excess += 1);
+        assertEq(_wrappedMToken.excess(), _excess);
 
         assertGe(
             _wrapperBalanceOfM,
@@ -361,7 +361,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 249_999999);
         assertEq(_wrappedMToken.totalSupply(), 402_496401);
         assertEq(_wrappedMToken.totalAccruedYield(), 3_806926);
-        assertEq(_wrappedMToken.excess(), _excess += 6_303332);
+        assertEq(_wrappedMToken.excess(), _excess += 6_303333);
 
         assertGe(
             _wrapperBalanceOfM,
@@ -577,9 +577,8 @@ contract ProtocolIntegrationTests is TestBase {
 
             assertTrue(Invariants.checkInvariant1(address(_wrappedMToken), _accounts), "Invariant 1 Failed.");
             assertTrue(Invariants.checkInvariant2(address(_wrappedMToken), _accounts), "Invariant 2 Failed.");
-
-            // NOTE: Skipping this as there is no trivial way to guarantee this invariant while meeting 1 and 2.
-            // assertTrue(Invariants.checkInvariant3(address(_wrappedMToken), address(_mToken)), "Invariant 3 Failed.");
+            assertTrue(Invariants.checkInvariant3(address(_wrappedMToken), address(_mToken)), "Invariant 3 Failed.");
+            assertTrue(Invariants.checkInvariant4(address(_wrappedMToken), _accounts), "Invariant 4 Failed.");
 
             // console2.log("");
             // console2.log("--------");

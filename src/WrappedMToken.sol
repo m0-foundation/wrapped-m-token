@@ -15,6 +15,18 @@ import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
 
 import { Migratable } from "./Migratable.sol";
 
+/*
+
+
+██╗    ██╗██████╗  █████╗ ██████╗ ██████╗ ███████╗██████╗     ███╗   ███╗    ████████╗ ██████╗ ██╗  ██╗███████╗███╗   ██╗
+██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗    ████╗ ████║    ╚══██╔══╝██╔═══██╗██║ ██╔╝██╔════╝████╗  ██║
+██║ █╗ ██║██████╔╝███████║██████╔╝██████╔╝█████╗  ██║  ██║    ██╔████╔██║       ██║   ██║   ██║█████╔╝ █████╗  ██╔██╗ ██║
+██║███╗██║██╔══██╗██╔══██║██╔═══╝ ██╔═══╝ ██╔══╝  ██║  ██║    ██║╚██╔╝██║       ██║   ██║   ██║██╔═██╗ ██╔══╝  ██║╚██╗██║
+╚███╔███╔╝██║  ██║██║  ██║██║     ██║     ███████╗██████╔╝    ██║ ╚═╝ ██║       ██║   ╚██████╔╝██║  ██╗███████╗██║ ╚████║
+ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═════╝     ╚═╝     ╚═╝       ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝
+
+*/
+
 /**
  * @title  ERC20 Token contract for wrapping M into a non-rebasing token with claimable yields.
  * @author M^0 Labs
@@ -52,8 +64,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @inheritdoc IWrappedMToken
     address public immutable vault;
 
-    /// @dev The principal of totalEarningSupply to help compute totalAccruedYield(), and thus excess().
-    uint112 internal _principalOfTotalEarningSupply;
+    /// @inheritdoc IWrappedMToken
+    uint112 public principalOfTotalEarningSupply;
 
     /// @inheritdoc IWrappedMToken
     uint240 public totalEarningSupply;
@@ -235,6 +247,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IWrappedMToken
+    function lastIndexOf(address account_) public view returns (uint128 lastIndex_) {
+        return _accounts[account_].lastIndex;
+    }
+
+    /// @inheritdoc IWrappedMToken
     function claimOverrideRecipientFor(address account_) public view returns (address recipient_) {
         return
             address(
@@ -271,7 +288,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             uint128 currentIndex_ = currentIndex();
             uint240 balance_ = uint240(IMTokenLike(mToken).balanceOf(address(this)));
-            uint240 earmarked_ = totalNonEarningSupply + _projectedEarningSupply(currentIndex_);
+
+            uint240 earmarked_ = totalNonEarningSupply +
+                UIntMath.max240(totalEarningSupply, _projectedEarningSupply(currentIndex_));
 
             return balance_ > earmarked_ ? _getSafeTransferableM(balance_ - earmarked_, currentIndex_) : 0;
         }
@@ -509,7 +528,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             // Increment the total earning supply and principal proportionally.
             totalEarningSupply += amount_;
-            _principalOfTotalEarningSupply += IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
+            principalOfTotalEarningSupply += IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
         }
     }
 
@@ -521,7 +540,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _subtractTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
         if (amount_ >= totalEarningSupply) {
             totalEarningSupply = 0;
-            _principalOfTotalEarningSupply = 0;
+            principalOfTotalEarningSupply = 0;
 
             return;
         }
@@ -529,8 +548,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             uint112 principal_ = IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_);
 
-            _principalOfTotalEarningSupply -= (
-                principal_ > _principalOfTotalEarningSupply ? _principalOfTotalEarningSupply : principal_
+            principalOfTotalEarningSupply -= (
+                principal_ > principalOfTotalEarningSupply ? principalOfTotalEarningSupply : principal_
             );
 
             totalEarningSupply -= amount_;
@@ -658,7 +677,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return supply_       The projected total earning supply.
      */
     function _projectedEarningSupply(uint128 currentIndex_) internal view returns (uint240 supply_) {
-        return IndexingMath.getPresentAmountRoundedDown(_principalOfTotalEarningSupply, currentIndex_);
+        return IndexingMath.getPresentAmountRoundedDown(principalOfTotalEarningSupply, currentIndex_);
     }
 
     /**
