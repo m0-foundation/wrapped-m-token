@@ -173,6 +173,13 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function balanceWithYieldOf(address account) external view returns (uint256 balance);
 
     /**
+     * @notice Returns the last index of `account`.
+     * @param  account   The address of some account.
+     * @return lastIndex The last index of `account`, 0 if the account is not earning.
+     */
+    function lastIndexOf(address account) external view returns (uint128 lastIndex);
+
+    /**
      * @notice Returns the recipient to override as the destination for an account's claim of yield.
      * @param  account   The account being queried.
      * @return recipient The address of the recipient, if any, to override as the destination of claimed yield.
@@ -215,6 +222,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice The portion of total supply that is earning yield.
     function totalEarningSupply() external view returns (uint240 totalSupply);
+
+    /// @notice The principal of totalEarningSupply to help compute totalAccruedYield(), and thus excess().
+    function principalOfTotalEarningSupply() external view returns (uint112 principalOfTotalEarningSupply);
 
     /// @notice The address of the vault where excess is claimed to.
     function vault() external view returns (address vault);
