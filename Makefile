@@ -38,7 +38,10 @@ coverage:
 	FOUNDRY_PROFILE=$(profile) MAINNET_RPC_URL=$(MAINNET_RPC_URL) forge coverage --no-match-path 'test/in*/**/*.sol' --report lcov && lcov --extract lcov.info --rc lcov_branch_coverage=1 --rc derive_function_end_line=0 -o lcov.info 'src/*' && genhtml lcov.info --rc branch_coverage=1 --rc derive_function_end_line=0 -o coverage
 
 gas-report:
-	FOUNDRY_PROFILE=production forge test --no-match-path 'test/integration/**/*.sol' --gas-report > gasreport.ansi
+	FOUNDRY_PROFILE=production forge test --no-match-path 'test/integration/**/*.sol' --fork-url mainnet --gas-report > gasreport.ansi
+
+gas-compare:
+	FOUNDRY_PROFILE=production forge snapshot --fork-url mainnet --match-test _gas_
 
 sizes:
 	./build.sh -p production -s

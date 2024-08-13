@@ -15,9 +15,6 @@ contract MorphoBlueTests is TestBase {
     // Oracle factory on Ethereum Mainnet
     address internal constant _oracleFactory = 0x3A7bB36Ee3f3eE32A60e9f2b33c1e5f2E83ad766;
 
-    // USDC on Ethereum Mainnet
-    address internal constant _USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-
     // Morpho Blue market Liquidation Loan-To-Value ratio
     uint256 internal constant _LLTV = 94_5000000000000000; // 94.5%
 
