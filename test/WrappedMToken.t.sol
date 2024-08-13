@@ -138,7 +138,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
         assertEq(_wrappedMToken.balanceOf(_alice), 999);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
-        assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 908);
+        assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 909);
         assertEq(_wrappedMToken.totalEarningSupply(), 999);
 
         vm.prank(_alice);
@@ -148,7 +148,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
-        assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 908);
+        assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 910);
         assertEq(_wrappedMToken.totalEarningSupply(), 1_000);
 
         vm.prank(_alice);
@@ -157,7 +157,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_002);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
-        assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 909);
+        assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 912);
         assertEq(_wrappedMToken.totalEarningSupply(), 1_002);
     }
 
