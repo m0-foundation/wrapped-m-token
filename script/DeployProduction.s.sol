@@ -29,7 +29,7 @@ contract DeployProduction is Script, DeployBase {
     address internal constant _EXPECTED_DEPLOYER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
     // NOTE: Ensure this is the correct nonce to use to deploy the Proxy on testnet/mainnet.
-    uint256 internal constant _DEPLOYER_PROXY_NONCE = 40;
+    uint64 internal constant _DEPLOYER_PROXY_NONCE = 40;
 
     // NOTE: Ensure this is the correct expected testnet/mainnet address for the Proxy.
     address internal constant _EXPECTED_PROXY = 0x437cc33344a0B27A429f795ff6B469C72698B291;
@@ -42,24 +42,25 @@ contract DeployProduction is Script, DeployBase {
         if (deployer_ != _EXPECTED_DEPLOYER) revert DeployerMismatch(_EXPECTED_DEPLOYER, deployer_);
 
         uint64 currentNonce_ = vm.getNonce(deployer_);
+        uint64 startNonce_ = _DEPLOYER_PROXY_NONCE - 1;
 
-        if (currentNonce_ >= _DEPLOYER_PROXY_NONCE - 1) revert DeployerNonceTooHigh();
+        if (currentNonce_ >= startNonce_) revert DeployerNonceTooHigh();
 
-        address expectedProxy_ = getExpectedWrappedMTokenProxy(deployer_, _DEPLOYER_PROXY_NONCE);
+        address expectedProxy_ = getExpectedWrappedMTokenProxy(deployer_, startNonce_);
 
         if (expectedProxy_ != _EXPECTED_PROXY) revert ExpectedProxyMismatch(_EXPECTED_PROXY, expectedProxy_);
 
         vm.startBroadcast(deployer_);
 
         // Burn nonces until to 1 before `_DEPLOYER_PROXY_NONCE` since implementation is deployed before proxy.
-        while (currentNonce_ < _DEPLOYER_PROXY_NONCE - 1) {
+        while (currentNonce_ < startNonce_) {
             payable(deployer_).transfer(0);
             ++currentNonce_;
         }
 
         if (currentNonce_ != vm.getNonce(deployer_)) revert CurrentNonceMismatch(currentNonce_, vm.getNonce(deployer_));
 
-        if (currentNonce_ != _DEPLOYER_PROXY_NONCE - 1) revert UnexpectedDeployerNonce();
+        if (currentNonce_ != startNonce_) revert UnexpectedDeployerNonce();
 
         (address implementation_, address proxy_) = deploy(_M_TOKEN, _MIGRATION_ADMIN);
 
