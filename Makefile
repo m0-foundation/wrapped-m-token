@@ -11,6 +11,9 @@ update:; forge update
 deploy:
 	FOUNDRY_PROFILE=production forge script script/DeployProduction.s.sol --skip src --skip test --rpc-url mainnet --slow --broadcast -vvv --verify
 
+deploy-dev:
+	FOUNDRY_PROFILE=production forge script script/DeployDev.s.sol --skip src --skip test --rpc-url sepolia --slow --broadcast -vvv --verify
+
 deploy-local:
 	FOUNDRY_PROFILE=production forge script script/DeployProduction.s.sol --skip src --skip test --rpc-url localhost --slow --broadcast -vvv
 
