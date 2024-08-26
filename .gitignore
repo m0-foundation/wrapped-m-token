@@ -21,3 +21,4 @@ docs/
 # NPM modules
 node_modules
 gasreport.ansi
+.gas-snapshot
