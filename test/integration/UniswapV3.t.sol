@@ -2,8 +2,6 @@
 
 pragma solidity 0.8.23;
 
-import { TestBase } from "./TestBase.sol";
-
 import { IERC20 } from "../../lib/common/src/interfaces/IERC20.sol";
 
 import {
@@ -14,6 +12,8 @@ import {
 } from "./vendor/uniswap-v3/Interfaces.sol";
 
 import { Utils } from "./vendor/uniswap-v3/Utils.sol";
+
+import { TestBase } from "./TestBase.sol";
 
 contract UniswapV3IntegrationTests is TestBase {
     // Uniswap V3 Position Manager on Ethereum Mainnet
@@ -26,8 +26,8 @@ contract UniswapV3IntegrationTests is TestBase {
     // Uniswap V3 Router on Ethereum Mainnet
     ISwapRouter internal constant _router = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
 
-    // USDC on Ethereum Mainnet
-    address internal constant _USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    // Largest DAI-USDC UniswapV3 Pool on Ethereum Mainnet
+    address internal constant _DAI_USDC_POOL = 0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168;
 
     // Uniswap V3 stable pair fee
     uint24 internal constant _POOL_FEE = 100; // 0.01% in bps
@@ -58,8 +58,10 @@ contract UniswapV3IntegrationTests is TestBase {
 
         _wrappedMToken.enableEarning();
 
-        _pool = _createPool();
+        _pool = _createPool(address(_wrappedMToken), _USDC);
     }
+
+    /* ============ Integration Tests ============ */
 
     function test_initialState() external view {
         assertTrue(_mToken.isEarning(address(_wrappedMToken)));
@@ -77,11 +79,11 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_099_999999);
         assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 1_000_099_999999);
 
-        deal(_USDC, _alice, 1_000_100e6);
+        _give(_USDC, _alice, 1_000_100e6);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += 1_000_100e6);
 
-        _mintNewPosition(_alice, _alice, 1_000_000e6);
+        _mintNewPosition(_alice, address(_wrappedMToken), _USDC, _alice, 1_000_000e6);
 
         assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
@@ -122,11 +124,11 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_099_999999);
         assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 1_000_099_999999);
 
-        deal(_USDC, _alice, 1_000_100e6);
+        _give(_USDC, _alice, 1_000_100e6);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += 1_000_100e6);
 
-        _mintNewPosition(_alice, _alice, 1_000_000e6);
+        _mintNewPosition(_alice, address(_wrappedMToken), _USDC, _alice, 1_000_000e6);
 
         assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
@@ -168,7 +170,7 @@ contract UniswapV3IntegrationTests is TestBase {
 
         /* ============ Bob Swaps Exact USDC for wM ============ */
 
-        deal(_USDC, _bob, 100_000e6);
+        _give(_USDC, _bob, 100_000e6);
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += 100_000e6);
 
@@ -240,9 +242,9 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertApproxEqAbs(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += aliceAmount_, 3);
 
-        deal(_USDC, _alice, aliceAmount_);
+        _give(_USDC, _alice, aliceAmount_);
 
-        _mintNewPosition(_alice, _alice, aliceAmount_);
+        _mintNewPosition(_alice, address(_wrappedMToken), _USDC, _alice, aliceAmount_);
 
         assertApproxEqAbs(_wrappedMToken.balanceOf(_alice), 0, 10);
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += aliceAmount_);
@@ -298,7 +300,7 @@ contract UniswapV3IntegrationTests is TestBase {
 
         /* ============ Bob Swaps Exact USDC for wM ============ */
 
-        deal(_USDC, _bob, bobUsdc_);
+        _give(_USDC, _bob, bobUsdc_);
 
         uint256 swapOutWM_ = _swapExactInput(_bob, _bob, _USDC, address(_wrappedMToken), bobUsdc_);
 
@@ -384,11 +386,11 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_099_999999);
 
-        deal(_USDC, _alice, 1_000_100e6);
+        _give(_USDC, _alice, 1_000_100e6);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += 1_000_100e6);
 
-        _mintNewPosition(_alice, _alice, 1_000_000e6);
+        _mintNewPosition(_alice, address(_wrappedMToken), _USDC, _alice, 1_000_000e6);
 
         assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
@@ -529,7 +531,7 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 2_000_099_999999);
 
-        deal(_USDC, _alice, 2_000_100e6);
+        _give(_USDC, _alice, 2_000_100e6);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += 2_000_100e6);
 
@@ -541,13 +543,13 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM += 2_000_100_000000);
 
-        deal(_USDC, _bob, 2_000_100e6);
+        _give(_USDC, _bob, 2_000_100e6);
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += 2_000_100e6);
 
         /* ============ Alice (Non-Earner) and Bob (Earner) Mint New LP Positions ============ */
 
-        (uint256 aliceTokenId_, , , ) = _mintNewPosition(_alice, _alice, 1_000_000e6);
+        (uint256 aliceTokenId_, , , ) = _mintNewPosition(_alice, address(_wrappedMToken), _USDC, _alice, 1_000_000e6);
 
         assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
@@ -555,7 +557,7 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 1_000_000e6);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 1_000_000e6);
 
-        (uint256 bobTokenId_, , , ) = _mintNewPosition(_bob, _bob, 1_000_000e6);
+        (uint256 bobTokenId_, , , ) = _mintNewPosition(_bob, address(_wrappedMToken), _USDC, _bob, 1_000_000e6);
 
         assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM -= 1_000_000e6);
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
@@ -627,9 +629,73 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += bobAmountUSDC_);
     }
 
-    function _createPool() internal returns (address pool_) {
-        pool_ = _factory.createPool(address(_wrappedMToken), _USDC, _POOL_FEE);
+    /* ============ Gas Tests ============ */
+
+    function test_gas_baselinePreparation(address pool_) public {
+        _pool = pool_;
+
+        for (uint256 i_; i_ < 5; ++i_) {
+            address account_ = _accounts[i_];
+
+            _addToList(_EARNERS_LIST, account_);
+            _wrappedMToken.startEarningFor(account_);
+
+            _giveM(account_, 1_000_100e6);
+            _wrap(account_, account_, 1_000_100e6);
+
+            _give(_USDC, account_, 1_000_100e6);
+            _give(_DAI, account_, 1_000_100e6);
+        }
+
+        _addToList(_EARNERS_LIST, _pool);
+        _wrappedMToken.startEarningFor(_pool);
+
+        _setClaimOverrideRecipient(_pool, _carol);
+    }
+
+    function test_uniswapV3_gas_dai_usdc_mint() public {
+        test_gas_baselinePreparation(_DAI_USDC_POOL);
+        _mintNewPosition(_alice, _DAI, _USDC, _alice, 1_000_000e6);
+    }
+
+    function test_uniswapV3_gas_dai_usdc_swapIn() public {
+        test_uniswapV3_gas_dai_usdc_mint();
+        vm.warp(vm.getBlockTimestamp() + 365 days);
+        _swapExactInput(_bob, _bob, _USDC, _DAI, 100_000e6);
+    }
+
+    function test_uniswapV3_gas_dai_usdc_swapOut() public {
+        test_uniswapV3_gas_dai_usdc_swapIn();
+        vm.warp(vm.getBlockTimestamp() + 365 days);
+        _swapExactInput(_dave, _dave, _DAI, _USDC, 100_000e6);
+    }
+
+    function test_uniswapV3_gas_wm_usdc_mint() public {
+        test_gas_baselinePreparation(_pool);
+        _mintNewPosition(_alice, address(_wrappedMToken), _USDC, _alice, 1_000_000e6);
+    }
+
+    function test_uniswapV3_gas_wm_usdc_swapIn() public {
+        test_uniswapV3_gas_wm_usdc_mint();
+        vm.warp(vm.getBlockTimestamp() + 365 days);
+        _swapExactInput(_bob, _bob, _USDC, address(_wrappedMToken), 100_000e6);
+    }
+
+    function test_uniswapV3_gas_wm_usdc_swapOut() public {
+        test_uniswapV3_gas_wm_usdc_swapIn();
+        vm.warp(vm.getBlockTimestamp() + 365 days);
+        _swapExactInput(_dave, _dave, address(_wrappedMToken), _USDC, 100_000e6);
+    }
+
+    /* ============ Internal Helpers ============ */
+
+    function _createPool(address token0_, address token1_) internal returns (address pool_) {
+        pool_ = _factory.createPool(token0_, token1_, _POOL_FEE);
         IUniswapV3Pool(pool_).initialize(Utils.encodePriceSqrt(1, 1));
+    }
+
+    function _getPool(address token0_, address token1_, uint24 fee_) internal view returns (address pool_) {
+        return _factory.getPool(token0_, token1_, fee_);
     }
 
     function _approve(address token_, address account_, address spender_, uint256 amount_) internal {
@@ -644,16 +710,18 @@ contract UniswapV3IntegrationTests is TestBase {
 
     function _mintNewPosition(
         address account_,
+        address token0_,
+        address token1_,
         address recipient_,
         uint256 amount_
     ) internal returns (uint256 tokenId_, uint128 liquidity_, uint256 amount0_, uint256 amount1_) {
-        _approveWM(account_, address(_positionManager), amount_);
-        _approve(_USDC, account_, address(_positionManager), amount_);
+        _approve(token0_, account_, address(_positionManager), amount_);
+        _approve(token1_, account_, address(_positionManager), amount_);
 
         vm.prank(account_);
         INonfungiblePositionManager.MintParams memory params_ = INonfungiblePositionManager.MintParams({
-            token0: address(_wrappedMToken),
-            token1: _USDC,
+            token0: token0_,
+            token1: token1_,
             fee: _POOL_FEE,
             tickLower: Utils.MIN_TICK,
             tickUpper: Utils.MAX_TICK,

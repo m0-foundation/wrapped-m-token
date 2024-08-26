@@ -2,6 +2,7 @@
 
 pragma solidity 0.8.23;
 
+import { IERC20 } from "../../lib/common/src/interfaces/IERC20.sol";
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
 import { IMTokenLike, IRegistrarLike } from "./vendor/protocol/Interfaces.sol";
@@ -11,6 +12,19 @@ import { Proxy } from "../../src/Proxy.sol";
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 
 contract TestBase is Test {
+    // USDC on Ethereum Mainnet
+    address internal constant _USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+
+    // Large USDC holder on Ethereum Mainnet
+    address internal constant _USDC_SOURCE = 0x4B16c5dE96EB2117bBE5fd171E4d203624B014aa;
+
+    // DAI on Ethereum Mainnet
+    address internal constant _DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+
+    // Large DAI holder on Ethereum Mainnet
+    address internal constant _DAI_SOURCE = 0xD1668fB5F690C59Ab4B0CAbAd0f8C1617895052B;
+
+    // First party contracts on Ethereum Mainnet
     IMTokenLike internal constant _mToken = IMTokenLike(0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b);
 
     address internal constant _minterGateway = 0xf7f9638cb444D65e5A40bF5ff98ebE4ff319F04E;
@@ -45,6 +59,19 @@ contract TestBase is Test {
     function setUp() public virtual {
         _wrappedMTokenImplementation = address(new WrappedMToken(address(_mToken), _migrationAdmin));
         _wrappedMToken = WrappedMToken(address(new Proxy(_wrappedMTokenImplementation)));
+    }
+
+    function _getSource(address token_) internal pure returns (address source_) {
+        if (token_ == _USDC) return _USDC_SOURCE;
+
+        if (token_ == _DAI) return _DAI_SOURCE;
+
+        revert();
+    }
+
+    function _give(address token_, address account_, uint256 amount_) internal {
+        vm.prank(_getSource(token_));
+        IERC20(token_).transfer(account_, amount_);
     }
 
     function _addToList(bytes32 list_, address account_) internal {
