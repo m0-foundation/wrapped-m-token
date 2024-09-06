@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 pragma solidity 0.8.23;
+
 /**
  * @title  Minimal transparent proxy.
  * @author M^0 Labs

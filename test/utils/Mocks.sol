@@ -64,3 +64,11 @@ contract MockRegistrar {
         vault = vault_;
     }
 }
+
+contract MockEarnerStatusManager {
+    mapping(address account => bool earnerStatus) public statusFor;
+
+    function setStatusFor(address account_, bool earnerStatus_) external {
+        statusFor[account_] = earnerStatus_;
+    }
+}

@@ -5,7 +5,11 @@ pragma solidity 0.8.23;
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 
 contract WrappedMTokenHarness is WrappedMToken {
-    constructor(address mToken_, address migrationAdmin_) WrappedMToken(mToken_, migrationAdmin_) {}
+    constructor(
+        address mToken_,
+        address migrationAdmin_,
+        address earnerStatusManagerManager_
+    ) WrappedMToken(mToken_, migrationAdmin_, earnerStatusManagerManager_) {}
 
     function setIsEarningOf(address account_, bool isEarning_) external {
         _accounts[account_].isEarning = isEarning_;

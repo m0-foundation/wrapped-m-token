@@ -26,7 +26,7 @@ interface IMTokenLike {
      */
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool success);
 
-    /// @notice Starts earning for caller if allowed by TTG.
+    /// @notice Starts earning for caller if allowed by the Registrar.
     function startEarning() external;
 
     /// @notice Stops earning for caller.
@@ -51,6 +51,6 @@ interface IMTokenLike {
     /// @notice The current index that would be written to storage if `updateIndex` is called.
     function currentIndex() external view returns (uint128 currentIndex);
 
-    /// @notice The address of the TTG Registrar contract.
+    /// @notice The address of the Registrar contract.
     function ttgRegistrar() external view returns (address ttgRegistrar);
 }
