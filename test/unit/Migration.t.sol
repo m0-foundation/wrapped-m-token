@@ -2,14 +2,14 @@
 
 pragma solidity 0.8.23;
 
-import { Test } from "../lib/forge-std/src/Test.sol";
+import { Test } from "../../lib/forge-std/src/Test.sol";
 
-import { IWrappedMToken } from "../src/interfaces/IWrappedMToken.sol";
+import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
-import { WrappedMToken } from "../src/WrappedMToken.sol";
-import { Proxy } from "../src/Proxy.sol";
+import { WrappedMToken } from "../../src/WrappedMToken.sol";
+import { Proxy } from "../../src/Proxy.sol";
 
-import { MockM, MockRegistrar } from "./utils/Mocks.sol";
+import { MockM, MockRegistrar } from "./../utils/Mocks.sol";
 
 contract WrappedMTokenV2 {
     function foo() external pure returns (uint256) {

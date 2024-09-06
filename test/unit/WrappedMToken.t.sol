@@ -2,18 +2,18 @@
 
 pragma solidity 0.8.23;
 
-import { Test, console2 } from "../lib/forge-std/src/Test.sol";
-import { IERC20Extended } from "../lib/common/src/interfaces/IERC20Extended.sol";
-import { UIntMath } from "../lib/common/src/libs/UIntMath.sol";
+import { Test, console2 } from "../../lib/forge-std/src/Test.sol";
+import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.sol";
+import { UIntMath } from "../../lib/common/src/libs/UIntMath.sol";
 
-import { IWrappedMToken } from "../src/interfaces/IWrappedMToken.sol";
+import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
-import { IndexingMath } from "../src/libs/IndexingMath.sol";
+import { IndexingMath } from "../../src/libs/IndexingMath.sol";
 
-import { Proxy } from "../src/Proxy.sol";
+import { Proxy } from "../../src/Proxy.sol";
 
-import { MockM, MockRegistrar } from "./utils/Mocks.sol";
-import { WrappedMTokenHarness } from "./utils/WrappedMTokenHarness.sol";
+import { MockM, MockRegistrar } from "../utils/Mocks.sol";
+import { WrappedMTokenHarness } from "../utils/WrappedMTokenHarness.sol";
 
 // TODO: Test for `totalAccruedYield()`.
 // TODO: All operations involving earners should include demonstration of accrued yield being added t their balance.
