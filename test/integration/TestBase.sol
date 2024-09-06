@@ -4,11 +4,9 @@ pragma solidity 0.8.23;
 
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
+import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
+
 import { IMTokenLike, IRegistrarLike } from "./vendor/protocol/Interfaces.sol";
-
-import { Proxy } from "../../src/Proxy.sol";
-
-import { WrappedMToken } from "../../src/WrappedMToken.sol";
 
 contract TestBase is Test {
     IMTokenLike internal constant _mToken = IMTokenLike(0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b);
@@ -17,13 +15,12 @@ contract TestBase is Test {
     address internal constant _registrar = 0x119FbeeDD4F4f4298Fb59B720d5654442b81ae2c;
     address internal constant _vault = 0xd7298f620B0F752Cf41BD818a16C756d9dCAA34f;
     address internal constant _standardGovernor = 0xB024aC5a7c6bC92fbACc8C3387E628a07e1Da016;
-    address internal constant _mSource = 0x20b3a4119eAB75ffA534aC8fC5e9160BdcaF442b;
+    address internal constant _mSource = 0x563AA56D0B627d1A734e04dF5762F5Eea1D56C2f;
+    address internal constant _wmSource = 0xfE940BFE535013a52e8e2DF9644f95E3C94fa14B;
+
+    IWrappedMToken internal constant _wrappedMToken = IWrappedMToken(0x437cc33344a0B27A429f795ff6B469C72698B291);
 
     bytes32 internal constant _EARNERS_LIST = "earners";
-
-    address internal _wrappedMTokenImplementation;
-
-    WrappedMToken internal _wrappedMToken;
 
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
@@ -42,11 +39,6 @@ contract TestBase is Test {
 
     bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
 
-    function setUp() public virtual {
-        _wrappedMTokenImplementation = address(new WrappedMToken(address(_mToken), _migrationAdmin));
-        _wrappedMToken = WrappedMToken(address(new Proxy(_wrappedMTokenImplementation)));
-    }
-
     function _addToList(bytes32 list_, address account_) internal {
         vm.prank(_standardGovernor);
         IRegistrarLike(_registrar).addToList(list_, account_);
@@ -60,6 +52,11 @@ contract TestBase is Test {
     function _giveM(address account_, uint256 amount_) internal {
         vm.prank(_mSource);
         _mToken.transfer(account_, amount_);
+    }
+
+    function _giveWM(address account_, uint256 amount_) internal {
+        vm.prank(_wmSource);
+        _wrappedMToken.transfer(account_, amount_);
     }
 
     function _giveEth(address account_, uint256 amount_) internal {
