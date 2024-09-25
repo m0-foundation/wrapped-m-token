@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.23;
 
-// import { console2 } from "../../lib/forge-std/src/Test.sol";
+import { console2 } from "../../lib/forge-std/src/Test.sol";
 
 import { IERC20 } from "../../lib/common/src/interfaces/IERC20.sol";
 
@@ -32,21 +32,21 @@ library Invariants {
             }
         }
 
-        // console2.log("Invariant 1: totalNonEarningSupply_  = %d", totalNonEarningSupply_);
-        // console2.log(
-        //     "Invariant 1: totalNonEarningSupply() = %d",
-        //     IWrappedMToken(wrappedMToken_).totalNonEarningSupply()
-        // );
+        console2.log("Invariant 1: totalNonEarningSupply_  = %d", totalNonEarningSupply_);
+        console2.log(
+            "Invariant 1: totalNonEarningSupply() = %d",
+            IWrappedMToken(wrappedMToken_).totalNonEarningSupply()
+        );
 
         if (totalNonEarningSupply_ != IWrappedMToken(wrappedMToken_).totalNonEarningSupply()) return false;
 
-        // console2.log("Invariant 1: totalEarningSupply_  = %d", totalEarningSupply_);
-        // console2.log("Invariant 1: totalEarningSupply() = %d", IWrappedMToken(wrappedMToken_).totalEarningSupply());
+        console2.log("Invariant 1: totalEarningSupply_  = %d", totalEarningSupply_);
+        console2.log("Invariant 1: totalEarningSupply() = %d", IWrappedMToken(wrappedMToken_).totalEarningSupply());
 
         if (totalEarningSupply_ != IWrappedMToken(wrappedMToken_).totalEarningSupply()) return false;
 
-        // console2.log("Invariant 1: totalSupply_  = %d", totalSupply_);
-        // console2.log("Invariant 1: totalSupply() = %d", IWrappedMToken(wrappedMToken_).totalSupply());
+        console2.log("Invariant 1: totalSupply_  = %d", totalSupply_);
+        console2.log("Invariant 1: totalSupply() = %d", IWrappedMToken(wrappedMToken_).totalSupply());
 
         if (totalSupply_ != IWrappedMToken(wrappedMToken_).totalSupply()) return false;
 

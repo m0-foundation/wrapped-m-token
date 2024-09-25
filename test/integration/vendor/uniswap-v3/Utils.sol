@@ -5,9 +5,6 @@ pragma solidity 0.8.23;
 uint256 constant PRECISION = 2 ** 96;
 
 library Utils {
-    int24 internal constant MIN_TICK = -887272;
-    int24 internal constant MAX_TICK = -MIN_TICK;
-
     function encodePriceSqrt(uint256 reserve1, uint256 reserve0) internal pure returns (uint160) {
         return uint160(sqrt((reserve1 * PRECISION * PRECISION) / reserve0));
     }
