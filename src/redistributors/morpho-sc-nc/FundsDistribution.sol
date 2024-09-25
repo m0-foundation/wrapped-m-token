@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 
 /**
  * @title Funds Distribution
- * @dev   A abstract implementation for distributing across accounts based on their shares.
+ * @dev   An abstract implementation for distributing across accounts based on their shares.
  */
 abstract contract FundsDistribution {
     error ZeroTotalShares();

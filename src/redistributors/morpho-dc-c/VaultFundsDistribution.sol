@@ -6,7 +6,7 @@ import { Common } from "./Common.sol";
 
 /**
  * @title Vault Funds Distribution
- * @dev   A abstract contract for distributing across vaults based on their shares.
+ * @dev   An abstract contract for distributing across vaults based on their shares.
  */
 abstract contract VaultFundsDistribution {
     uint256 private _totalShares;

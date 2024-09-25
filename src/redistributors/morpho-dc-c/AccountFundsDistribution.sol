@@ -6,7 +6,7 @@ import { Common } from "./Common.sol";
 
 /**
  * @title Account Funds Distribution
- * @dev   A abstract implementation for distributing across accounts within vaults based on their shares.
+ * @dev   An abstract implementation for distributing across accounts within vaults based on their shares.
  */
 abstract contract AccountFundsDistribution {
     mapping(address vault => uint256 totalShares) private _totalShares;
