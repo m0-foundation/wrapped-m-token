@@ -22,7 +22,7 @@ abstract contract AccountFundsDistribution {
 
         uint256 totalShares_ = _totalShares[vault_];
 
-        if (totalShares_ == 0) revert Common.ZeroTotalShares();
+        if (totalShares_ == 0) revert Common.ZeroTotalShares(); // If there are no shares for this vault, then revert.
 
         uint256 points_ = distributable_ * Common.PRECISION;
 

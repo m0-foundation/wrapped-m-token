@@ -7,13 +7,7 @@ interface IMorphoVaultFactoryLike {
 }
 
 interface IMorphoVaultLike {
-    function convertToShares(uint256 assets) external view returns (uint256 shares);
-
-    function convertToAssets(uint256 shares) external view returns (uint256 assets);
-
-    function balanceOf(address account) external view returns (uint256 balance);
-
-    function lastTotalAssets() external view returns (uint256 totalAssets);
+    function asset() external view returns (address asset);
 }
 
 interface IWrappedMLike {
