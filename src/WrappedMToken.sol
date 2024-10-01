@@ -9,6 +9,7 @@ import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 
 import { IndexingMath } from "./libs/IndexingMath.sol";
 
+import { IClaimRecipientManager } from "./interfaces/IClaimRecipientManager.sol";
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
@@ -49,7 +50,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
 
     /// @dev Registrar key prefix to determine the migrator contract.
-    bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
+    bytes32 internal constant _MIGRATOR_V2_PREFIX = "wm_migrator_v2";
 
     /// @inheritdoc IWrappedMToken
     address public immutable migrationAdmin;
@@ -62,6 +63,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     address public immutable vault;
+
+    /// @inheritdoc IWrappedMToken
+    address public immutable claimRecipientManager;
 
     /// @inheritdoc IWrappedMToken
     uint112 public principalOfTotalEarningSupply;
@@ -78,17 +82,26 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @dev Array of indices at which earning was enabled or disabled.
     uint128[] internal _enableDisableEarningIndices;
 
+    /// @dev Mapping of accounts to their respective claim recipients.
+    mapping(address account => address recipient) internal _claimRecipients;
+
     /* ============ Constructor ============ */
 
     /**
-     * @dev   Constructs the contract given an M Token address and migration admin.
+     * @dev   Constructs the contract .
      *        Note that a proxy will not need to initialize since there are no mutable storage values affected.
-     * @param mToken_         The address of an M Token.
-     * @param migrationAdmin_ The address of a migration admin.
+     * @param mToken_                The address of an M Token.
+     * @param migrationAdmin_        The address of a migration admin.
+     * @param claimRecipientManager_ The address of a claim recipient manager.
      */
-    constructor(address mToken_, address migrationAdmin_) ERC20Extended("WrappedM by M^0", "wM", 6) {
+    constructor(
+        address mToken_,
+        address migrationAdmin_,
+        address claimRecipientManager_
+    ) ERC20Extended("WrappedM by M^0", "wM", 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
+        if ((claimRecipientManager = claimRecipientManager_) == address(0)) revert ZeroClaimRecipientManager();
 
         registrar = IMTokenLike(mToken_).ttgRegistrar();
         vault = IRegistrarLike(registrar).vault();
@@ -215,6 +228,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         emit StoppedEarning(account_);
     }
 
+    /// @inheritdoc IWrappedMToken
+    function setClaimRecipient(address recipient_) external {
+        _claimRecipients[msg.sender] = recipient_;
+
+        emit ClaimRecipientSet(msg.sender, recipient_);
+    }
+
     /* ============ Temporary Admin Migration ============ */
 
     /// @inheritdoc IWrappedMToken
@@ -251,15 +271,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IWrappedMToken
-    function claimOverrideRecipientFor(address account_) public view returns (address recipient_) {
-        return
-            address(
-                uint160(
-                    uint256(
-                        IRegistrarLike(registrar).get(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)))
-                    )
-                )
-            );
+    function claimRecipientFor(address account_) public view returns (address recipient_) {
+        recipient_ = _claimRecipients[account_];
+
+        // `claimRecipientOverrideFor` overrides `IClaimRecipientManager.claimRecipientFor`.
+        if (recipient_ != address(0)) return recipient_;
+
+        recipient_ = IClaimRecipientManager(claimRecipientManager).claimRecipientFor(account_);
+
+        // The default claim recipient is always the account itself.
+        return (recipient_ != address(0)) ? recipient_ : account_;
     }
 
     /// @inheritdoc IWrappedMToken
@@ -449,8 +470,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             totalEarningSupply += yield_;
         }
 
-        address claimOverrideRecipient_ = claimOverrideRecipientFor(account_);
-        address claimRecipient_ = claimOverrideRecipient_ == address(0) ? account_ : claimOverrideRecipient_;
+        address claimRecipient_ = claimRecipientFor(account_);
 
         // Emit the appropriate `Claimed` and `Transfer` events, depending on the claim override recipient
         emit Claimed(account_, claimRecipient_, yield_);
@@ -652,15 +672,15 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             address(
                 uint160(
                     // NOTE: A subsequent implementation should use a unique migrator prefix.
-                    uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(this)))))
+                    uint256(IRegistrarLike(registrar).get(keccak256(abi.encode(_MIGRATOR_V2_PREFIX, address(this)))))
                 )
             );
     }
 
     /**
-     * @dev    Returns whether `account_` is a TTG-approved earner.
+     * @dev    Returns whether `account_` is a Registrar-approved earner.
      * @param  account_    The account being queried.
-     * @return isApproved_ True if the account_ is a TTG-approved earner, false otherwise.
+     * @return isApproved_ True if the account_ is a Registrar-approved earner, false otherwise.
      */
     function _isApprovedEarner(address account_) internal view returns (bool isApproved_) {
         return

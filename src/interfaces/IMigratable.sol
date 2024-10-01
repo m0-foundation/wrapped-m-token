@@ -23,7 +23,7 @@ interface IMigratable {
      */
     event Upgraded(address indexed implementation);
 
-    /// @notice Emitted when calling `stopEarning` for an account approved as earner by TTG.
+    /// @notice Emitted when calling `stopEarning` for an account approved as earner by the Registrar.
     error InvalidMigrator();
 
     /// @notice Emitted when the delegatecall to a migrator fails.

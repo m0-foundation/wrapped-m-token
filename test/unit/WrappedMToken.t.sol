@@ -12,7 +12,7 @@ import { IndexingMath } from "../../src/libs/IndexingMath.sol";
 
 import { Proxy } from "../../src/Proxy.sol";
 
-import { MockM, MockRegistrar } from "../utils/Mocks.sol";
+import { MockClaimRecipientManager, MockM, MockRegistrar } from "../utils/Mocks.sol";
 import { WrappedMTokenHarness } from "../utils/WrappedMTokenHarness.sol";
 
 // TODO: Test for `totalAccruedYield()`.
@@ -39,12 +39,15 @@ contract WrappedMTokenTests is Test {
 
     uint128 internal _currentIndex;
 
+    MockClaimRecipientManager internal _claimRecipientManager;
     MockM internal _mToken;
     MockRegistrar internal _registrar;
     WrappedMTokenHarness internal _implementation;
     WrappedMTokenHarness internal _wrappedMToken;
 
     function setUp() external {
+        _claimRecipientManager = new MockClaimRecipientManager();
+
         _registrar = new MockRegistrar();
         _registrar.setVault(_vault);
 
@@ -52,15 +55,15 @@ contract WrappedMTokenTests is Test {
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
         _mToken.setTtgRegistrar(address(_registrar));
 
-        _implementation = new WrappedMTokenHarness(address(_mToken), _migrationAdmin);
+        _implementation = new WrappedMTokenHarness(address(_mToken), _migrationAdmin, address(_claimRecipientManager));
 
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         _mToken.setCurrentIndex(_currentIndex = 1_100000068703);
     }
 
-    /* ============ constructor ============ */
-    function test_constructor() external view {
+    /* ============ initial state ============ */
+    function test_initialState() external view {
         assertEq(_wrappedMToken.migrationAdmin(), _migrationAdmin);
         assertEq(_wrappedMToken.mToken(), address(_mToken));
         assertEq(_wrappedMToken.registrar(), address(_registrar));
@@ -71,14 +74,20 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.implementation(), address(_implementation));
     }
 
+    /* ============ constructor ============ */
     function test_constructor_zeroMToken() external {
         vm.expectRevert(IWrappedMToken.ZeroMToken.selector);
-        new WrappedMTokenHarness(address(0), address(0));
+        new WrappedMTokenHarness(address(0), address(0), address(0));
     }
 
     function test_constructor_zeroMigrationAdmin() external {
         vm.expectRevert(IWrappedMToken.ZeroMigrationAdmin.selector);
-        new WrappedMTokenHarness(address(_mToken), address(0));
+        new WrappedMTokenHarness(address(_mToken), address(0), address(0));
+    }
+
+    function test_constructor_zeroClaimRecipientManager() external {
+        vm.expectRevert(IWrappedMToken.ZeroClaimRecipientManager.selector);
+        new WrappedMTokenHarness(address(_mToken), _migrationAdmin, address(0));
     }
 
     function test_constructor_zeroImplementation() external {
@@ -1150,6 +1159,26 @@ contract WrappedMTokenTests is Test {
         _mToken.setCurrentIndex(4 * _EXP_SCALED_ONE);
 
         assertEq(_wrappedMToken.currentIndex(), 3 * _EXP_SCALED_ONE);
+    }
+
+    /* ============ claimRecipientFor ============ */
+    function test_claimRecipientFor() external {
+        assertEq(_wrappedMToken.claimRecipientFor(_alice), _alice);
+
+        _claimRecipientManager.setClaimRecipient(_alice, _bob);
+
+        // In the absence of a locally set claim recipient, the claim recipient manager decides.
+        assertEq(_wrappedMToken.claimRecipientFor(_alice), _bob);
+
+        _wrappedMToken.setClaimRecipient(_alice, _charlie);
+
+        // When there is a locally set claim recipient, the claim recipient manager is ignored.
+        assertEq(_wrappedMToken.claimRecipientFor(_alice), _charlie);
+
+        _wrappedMToken.setClaimRecipient(_alice, _alice);
+
+        // Setting self as the local claim recipient also works.
+        assertEq(_wrappedMToken.claimRecipientFor(_alice), _alice);
     }
 
     /* ============ misc ============ */

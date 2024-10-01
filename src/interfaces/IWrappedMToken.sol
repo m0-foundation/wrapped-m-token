@@ -22,6 +22,13 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     event Claimed(address indexed account, address indexed recipient, uint240 yield);
 
     /**
+     * @notice Emitted when the claim recipient for `account` is set to `recipient`.
+     * @param  account   The account under which yield will generate.
+     * @param  recipient The account that will receive the yield when claims are performed.
+     */
+    event ClaimRecipientSet(address indexed account, address indexed recipient);
+
+    /**
      * @notice Emitted when earning is enabled for the entire wrapper.
      * @param  index The index at the moment earning is enabled.
      */
@@ -62,7 +69,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted when trying to enable earning after it has been explicitly disabled.
     error EarningCannotBeReenabled();
 
-    /// @notice Emitted when calling `stopEarning` for an account approved as earner by TTG.
+    /// @notice Emitted when calling `stopEarning` for an account approved as earner by the Registrar.
     error IsApprovedEarner();
 
     /**
@@ -73,7 +80,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     error InsufficientBalance(address account, uint240 balance, uint240 amount);
 
-    /// @notice Emitted when calling `startEarning` for an account not approved as earner by TTG.
+    /// @notice Emitted when calling `startEarning` for an account not approved as earner by the Registrar.
     error NotApprovedEarner();
 
     /// @notice Emitted when the non-governance migrate function is called by a account other than the migration admin.
@@ -84,6 +91,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice Emitted in constructor if Migration Admin is 0x0.
     error ZeroMigrationAdmin();
+
+    /// @notice Emitted in constructor if ClaimRecipientManager is 0x0.
+    error ZeroClaimRecipientManager();
 
     /* ============ Interactive Functions ============ */
 
@@ -130,23 +140,29 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     function claimExcess() external returns (uint240 excess);
 
-    /// @notice Enables earning for the wrapper if allowed by TTG and if it has never been done.
+    /// @notice Enables earning for the wrapper if allowed by the Registrar and if it has never been done.
     function enableEarning() external;
 
-    /// @notice Disables earning for the wrapper if disallowed by TTG and if it has never been done.
+    /// @notice Disables earning for the wrapper if disallowed by the Registrar and if it has never been done.
     function disableEarning() external;
 
     /**
-     * @notice Starts earning for `account` if allowed by TTG.
+     * @notice Starts earning for `account` if allowed by the Registrar.
      * @param  account The account to start earning for.
      */
     function startEarningFor(address account) external;
 
     /**
-     * @notice Stops earning for `account` if disallowed by TTG.
+     * @notice Stops earning for `account` if disallowed by the Registrar.
      * @param  account The account to stop earning for.
      */
     function stopEarningFor(address account) external;
+
+    /**
+     * @notice Sets the recipient to use as the destination for the caller's claim of yield.
+     * @param  recipient The address of the recipient to use.
+     */
+    function setClaimRecipient(address recipient) external;
 
     /* ============ Temporary Admin Migration ============ */
 
@@ -180,11 +196,14 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function lastIndexOf(address account) external view returns (uint128 lastIndex);
 
     /**
-     * @notice Returns the recipient to override as the destination for an account's claim of yield.
+     * @notice Returns the recipient to use as the destination for an account's claim of yield.
      * @param  account   The account being queried.
-     * @return recipient The address of the recipient, if any, to override as the destination of claimed yield.
+     * @return recipient The address of the recipient, if any, to use as the destination of claimed yield.
      */
-    function claimOverrideRecipientFor(address account) external view returns (address recipient);
+    function claimRecipientFor(address account) external view returns (address recipient);
+
+    /// @notice The address of the ClaimRecipientManager contract.
+    function claimRecipientManager() external view returns (address claimRecipientManager);
 
     /// @notice The current index of the wrapper's earning mechanism.
     function currentIndex() external view returns (uint128 index);
@@ -205,13 +224,13 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Whether earning has been enabled at least once or not.
     function wasEarningEnabled() external view returns (bool wasEnabled);
 
-    /// @notice The account that can bypass TTG and call the `migrate(address migrator)` function.
+    /// @notice The account that can bypass the Registrar and call the `migrate(address migrator)` function.
     function migrationAdmin() external view returns (address migrationAdmin);
 
     /// @notice The address of the M Token contract.
     function mToken() external view returns (address mToken);
 
-    /// @notice The address of the TTG registrar.
+    /// @notice The address of the Registrar contract.
     function registrar() external view returns (address registrar);
 
     /// @notice The portion of total supply that is not earning yield.

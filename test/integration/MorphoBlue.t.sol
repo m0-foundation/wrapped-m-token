@@ -34,6 +34,9 @@ contract MorphoBlueTests is MorphoTestBase {
         _morphoBalanceOfWM = _wrappedMToken.balanceOf(_MORPHO);
 
         _excess = _wrappedMToken.excess();
+
+        _deployV2Components();
+        _migrate();
     }
 
     function test_state() external view {
@@ -296,7 +299,7 @@ contract MorphoBlueTests is MorphoTestBase {
         // Check that the pool is earning wM.
         assertTrue(_wrappedMToken.isEarning(_MORPHO));
 
-        assertEq(_wrappedMToken.claimOverrideRecipientFor(_MORPHO), _carol);
+        assertEq(_wrappedMToken.claimRecipientFor(_MORPHO), _carol);
 
         assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
         assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
@@ -415,7 +418,7 @@ contract MorphoBlueTests is MorphoTestBase {
         // Check that the pool is earning wM.
         assertTrue(_wrappedMToken.isEarning(_MORPHO));
 
-        assertEq(_wrappedMToken.claimOverrideRecipientFor(_MORPHO), _carol);
+        assertEq(_wrappedMToken.claimRecipientFor(_MORPHO), _carol);
 
         assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
         assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
