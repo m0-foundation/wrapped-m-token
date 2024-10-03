@@ -6,7 +6,7 @@ import { IClaimRecipientManager } from "./interfaces/IClaimRecipientManager.sol"
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 
 /**
- * @title  Claim Recipient Manager contract for setting an returning claim recipients for Wrapped M Token yield.
+ * @title  Claim Recipient Manager contract for setting and returning claim recipients for Wrapped M Token yield.
  * @author M^0 Labs
  */
 contract ClaimRecipientManager is IClaimRecipientManager {
@@ -15,7 +15,7 @@ contract ClaimRecipientManager is IClaimRecipientManager {
     /// @dev Registrar key prefix to determine the override recipient of an account's accrued yield.
     bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
 
-    /// @dev Registrar key of earners list.
+    /// @dev Registrar key of claim recipient admin list.
     bytes32 internal constant _CLAIM_RECIPIENT_ADMIN_LIST = "wm_claim_recipient_admins";
 
     /// @inheritdoc IClaimRecipientManager
@@ -24,7 +24,7 @@ contract ClaimRecipientManager is IClaimRecipientManager {
     /// @dev Mapping of account to claim recipient.
     mapping(address account => address recipient) internal _claimRecipients;
 
-    /* ============ Modifies ============ */
+    /* ============ Modifiers ============ */
 
     modifier onlyClaimRecipientAdmin() {
         _revertIfNotClaimRecipientAdmin();
@@ -95,6 +95,8 @@ contract ClaimRecipientManager is IClaimRecipientManager {
      * @param recipient_ The account that should receive the yield when claims are performed.
      */
     function _setClaimRecipient(address account_, address recipient_) internal {
+        if (account_ == address(0)) revert ZeroAccount();
+
         emit ClaimRecipientSet(msg.sender, account_, _claimRecipients[account_] = recipient_);
     }
 

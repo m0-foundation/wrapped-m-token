@@ -88,7 +88,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ Constructor ============ */
 
     /**
-     * @dev   Constructs the contract .
+     * @dev   Constructs the contract.
      *        Note that a proxy will not need to initialize since there are no mutable storage values affected.
      * @param mToken_                The address of an M Token.
      * @param migrationAdmin_        The address of a migration admin.
@@ -274,7 +274,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function claimRecipientFor(address account_) public view returns (address recipient_) {
         recipient_ = _claimRecipients[account_];
 
-        // `claimRecipientOverrideFor` overrides `IClaimRecipientManager.claimRecipientFor`.
+        // `_claimRecipients[account_]` overrides `IClaimRecipientManager.claimRecipientFor`.
         if (recipient_ != address(0)) return recipient_;
 
         recipient_ = IClaimRecipientManager(claimRecipientManager).claimRecipientFor(account_);

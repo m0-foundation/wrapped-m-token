@@ -3,7 +3,7 @@
 pragma solidity 0.8.23;
 
 /**
- * @title  Claim Recipient Manager interface for setting an returning claim recipients for Wrapped M Token yield.
+ * @title  Claim Recipient Manager interface for setting and returning claim recipients for Wrapped M Token yield.
  * @author M^0 Labs
  */
 interface IClaimRecipientManager {
@@ -25,6 +25,9 @@ interface IClaimRecipientManager {
     /// @notice Emitted when caller is not a claim recipient admin.
     error NotClaimRecipientAdmin();
 
+    /// @notice Emitted when an account (whose claim recipient is being set) is 0x0.
+    error ZeroAccount();
+
     /// @notice Emitted in constructor if Registrar is 0x0.
     error ZeroRegistrar();
 
@@ -40,7 +43,7 @@ interface IClaimRecipientManager {
     /**
      * @notice Sets the claim recipient for multiple accounts.
      * @param  accounts    The accounts under which yield will generate.
-     * @param  recipients  The accounts that should receive the yield when claims are performed ro each account.
+     * @param  recipients  The accounts that should receive the yield when claims are performed to each account.
      */
     function setClaimRecipients(address[] calldata accounts, address[] calldata recipients) external;
 
@@ -61,7 +64,7 @@ interface IClaimRecipientManager {
     function claimRecipientOverrideFor(address account) external view returns (address recipient);
 
     /**
-     * @notice Returns whether `account` is a Registrar-approved earner.
+     * @notice Returns whether `account` is a Registrar-approved claim recipient admin.
      * @param  account The account being queried.
      * @return isAdmin True if the account is a Registrar-approved claim recipient admin, false otherwise.
      */
