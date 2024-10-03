@@ -10,6 +10,7 @@ block_timestamp = 1_726_598_340
 fork_block_number = 20_772_165
 rpc_storage_caching = { chains = ["mainnet"], endpoints = "all" }
 evm_version = "shanghai"
+fs_permissions = [{ access = "read-write", path = "./gas-profiles"}]
 
 [profile.production]
 optimizer = true

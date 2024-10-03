@@ -39,10 +39,10 @@ fi
 
 if [ -z "$test" ]; then
 	if [ -z "$directory" ]; then
-		forge test --match-path "test/*" --fork-url $MAINNET_RPC_URL $gasReport $verbosity
+		forge test --ffi --match-path "test/*" --fork-url $MAINNET_RPC_URL $gasReport $verbosity
 	else
-		forge test --match-path "$directory/*.t.sol" --fork-url $MAINNET_RPC_URL $gasReport $verbosity
+		forge test --ffi --match-path "$directory/*.t.sol" --fork-url $MAINNET_RPC_URL $gasReport $verbosity
 	fi
 else
-	forge test --match-test "$test" --fork-url $MAINNET_RPC_URL $gasReport $verbosity
+	forge test --ffi --match-test "$test" --fork-url $MAINNET_RPC_URL $gasReport $verbosity
 fi
