@@ -15,7 +15,6 @@ contract Tests is Test {
     uint56 internal constant _EXP_SCALED_ONE = 1e12;
 
     bytes32 internal constant _EARNERS_LIST = "earners";
-    bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
 
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");

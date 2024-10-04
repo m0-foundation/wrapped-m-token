@@ -46,9 +46,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @dev Registrar key of earners list.
     bytes32 internal constant _EARNERS_LIST = "earners";
 
-    /// @dev Registrar key prefix to determine the override recipient of an account's accrued yield.
-    bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
-
     /// @dev Registrar key prefix to determine the migrator contract.
     bytes32 internal constant _MIGRATOR_V2_PREFIX = "wm_migrator_v2";
 
