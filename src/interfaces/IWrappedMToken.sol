@@ -95,6 +95,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted in constructor if ClaimRecipientManager is 0x0.
     error ZeroClaimRecipientManager();
 
+    /// @notice Emitted in constructor if EarnerStatusManager is 0x0.
+    error ZeroEarnerStatusManager();
+
     /* ============ Interactive Functions ============ */
 
     /**
@@ -207,6 +210,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice The current index of the wrapper's earning mechanism.
     function currentIndex() external view returns (uint128 index);
+
+    /// @notice The address of the EarnerStatusManager contract.
+    function earnerStatusManager() external view returns (address earnerStatusManager);
 
     /// @notice The current excess M of the wrapper that is not earmarked for account balances or accrued yield.
     function excess() external view returns (uint240 excess);

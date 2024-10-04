@@ -8,8 +8,9 @@ contract WrappedMTokenHarness is WrappedMToken {
     constructor(
         address mToken_,
         address migrationAdmin_,
-        address claimRecipientManager
-    ) WrappedMToken(mToken_, migrationAdmin_, claimRecipientManager) {}
+        address earnerStatusManagerManager_,
+        address claimRecipientManager_
+    ) WrappedMToken(mToken_, migrationAdmin_, earnerStatusManagerManager_, claimRecipientManager_) {}
 
     function setClaimRecipient(address account_, address recipient_) external {
         _claimRecipients[account_] = recipient_;

@@ -9,12 +9,10 @@ import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 import { Proxy } from "../../src/Proxy.sol";
 
-import { MockClaimRecipientManager, MockM, MockRegistrar } from "../utils/Mocks.sol";
+import { MockClaimRecipientManager, MockEarnerStatusManager, MockM, MockRegistrar } from "../utils/Mocks.sol";
 
 contract Tests is Test {
     uint56 internal constant _EXP_SCALED_ONE = 1e12;
-
-    bytes32 internal constant _EARNERS_LIST = "earners";
 
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
@@ -26,6 +24,7 @@ contract Tests is Test {
     address internal _vault = makeAddr("vault");
 
     MockClaimRecipientManager internal _claimRecipientManager;
+    MockEarnerStatusManager internal _earnerStatusManager;
     MockM internal _mToken;
     MockRegistrar internal _registrar;
     WrappedMToken internal _implementation;
@@ -33,6 +32,7 @@ contract Tests is Test {
 
     function setUp() external {
         _claimRecipientManager = new MockClaimRecipientManager();
+        _earnerStatusManager = new MockEarnerStatusManager();
 
         _registrar = new MockRegistrar();
         _registrar.setVault(_vault);
@@ -41,15 +41,20 @@ contract Tests is Test {
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
         _mToken.setTtgRegistrar(address(_registrar));
 
-        _implementation = new WrappedMToken(address(_mToken), _migrationAdmin, address(_claimRecipientManager));
+        _implementation = new WrappedMToken(
+            address(_mToken),
+            _migrationAdmin,
+            address(_earnerStatusManager),
+            address(_claimRecipientManager)
+        );
 
         _wrappedMToken = IWrappedMToken(address(new Proxy(address(_implementation))));
     }
 
     function test_story() external {
-        _registrar.setListContains(_EARNERS_LIST, _alice, true);
-        _registrar.setListContains(_EARNERS_LIST, _bob, true);
-        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+        _earnerStatusManager.setEarnerStatusFor(_alice, true);
+        _earnerStatusManager.setEarnerStatusFor(_bob, true);
+        _earnerStatusManager.setEarnerStatusFor(address(_wrappedMToken), true);
 
         _wrappedMToken.enableEarning();
 
@@ -245,7 +250,7 @@ contract Tests is Test {
         assertEq(_wrappedMToken.totalAccruedYield(), 133_333336);
         assertEq(_wrappedMToken.excess(), 416_666664);
 
-        _registrar.setListContains(_EARNERS_LIST, _alice, false);
+        _earnerStatusManager.setEarnerStatusFor(_alice, false);
 
         _wrappedMToken.stopEarningFor(_alice);
 
@@ -260,7 +265,7 @@ contract Tests is Test {
         assertEq(_wrappedMToken.totalAccruedYield(), 66_666672);
         assertEq(_wrappedMToken.excess(), 416_666664);
 
-        _registrar.setListContains(_EARNERS_LIST, _carol, true);
+        _earnerStatusManager.setEarnerStatusFor(_carol, true);
 
         _wrappedMToken.startEarningFor(_carol);
 
@@ -368,9 +373,9 @@ contract Tests is Test {
     }
 
     function test_noExcessCreep() external {
-        _registrar.setListContains(_EARNERS_LIST, _alice, true);
-        _registrar.setListContains(_EARNERS_LIST, _bob, true);
-        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+        _earnerStatusManager.setEarnerStatusFor(_alice, true);
+        _earnerStatusManager.setEarnerStatusFor(_bob, true);
+        _earnerStatusManager.setEarnerStatusFor(address(_wrappedMToken), true);
         _mToken.setCurrentIndex(_EXP_SCALED_ONE + 3e11 - 1);
 
         _wrappedMToken.enableEarning();
@@ -402,9 +407,9 @@ contract Tests is Test {
     }
 
     function test_dustWrapping() external {
-        _registrar.setListContains(_EARNERS_LIST, _alice, true);
-        _registrar.setListContains(_EARNERS_LIST, _bob, true);
-        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+        _earnerStatusManager.setEarnerStatusFor(_alice, true);
+        _earnerStatusManager.setEarnerStatusFor(_bob, true);
+        _earnerStatusManager.setEarnerStatusFor(address(_wrappedMToken), true);
         _mToken.setCurrentIndex(_EXP_SCALED_ONE + 1);
 
         _wrappedMToken.enableEarning();

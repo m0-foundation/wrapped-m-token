@@ -48,6 +48,7 @@ contract MigrationTests is Test {
 
     address internal _migrationAdmin = makeAddr("migrationAdmin");
     address internal _claimRecipientManager = makeAddr("claimRecipientManager");
+    address internal _earnerStatusManager = makeAddr("earnerStatusManager");
 
     address internal _vault = makeAddr("vault");
 
@@ -64,7 +65,12 @@ contract MigrationTests is Test {
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
         _mToken.setTtgRegistrar(address(_registrar));
 
-        _implementation = new WrappedMToken(address(_mToken), _migrationAdmin, _claimRecipientManager);
+        _implementation = new WrappedMToken(
+            address(_mToken),
+            _migrationAdmin,
+            _earnerStatusManager,
+            _claimRecipientManager
+        );
 
         _wrappedMToken = IWrappedMToken(address(new Proxy(address(_implementation))));
     }
