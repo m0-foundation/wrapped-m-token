@@ -64,3 +64,11 @@ contract MockRegistrar {
         vault = vault_;
     }
 }
+
+contract MockClaimRecipientManager {
+    mapping(address account => address recipient) public claimRecipientFor;
+
+    function setClaimRecipient(address account_, address recipient_) external {
+        claimRecipientFor[account_] = recipient_;
+    }
+}

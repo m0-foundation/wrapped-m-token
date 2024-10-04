@@ -9,13 +9,12 @@ import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 import { Proxy } from "../../src/Proxy.sol";
 
-import { MockM, MockRegistrar } from "../utils/Mocks.sol";
+import { MockClaimRecipientManager, MockM, MockRegistrar } from "../utils/Mocks.sol";
 
 contract Tests is Test {
     uint56 internal constant _EXP_SCALED_ONE = 1e12;
 
     bytes32 internal constant _EARNERS_LIST = "earners";
-    bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
 
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
@@ -26,12 +25,15 @@ contract Tests is Test {
 
     address internal _vault = makeAddr("vault");
 
+    MockClaimRecipientManager internal _claimRecipientManager;
     MockM internal _mToken;
     MockRegistrar internal _registrar;
     WrappedMToken internal _implementation;
     IWrappedMToken internal _wrappedMToken;
 
     function setUp() external {
+        _claimRecipientManager = new MockClaimRecipientManager();
+
         _registrar = new MockRegistrar();
         _registrar.setVault(_vault);
 
@@ -39,7 +41,7 @@ contract Tests is Test {
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
         _mToken.setTtgRegistrar(address(_registrar));
 
-        _implementation = new WrappedMToken(address(_mToken), _migrationAdmin);
+        _implementation = new WrappedMToken(address(_mToken), _migrationAdmin, address(_claimRecipientManager));
 
         _wrappedMToken = IWrappedMToken(address(new Proxy(address(_implementation))));
     }
