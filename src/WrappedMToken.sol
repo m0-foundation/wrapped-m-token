@@ -10,6 +10,7 @@ import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 import { IndexingMath } from "./libs/IndexingMath.sol";
 
 import { IClaimRecipientManager } from "./interfaces/IClaimRecipientManager.sol";
+import { IEarnerStatusManager } from "./interfaces/IEarnerStatusManager.sol";
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
@@ -40,12 +41,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /* ============ Variables ============ */
 
-    /// @dev Registrar key holding value of whether the earners list can be ignored or not.
-    bytes32 internal constant _EARNERS_LIST_IGNORED = "earners_list_ignored";
-
-    /// @dev Registrar key of earners list.
-    bytes32 internal constant _EARNERS_LIST = "earners";
-
     /// @dev Registrar key prefix to determine the migrator contract.
     bytes32 internal constant _MIGRATOR_V2_PREFIX = "wm_migrator_v2";
 
@@ -60,6 +55,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     address public immutable vault;
+
+    /// @inheritdoc IWrappedMToken
+    address public immutable earnerStatusManager;
 
     /// @inheritdoc IWrappedMToken
     address public immutable claimRecipientManager;
@@ -89,15 +87,18 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      *        Note that a proxy will not need to initialize since there are no mutable storage values affected.
      * @param mToken_                The address of an M Token.
      * @param migrationAdmin_        The address of a migration admin.
+     * @param earnerStatusManager_   The address of a earner status manager.
      * @param claimRecipientManager_ The address of a claim recipient manager.
      */
     constructor(
         address mToken_,
         address migrationAdmin_,
+        address earnerStatusManager_,
         address claimRecipientManager_
     ) ERC20Extended("WrappedM by M^0", "wM", 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
+        if ((earnerStatusManager = earnerStatusManager_) == address(0)) revert ZeroEarnerStatusManager();
         if ((claimRecipientManager = claimRecipientManager_) == address(0)) revert ZeroClaimRecipientManager();
 
         registrar = IMTokenLike(mToken_).ttgRegistrar();
@@ -680,9 +681,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return isApproved_ True if the account_ is a Registrar-approved earner, false otherwise.
      */
     function _isApprovedEarner(address account_) internal view returns (bool isApproved_) {
-        return
-            IRegistrarLike(registrar).get(_EARNERS_LIST_IGNORED) != bytes32(0) ||
-            IRegistrarLike(registrar).listContains(_EARNERS_LIST, account_);
+        return IEarnerStatusManager(earnerStatusManager).earnerStatusFor(account_);
     }
 
     /**

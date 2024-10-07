@@ -72,3 +72,11 @@ contract MockClaimRecipientManager {
         claimRecipientFor[account_] = recipient_;
     }
 }
+
+contract MockEarnerStatusManager {
+    mapping(address account => bool earnerStatus) public earnerStatusFor;
+
+    function setEarnerStatusFor(address account_, bool earnerStatus_) external {
+        earnerStatusFor[account_] = earnerStatus_;
+    }
+}

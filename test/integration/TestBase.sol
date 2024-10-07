@@ -5,9 +5,11 @@ pragma solidity 0.8.23;
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
 import { IClaimRecipientManager } from "../../src/interfaces/IClaimRecipientManager.sol";
+import { IEarnerStatusManager } from "../../src/interfaces/IEarnerStatusManager.sol";
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
 import { ClaimRecipientManager } from "../../src/ClaimRecipientManager.sol";
+import { EarnerStatusManager } from "../../src/EarnerStatusManager.sol";
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 import { MigratorV1 } from "../../src/MigratorV1.sol";
 
@@ -30,6 +32,8 @@ contract TestBase is Test {
     bytes32 internal constant _EARNERS_LIST = "earners";
     bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
     bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
+    bytes32 internal constant _CLAIM_RECIPIENT_ADMIN_LIST = "wm_claim_recipient_admins";
+    bytes32 internal constant _EARNER_STATUS_ADMIN_LIST = "wm_earner_status_admins";
 
     address internal _migrationAdmin = 0x431169728D75bd02f4053435b87D15c8d1FB2C72;
 
@@ -50,6 +54,7 @@ contract TestBase is Test {
     address internal _migratorV1;
 
     IClaimRecipientManager internal _claimRecipientManager;
+    IEarnerStatusManager internal _earnerStatusManager;
 
     function _addToList(bytes32 list_, address account_) internal {
         vm.prank(_standardGovernor);
@@ -121,10 +126,16 @@ contract TestBase is Test {
     }
 
     function _deployV2Components() internal {
+        _earnerStatusManager = IEarnerStatusManager(address(new EarnerStatusManager(_registrar)));
         _claimRecipientManager = IClaimRecipientManager(address(new ClaimRecipientManager(_registrar)));
 
         _implementationV2 = address(
-            new WrappedMToken(address(_mToken), _migrationAdmin, address(_claimRecipientManager))
+            new WrappedMToken(
+                address(_mToken),
+                _migrationAdmin,
+                address(_earnerStatusManager),
+                address(_claimRecipientManager)
+            )
         );
 
         _migratorV1 = address(new MigratorV1(_implementationV2));
