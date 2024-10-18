@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
 contract MockM {
-    address public ttgRegistrar;
-
     uint128 public currentIndex;
 
     mapping(address account => uint256 balance) public balanceOf;
@@ -32,10 +30,6 @@ contract MockM {
         currentIndex = currentIndex_;
     }
 
-    function setTtgRegistrar(address ttgRegistrar_) external {
-        ttgRegistrar = ttgRegistrar_;
-    }
-
     function startEarning() external {
         isEarning[msg.sender] = true;
     }
@@ -46,8 +40,6 @@ contract MockM {
 }
 
 contract MockRegistrar {
-    address public vault;
-
     mapping(bytes32 key => bytes32 value) public get;
 
     mapping(bytes32 list => mapping(address account => bool contains)) public listContains;
@@ -58,9 +50,5 @@ contract MockRegistrar {
 
     function setListContains(bytes32 list_, address account_, bool contains_) external {
         listContains[list_][account_] = contains_;
-    }
-
-    function setVault(address vault_) external {
-        vault = vault_;
     }
 }
