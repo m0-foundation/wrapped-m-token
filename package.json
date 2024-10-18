@@ -1,24 +1,22 @@
 {
-  "name": "@mzero-labs/foundry-template",
+  "name": "@mzero-labs/wrapped-m-token",
   "version": "1.0.0",
-  "description": "Template to kickstart a Foundry project",
-  "main": "index.js",
+  "description": "Wrapped M Token",
   "author": "M^0 Labs <contact@m0.xyz>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MZero-Labs/foundry-template.git"
+    "url": "git+https://github.com/m0-foundation/wrapped-m-token.git"
   },
   "bugs": {
-    "url": "https://github.com/MZero-Labs/foundry-template/issues"
+    "url": "https://github.com/m0-foundation/wrapped-m-token/issues"
   },
-  "homepage": "https://github.com/MZero-Labs/foundry-template#readme",
+  "homepage": "https://github.com/m0-foundation/wrapped-m-token#readme",
   "scripts": {
     "build": "make -B build",
     "clean": "make -B clean",
-    "compile": "forge compile",
     "coverage": "make -B coverage",
+    "deploy": "make -B deploy",
     "deploy-local": "make -B deploy-local",
-    "deploy-sepolia": "make -B deploy-sepolia",
     "doc": "forge doc --serve --port 4000",
     "lint-staged": "lint-staged",
     "prepack": "npm run clean && npm run build",
