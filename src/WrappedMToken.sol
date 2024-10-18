@@ -96,7 +96,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
         if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
 
-        vault = IRegistrarLike(registrar).vault();
+        vault = IRegistrarLike(registrar_).vault();
     }
 
     /* ============ Interactive Functions ============ */
@@ -521,8 +521,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _subtractTotalEarningSupply(uint240 amount_, uint128 currentIndex_) internal {
         if (amount_ >= totalEarningSupply) {
-            totalEarningSupply = 0;
-            principalOfTotalEarningSupply = 0;
+            delete totalEarningSupply;
+            delete principalOfTotalEarningSupply;
 
             return;
         }
@@ -620,8 +620,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (!accountInfo_.isEarning) return;
 
-        accountInfo_.isEarning = false;
-        accountInfo_.lastIndex = 0;
+        delete accountInfo_.isEarning;
+        delete accountInfo_.lastIndex;
 
         uint240 balance_ = accountInfo_.balance;
 

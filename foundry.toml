@@ -24,10 +24,6 @@ runs = 512            # The number of calls to make in the invariant tests
 depth = 25            # The number of times to run the invariant tests
 fail_on_revert = true # Fail the test if the contract reverts
 
-[profile.ci]
-optimizer = true
-optimizer_runs = 999999
-
 [profile.ci.fuzz]
 runs = 10_000
 
