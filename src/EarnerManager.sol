@@ -68,9 +68,9 @@ contract EarnerManager is IEarnerManager, Migratable {
 
     /// @inheritdoc IEarnerManager
     function setEarnerDetails(address account_, bool status_, uint16 feeRate_) external onlyAdmin {
-        if (isEarnersListIgnored()) revert EarnersListIgnored();
+        if (earnersListsIgnored()) revert EarnersListsIgnored();
 
-        _setDetails(account_, status_, msg.sender, feeRate_);
+        _setDetails(account_, status_, feeRate_);
     }
 
     /// @inheritdoc IEarnerManager
@@ -82,13 +82,13 @@ contract EarnerManager is IEarnerManager, Migratable {
         if (accounts_.length == 0) revert ArrayLengthZero();
         if (accounts_.length != statuses_.length) revert ArrayLengthMismatch();
         if (accounts_.length != feeRates_.length) revert ArrayLengthMismatch();
-        if (isEarnersListIgnored()) revert EarnersListIgnored();
+        if (earnersListsIgnored()) revert EarnersListsIgnored();
 
         for (uint256 index_; index_ < accounts_.length; ++index_) {
             // NOTE: The `isAdmin` check in `_setDetails` will make this costly to re-set details for multiple accounts
             //       that have already been set by the same admin, due to the redundant queries to the registrar.
             //       Consider transient storage in `isAdmin` to memoize admins.
-            _setDetails(accounts_[index_], statuses_[index_], msg.sender, feeRates_[index_]);
+            _setDetails(accounts_[index_], statuses_[index_], feeRates_[index_]);
         }
     }
 
@@ -105,48 +105,54 @@ contract EarnerManager is IEarnerManager, Migratable {
 
     /// @inheritdoc IEarnerManager
     function earnerStatusFor(address account_) external view returns (bool status_) {
-        return isEarnersListIgnored() || isInEarnersList(account_) || _isValidAdmin(_earnerDetails[account_].admin);
+        return earnersListsIgnored() || isInRegistrarEarnersList(account_) || isInAdministratedEarnersList(account_);
     }
 
     /// @inheritdoc IEarnerManager
     function earnerStatusesFor(address[] calldata accounts_) external view returns (bool[] memory statuses_) {
         statuses_ = new bool[](accounts_.length);
 
-        bool isListIgnored_ = isEarnersListIgnored();
+        bool earnersListsIgnored_ = earnersListsIgnored();
 
         for (uint256 index_; index_ < accounts_.length; ++index_) {
-            if (isListIgnored_) {
+            if (earnersListsIgnored_) {
                 statuses_[index_] = true;
                 continue;
             }
 
             address account_ = accounts_[index_];
 
-            if (isInEarnersList(account_)) {
+            if (isInRegistrarEarnersList(account_)) {
                 statuses_[index_] = true;
                 continue;
             }
 
-            statuses_[index_] = _isValidAdmin(_earnerDetails[account_].admin);
+            statuses_[index_] = isInAdministratedEarnersList(account_);
         }
     }
 
     /// @inheritdoc IEarnerManager
-    function isEarnersListIgnored() public view returns (bool isIgnored_) {
+    function earnersListsIgnored() public view returns (bool isIgnored_) {
         return IRegistrarLike(registrar).get(EARNERS_LIST_IGNORED_KEY) != bytes32(0);
     }
 
     /// @inheritdoc IEarnerManager
-    function isInEarnersList(address account_) public view returns (bool isInList_) {
+    function isInRegistrarEarnersList(address account_) public view returns (bool isInList_) {
         return IRegistrarLike(registrar).listContains(EARNERS_LIST_NAME, account_);
     }
 
     /// @inheritdoc IEarnerManager
+    function isInAdministratedEarnersList(address account_) public view returns (bool isInList_) {
+        return _isValidAdmin(_earnerDetails[account_].admin);
+    }
+
+    /// @inheritdoc IEarnerManager
     function getEarnerDetails(address account_) external view returns (bool status_, uint16 feeRate_, address admin_) {
-        if (isEarnersListIgnored() || isInEarnersList(account_)) return (true, 0, address(0));
+        if (earnersListsIgnored() || isInRegistrarEarnersList(account_)) return (true, 0, address(0));
 
         EarnerDetails storage details_ = _earnerDetails[account_];
 
+        // NOTE: Not using `isInAdministratedEarnersList(account_)` here to avoid redundant storage reads.
         return _isValidAdmin(details_.admin) ? (true, details_.feeRate, details_.admin) : (false, 0, address(0));
     }
 
@@ -158,23 +164,24 @@ contract EarnerManager is IEarnerManager, Migratable {
         feeRates_ = new uint16[](accounts_.length);
         admins_ = new address[](accounts_.length);
 
-        bool isEarnersListIgnored_ = isEarnersListIgnored();
+        bool earnersListsIgnored_ = earnersListsIgnored();
 
         for (uint256 index_; index_ < accounts_.length; ++index_) {
-            if (isEarnersListIgnored_) {
+            if (earnersListsIgnored_) {
                 statuses_[index_] = true;
                 continue;
             }
 
             address account_ = accounts_[index_];
 
-            if (isInEarnersList(account_)) {
+            if (isInRegistrarEarnersList(account_)) {
                 statuses_[index_] = true;
                 continue;
             }
 
             EarnerDetails storage details_ = _earnerDetails[account_];
 
+            // NOTE: Not using `isInAdministratedEarnersList(account_)` here to avoid redundant storage reads.
             if (!_isValidAdmin(details_.admin)) continue;
 
             statuses_[index_] = true;
@@ -192,29 +199,32 @@ contract EarnerManager is IEarnerManager, Migratable {
     /* ============ Internal Interactive Functions ============ */
 
     /**
-     * @dev   Sets the earner details for `account_`.
+     * @dev   Sets the earner details for `account_`, assuming `msg.sender` is the calling admin.
      * @param account_ The account under which yield could generate.
      * @param status_  Whether the account is an earner, according to the admin.
-     * @param admin_   The admin who set the details and who will collect the fee.
      * @param feeRate_ The fee rate to be taken from the yield.
      */
-    function _setDetails(address account_, bool status_, address admin_, uint16 feeRate_) internal {
+    function _setDetails(address account_, bool status_, uint16 feeRate_) internal {
         if (account_ == address(0)) revert ZeroAccount();
-        if (!status_ && (feeRate_ != 0)) revert InvalidDetails();
-        if (status_ == (admin_ == address(0))) revert InvalidDetails();
+        if (!status_ && (feeRate_ != 0)) revert InvalidDetails(); // Fee rate must be zero if status is false.
         if (feeRate_ > MAX_FEE_RATE) revert FeeRateTooHigh();
-        if (isInEarnersList(account_)) revert AlreadyInEarnersList(account_);
+        if (isInRegistrarEarnersList(account_)) revert AlreadyInRegistrarEarnersList(account_);
 
-        address currentAdmin_ = _earnerDetails[account_].admin;
+        address admin_ = _earnerDetails[account_].admin;
 
-        // Revert if the details have already been set by an admin that is not `admin_` and is still an admin.
-        if ((currentAdmin_ != address(0)) && (currentAdmin_ != admin_) && isAdmin(currentAdmin_)) {
+        // Revert if the details have already been set by an admin that is not `msg.sender`, and is still an admin.
+        // NOTE: No `_isValidAdmin` here to avoid unnecessary contract call and storage reads if `admin_ == msg.sender`.
+        if ((admin_ != address(0)) && (admin_ != msg.sender) && isAdmin(admin_)) {
             revert EarnerDetailsAlreadySet(account_);
         }
 
-        _earnerDetails[account_] = EarnerDetails(admin_, feeRate_);
+        if (status_) {
+            _earnerDetails[account_] = EarnerDetails(msg.sender, feeRate_);
+        } else {
+            delete _earnerDetails[account_];
+        }
 
-        emit EarnerDetailsSet(account_, status_, admin_, feeRate_);
+        emit EarnerDetailsSet(account_, status_, msg.sender, feeRate_);
     }
 
     /**

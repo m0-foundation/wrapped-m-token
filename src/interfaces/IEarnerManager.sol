@@ -14,7 +14,7 @@ interface IEarnerManager is IMigratable {
     /**
      * @notice Emitted when the earner for `account` is set to `status`.
      * @param  account The account under which yield could generate.
-     * @param  status  Whether the account is set an earner, according to the admin.
+     * @param  status  Whether the account is set as an earner, according to the admin.
      * @param  admin   The admin who set the details and who will collect the fee.
      * @param  feeRate The fee rate to be taken from the yield.
      */
@@ -22,8 +22,8 @@ interface IEarnerManager is IMigratable {
 
     /* ============ Custom Errors ============ */
 
-    /// @notice Emitted when `account` is is already in the earners list, so it cannot be added by an admin.
-    error AlreadyInEarnersList(address account);
+    /// @notice Emitted when `account` is already in the earners list, so it cannot be added by an admin.
+    error AlreadyInRegistrarEarnersList(address account);
 
     /// @notice Emitted when the lengths of input arrays do not match.
     error ArrayLengthMismatch();
@@ -34,13 +34,13 @@ interface IEarnerManager is IMigratable {
     /// @notice Emitted when the earner details have already be set by an existing and active admin.
     error EarnerDetailsAlreadySet(address account);
 
-    /// @notice Emitted when the earners list is ignored, thus not requiring admin to define earners.
-    error EarnersListIgnored();
+    /// @notice Emitted when the earners lists are ignored, thus not requiring admin to define earners.
+    error EarnersListsIgnored();
 
     /// @notice Emitted when the fee rate provided is to high (higher than 100% in basis points).
     error FeeRateTooHigh();
 
-    /// @notice Emitted when setting details (i.e. fee rate) while setting status to false.
+    /// @notice Emitted when setting fee rate to a nonzero value while setting status to false.
     error InvalidDetails();
 
     /// @notice Emitted when the caller is not an admin.
@@ -90,7 +90,7 @@ interface IEarnerManager is IMigratable {
 
     /* ============ View/Pure Functions ============ */
 
-    /// @notice Maximum fee rate that can be set (1005 in basis points).
+    /// @notice Maximum fee rate that can be set (100% in basis points).
     function MAX_FEE_RATE() external pure returns (uint16 maxFeeRate);
 
     /// @notice Registrar name of admins list.
@@ -120,17 +120,24 @@ interface IEarnerManager is IMigratable {
     function earnerStatusesFor(address[] calldata accounts) external view returns (bool[] memory statuses);
 
     /**
-     * @notice Returns whether the list of earners can be ignored (thus making all accounts earners).
-     * @return isIgnored Whether the list of earners can be ignored.
+     * @notice Returns whether the lists of earners can be ignored (thus making all accounts earners).
+     * @return ignored Whether the lists of earners can be ignored.
      */
-    function isEarnersListIgnored() external view returns (bool isIgnored);
+    function earnersListsIgnored() external view returns (bool ignored);
 
     /**
      * @notice Returns whether `account` is a Registrar-approved earner.
      * @param  account  The account being queried.
      * @return isInList Whether the account is a Registrar-approved earner.
      */
-    function isInEarnersList(address account) external view returns (bool isInList);
+    function isInRegistrarEarnersList(address account) external view returns (bool isInList);
+
+    /**
+     * @notice Returns whether `account` is an Admin-approved earner.
+     * @param  account  The account being queried.
+     * @return isInList Whether the account is an Admin-approved earner.
+     */
+    function isInAdministratedEarnersList(address account) external view returns (bool isInList);
 
     /**
      * @notice Returns the earner details for `account`.

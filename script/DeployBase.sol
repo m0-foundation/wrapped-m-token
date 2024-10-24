@@ -11,10 +11,10 @@ import { Proxy } from "../src/Proxy.sol";
 contract DeployBase {
     /**
      * @dev    Deploys Wrapped M Token.
-     * @param  mToken_                      The address the M Token contract.
-     * @param  registrar_                   The address the Registrar contract.
-     * @param  excessDestination_           The address the excess destination.
-     * @param  migrationAdmin_              The address the Migration Admin.
+     * @param  mToken_                      The address of the M Token contract.
+     * @param  registrar_                   The address of the Registrar contract.
+     * @param  excessDestination_           The address of the excess destination.
+     * @param  migrationAdmin_              The address of the Migration Admin.
      * @return earnerManagerImplementation_ The address of the deployed Earner Manager implementation.
      * @return earnerManagerProxy_          The address of the deployed Earner Manager proxy.
      * @return wrappedMTokenImplementation_ The address of the deployed Wrapped M Token implementation.
@@ -95,7 +95,9 @@ contract DeployBase {
         return _getExpectedWrappedMTokenProxy(deployer_, deployerNonce_);
     }
 
-    function getDeployerNonceAfterProtocolDeployment(uint256 deployerNonce_) public pure virtual returns (uint256) {
+    function getDeployerNonceAfterWrappedMTokenDeployment(
+        uint256 deployerNonce_
+    ) public pure virtual returns (uint256) {
         return deployerNonce_ + 4;
     }
 }

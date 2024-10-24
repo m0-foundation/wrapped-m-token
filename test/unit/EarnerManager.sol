@@ -46,6 +46,7 @@ contract EarnerStatusManagerTests is Test {
         vm.expectRevert(IEarnerManager.ZeroRegistrar.selector);
         new EarnerManagerHarness(address(0), address(0));
     }
+
     function test_constructor_zeroMigrationAdmin() external {
         vm.expectRevert(IEarnerManager.ZeroMigrationAdmin.selector);
         new EarnerManagerHarness(address(_registrar), address(0));
@@ -55,35 +56,27 @@ contract EarnerStatusManagerTests is Test {
     function test_setDetails_zeroAccount() external {
         vm.expectRevert(IEarnerManager.ZeroAccount.selector);
 
-        _earnerManager.setDetails(address(0), false, address(0), 0);
+        _earnerManager.setDetails(address(0), false, 0);
     }
 
     function test_setDetails_invalidDetails() external {
         vm.expectRevert(IEarnerManager.InvalidDetails.selector);
 
-        _earnerManager.setDetails(_alice, false, address(0), 1);
-
-        vm.expectRevert(IEarnerManager.InvalidDetails.selector);
-
-        _earnerManager.setDetails(_alice, false, _admin1, 0);
-
-        vm.expectRevert(IEarnerManager.InvalidDetails.selector);
-
-        _earnerManager.setDetails(_alice, true, address(0), 0);
+        _earnerManager.setDetails(_alice, false, 1);
     }
 
     function test_setDetails_feeRateTooHigh() external {
         vm.expectRevert(IEarnerManager.FeeRateTooHigh.selector);
 
-        _earnerManager.setDetails(_alice, true, _admin1, 10_001);
+        _earnerManager.setDetails(_alice, true, 10_001);
     }
 
-    function test_setDetails_alreadyInEarnersList() external {
+    function test_setDetails_alreadyInRegistrarEarnersList() external {
         _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
 
-        vm.expectRevert(abi.encodeWithSelector(IEarnerManager.AlreadyInEarnersList.selector, _alice));
+        vm.expectRevert(abi.encodeWithSelector(IEarnerManager.AlreadyInRegistrarEarnersList.selector, _alice));
 
-        _earnerManager.setDetails(_alice, false, address(0), 0);
+        _earnerManager.setDetails(_alice, true, 0);
     }
 
     function test_setDetails_earnerDetailsAlreadySet() external {
@@ -91,17 +84,57 @@ contract EarnerStatusManagerTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IEarnerManager.EarnerDetailsAlreadySet.selector, _alice));
 
-        _earnerManager.setDetails(_alice, true, _admin2, 2);
+        vm.prank(_admin2);
+        _earnerManager.setDetails(_alice, true, 2);
     }
 
     function test_setDetails() external {
-        _earnerManager.setDetails(_alice, true, _admin1, 1);
+        vm.prank(_admin1);
+        _earnerManager.setDetails(_alice, true, 1);
 
         (bool status_, uint16 feeRate_, address admin_) = _earnerManager.getEarnerDetails(_alice);
 
         assertTrue(status_);
         assertEq(feeRate_, 1);
         assertEq(admin_, _admin1);
+    }
+
+    function test_setDetails_changeFeeRate() external {
+        _earnerManager.setInternalEarnerDetails(_alice, _admin1, 1);
+
+        (bool status_, uint16 feeRate_, address admin_) = _earnerManager.getEarnerDetails(_alice);
+
+        assertTrue(status_);
+        assertEq(feeRate_, 1);
+        assertEq(admin_, _admin1);
+
+        vm.prank(_admin1);
+        _earnerManager.setDetails(_alice, true, 2);
+
+        (status_, feeRate_, admin_) = _earnerManager.getEarnerDetails(_alice);
+
+        assertTrue(status_);
+        assertEq(feeRate_, 2);
+        assertEq(admin_, _admin1);
+    }
+
+    function test_setDetails_remove() external {
+        _earnerManager.setInternalEarnerDetails(_alice, _admin1, 1);
+
+        (bool status_, uint16 feeRate_, address admin_) = _earnerManager.getEarnerDetails(_alice);
+
+        assertTrue(status_);
+        assertEq(feeRate_, 1);
+        assertEq(admin_, _admin1);
+
+        vm.prank(_admin1);
+        _earnerManager.setDetails(_alice, false, 0);
+
+        (status_, feeRate_, admin_) = _earnerManager.getEarnerDetails(_alice);
+
+        assertFalse(status_);
+        assertEq(feeRate_, 0);
+        assertEq(admin_, address(0));
     }
 
     /* ============ setEarnerDetails ============ */
@@ -115,7 +148,7 @@ contract EarnerStatusManagerTests is Test {
     function test_setEarnerDetails_earnersListIgnored() external {
         _registrar.set(_EARNERS_LIST_IGNORED_KEY, bytes32(uint256(1)));
 
-        vm.expectRevert(IEarnerManager.EarnersListIgnored.selector);
+        vm.expectRevert(IEarnerManager.EarnersListsIgnored.selector);
 
         vm.prank(_admin1);
         _earnerManager.setEarnerDetails(_alice, true, 0);
@@ -170,7 +203,7 @@ contract EarnerStatusManagerTests is Test {
     function test_setEarnerDetails_batch_earnersListIgnored() external {
         _registrar.set(_EARNERS_LIST_IGNORED_KEY, bytes32(uint256(1)));
 
-        vm.expectRevert(IEarnerManager.EarnersListIgnored.selector);
+        vm.expectRevert(IEarnerManager.EarnersListsIgnored.selector);
 
         vm.prank(_admin1);
         _earnerManager.setEarnerDetails(new address[](2), new bool[](2), new uint16[](2));
@@ -432,26 +465,34 @@ contract EarnerStatusManagerTests is Test {
         assertTrue(statuses_[2]);
     }
 
-    /* ============ isEarnersListIgnored ============ */
-    function test_isEarnersListIgnored() external {
-        assertFalse(_earnerManager.isEarnersListIgnored());
+    /* ============ earnersListsIgnored ============ */
+    function test_earnersListsIgnored() external {
+        assertFalse(_earnerManager.earnersListsIgnored());
 
         _registrar.set(_EARNERS_LIST_IGNORED_KEY, bytes32(uint256(1)));
 
-        assertTrue(_earnerManager.isEarnersListIgnored());
+        assertTrue(_earnerManager.earnersListsIgnored());
     }
 
-    /* ============ isInEarnersList ============ */
-    function test_isInEarnersList() external {
-        assertFalse(_earnerManager.isInEarnersList(_alice));
+    /* ============ isInRegistrarEarnersList ============ */
+    function test_isInRegistrarEarnersList() external {
+        assertFalse(_earnerManager.isInRegistrarEarnersList(_alice));
 
         _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
 
-        assertTrue(_earnerManager.isInEarnersList(_alice));
+        assertTrue(_earnerManager.isInRegistrarEarnersList(_alice));
+    }
+
+    /* ============ isInAdministratedEarnersList ============ */
+    function test_isInAdministratedEarnersList() external {
+        assertFalse(_earnerManager.isInAdministratedEarnersList(_alice));
+
+        _earnerManager.setInternalEarnerDetails(_alice, _admin1, 0);
+
+        assertTrue(_earnerManager.isInAdministratedEarnersList(_alice));
     }
 
     /* ============ getEarnerDetails ============ */
-
     function test_getEarnerDetails_earnersListIgnored() external {
         _earnerManager.setInternalEarnerDetails(_alice, _admin1, 1);
 

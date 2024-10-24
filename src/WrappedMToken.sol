@@ -53,6 +53,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ Variables ============ */
 
     /// @inheritdoc IWrappedMToken
+    uint16 public constant HUNDRED_PERCENT = 10_000;
+
+    /// @inheritdoc IWrappedMToken
     bytes32 public constant EARNERS_LIST_IGNORED_KEY = "earners_list_ignored";
 
     /// @inheritdoc IWrappedMToken
@@ -155,11 +158,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function enableEarning() external {
-        if (
-            IRegistrarLike(registrar).get(EARNERS_LIST_IGNORED_KEY) == bytes32(0) &&
-            !IRegistrarLike(registrar).listContains(EARNERS_LIST_NAME, address(this))
-        ) revert NotApprovedEarner(address(this));
-
+        if (!_isThisApprovedEarner()) revert NotApprovedEarner(address(this));
         if (isEarningEnabled()) revert EarningIsEnabled();
 
         // NOTE: This is a temporary measure to prevent re-enabling earning after it has been disabled.
@@ -177,11 +176,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function disableEarning() external {
-        if (
-            IRegistrarLike(registrar).get(EARNERS_LIST_IGNORED_KEY) != bytes32(0) ||
-            IRegistrarLike(registrar).listContains(EARNERS_LIST_NAME, address(this))
-        ) revert IsApprovedEarner(address(this));
-
+        if (_isThisApprovedEarner()) revert IsApprovedEarner(address(this));
         if (!isEarningEnabled()) revert EarningIsDisabled();
 
         uint128 currentMIndex_ = _currentMIndex();
@@ -241,9 +236,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function accruedYieldOf(address account_) public view returns (uint240 yield_) {
         Account storage accountInfo_ = _accounts[account_];
 
-        if (!accountInfo_.isEarning) return 0;
-
-        return _getAccruedYield(accountInfo_.balance, accountInfo_.lastIndex, currentIndex());
+        return
+            accountInfo_.isEarning ? _getAccruedYield(accountInfo_.balance, accountInfo_.lastIndex, currentIndex()) : 0;
     }
 
     /// @inheritdoc IERC20
@@ -308,10 +302,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function totalAccruedYield() external view returns (uint240 yield_) {
-        uint240 projectedEarningSupply_ = _projectedEarningSupply(currentIndex());
-        uint240 earningSupply_ = totalEarningSupply;
-
         unchecked {
+            uint240 projectedEarningSupply_ = _projectedEarningSupply(currentIndex());
+            uint240 earningSupply_ = totalEarningSupply;
+
             return projectedEarningSupply_ <= earningSupply_ ? 0 : projectedEarningSupply_ - earningSupply_;
         }
     }
@@ -453,9 +447,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         accountInfo_.lastIndex = currentIndex_;
 
-        unchecked {
-            if (yield_ == 0) return 0;
+        if (yield_ == 0) return 0;
 
+        unchecked {
             accountInfo_.balance = startingBalance_ + yield_;
 
             // Update the total earning supply to account for the yield, but the principal has not changed.
@@ -469,21 +463,26 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         emit Claimed(account_, claimRecipient_, yield_);
         emit Transfer(address(0), account_, yield_);
 
+        uint240 yieldNetOfFees_ = yield_;
+
         if (accountInfo_.hasEarnerDetails) {
             (, uint16 feeRate_, address admin_) = IEarnerManager(earnerManager).getEarnerDetails(account_);
 
-            feeRate_ = feeRate_ > 10_000 ? 10_000 : feeRate_; // Ensure fee rate is capped at 100%.
-            uint240 fee_ = (feeRate_ * yield_) / 10_000;
+            feeRate_ = feeRate_ > HUNDRED_PERCENT ? HUNDRED_PERCENT : feeRate_; // Ensure fee rate is capped at 100%.
 
-            if (fee_ != 0) {
-                _transfer(account_, admin_, fee_, currentIndex_);
-                yield_ -= fee_;
+            unchecked {
+                uint240 fee_ = (feeRate_ * yield_) / HUNDRED_PERCENT;
+
+                if (fee_ != 0) {
+                    yieldNetOfFees_ -= fee_;
+                    _transfer(account_, admin_, fee_, currentIndex_);
+                }
             }
         }
 
-        if ((claimRecipient_ != account_) && (fee_ != 0)) {
+        if ((claimRecipient_ != account_) && (yieldNetOfFees_ != 0)) {
             // NOTE: Watch out for a long chain of earning claim override recipients.
-            _transfer(account_, claimRecipient_, yield_, currentIndex_);
+            _transfer(account_, claimRecipient_, yieldNetOfFees_, currentIndex_);
         }
     }
 
@@ -628,7 +627,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param currentIndex_ The current index.
      */
     function _startEarningFor(address account_, uint128 currentIndex_) internal {
-        (bool isEarner_, uint16 feeRate_, ) = IEarnerManager(earnerManager).getEarnerDetails(account_);
+        (bool isEarner_, , address admin_) = IEarnerManager(earnerManager).getEarnerDetails(account_);
 
         if (!isEarner_) revert NotApprovedEarner(account_);
 
@@ -638,7 +637,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         accountInfo_.isEarning = true;
         accountInfo_.lastIndex = currentIndex_;
-        accountInfo_.hasEarnerDetails = feeRate_ != 0;
+        accountInfo_.hasEarnerDetails = admin_ != address(0); // Has earner details if an admin exists for this account.
 
         uint240 balance_ = accountInfo_.balance;
 
@@ -687,6 +686,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @dev Returns the current index of the M Token.
     function _currentMIndex() internal view returns (uint128 index_) {
         return IMTokenLike(mToken).currentIndex();
+    }
+
+    /// @dev Returns whether this contract is a Registrar-approved earner.
+    function _isThisApprovedEarner() internal view returns (bool) {
+        return
+            IRegistrarLike(registrar).get(EARNERS_LIST_IGNORED_KEY) != bytes32(0) ||
+            IRegistrarLike(registrar).listContains(EARNERS_LIST_NAME, address(this));
     }
 
     /// @dev Returns the earning index from the last `disableEarning` call.
