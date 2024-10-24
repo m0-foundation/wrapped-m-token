@@ -53,6 +53,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ Variables ============ */
 
     /// @inheritdoc IWrappedMToken
+    uint16 public constant HUNDRED_PERCENT = 10_000;
+
+    /// @inheritdoc IWrappedMToken
     bytes32 public constant EARNERS_LIST_IGNORED_KEY = "earners_list_ignored";
 
     /// @inheritdoc IWrappedMToken
@@ -469,19 +472,23 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         emit Claimed(account_, claimRecipient_, yield_);
         emit Transfer(address(0), account_, yield_);
 
+        uint240 fee_;
+
         if (accountInfo_.hasEarnerDetails) {
             (, uint16 feeRate_, address admin_) = IEarnerManager(earnerManager).getEarnerDetails(account_);
 
-            feeRate_ = feeRate_ > 10_000 ? 10_000 : feeRate_; // Ensure fee rate is capped at 100%.
-            uint240 fee_ = (feeRate_ * yield_) / 10_000;
+            feeRate_ = feeRate_ > HUNDRED_PERCENT ? HUNDRED_PERCENT : feeRate_; // Ensure fee rate is capped at 100%.
+
+            unchecked {
+                yield_ -= (fee_ = (feeRate_ * yield_) / HUNDRED_PERCENT);
+            }
 
             if (fee_ != 0) {
                 _transfer(account_, admin_, fee_, currentIndex_);
-                yield_ -= fee_;
             }
         }
 
-        if ((claimRecipient_ != account_) && (fee_ != 0)) {
+        if ((claimRecipient_ != account_) && (yield_ != 0)) {
             // NOTE: Watch out for a long chain of earning claim override recipients.
             _transfer(account_, claimRecipient_, yield_, currentIndex_);
         }
@@ -628,7 +635,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param currentIndex_ The current index.
      */
     function _startEarningFor(address account_, uint128 currentIndex_) internal {
-        (bool isEarner_, uint16 feeRate_, ) = IEarnerManager(earnerManager).getEarnerDetails(account_);
+        (bool isEarner_, , address admin_) = IEarnerManager(earnerManager).getEarnerDetails(account_);
 
         if (!isEarner_) revert NotApprovedEarner(account_);
 
@@ -638,7 +645,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         accountInfo_.isEarning = true;
         accountInfo_.lastIndex = currentIndex_;
-        accountInfo_.hasEarnerDetails = feeRate_ != 0;
+        accountInfo_.hasEarnerDetails = admin_ != address(0); // Has earner details if an admin exists for this account.
 
         uint240 balance_ = accountInfo_.balance;
 

@@ -185,6 +185,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /* ============ View/Pure Functions ============ */
 
+    /// @notice 100% in basis points.
+    function HUNDRED_PERCENT() external pure returns (uint16 hundredPercent);
+
     /// @notice Registrar key holding value of whether the earners list can be ignored or not.
     function EARNERS_LIST_IGNORED_KEY() external pure returns (bytes32 earnersListIgnoredKey);
 

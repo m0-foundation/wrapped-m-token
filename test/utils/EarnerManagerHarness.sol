@@ -11,7 +11,7 @@ contract EarnerManagerHarness is EarnerManager {
         _earnerDetails[account_] = EarnerDetails(admin_, feeRate_);
     }
 
-    function setDetails(address account_, bool status_, address admin_, uint16 feeRate_) external {
-        _setDetails(account_, status_, admin_, feeRate_);
+    function setDetails(address account_, bool status_, uint16 feeRate_) external {
+        _setDetails(account_, status_, feeRate_);
     }
 }
