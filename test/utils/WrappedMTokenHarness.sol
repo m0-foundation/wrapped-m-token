@@ -8,9 +8,10 @@ contract WrappedMTokenHarness is WrappedMToken {
     constructor(
         address mToken_,
         address registrar_,
+        address earnerManager_,
         address excessDestination_,
         address migrationAdmin_
-    ) WrappedMToken(mToken_, registrar_, excessDestination_, migrationAdmin_) {}
+    ) WrappedMToken(mToken_, registrar_, earnerManager_, excessDestination_, migrationAdmin_) {}
 
     function setIsEarningOf(address account_, bool isEarning_) external {
         _accounts[account_].isEarning = isEarning_;
@@ -20,12 +21,12 @@ contract WrappedMTokenHarness is WrappedMToken {
         _accounts[account_].lastIndex = uint128(index_);
     }
 
-    function setAccountOf(address account_, uint256 balance_, uint256 index_) external {
-        _accounts[account_] = Account(true, uint240(balance_), uint128(index_));
+    function setAccountOf(address account_, uint256 balance_, uint256 index_, bool hasEarnerDetails_) external {
+        _accounts[account_] = Account(true, uint240(balance_), uint128(index_), hasEarnerDetails_);
     }
 
     function setAccountOf(address account_, uint256 balance_) external {
-        _accounts[account_] = Account(false, uint240(balance_), 0);
+        _accounts[account_] = Account(false, uint240(balance_), 0, false);
     }
 
     function setTotalNonEarningSupply(uint256 totalNonEarningSupply_) external {
