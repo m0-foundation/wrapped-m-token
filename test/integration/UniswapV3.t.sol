@@ -51,21 +51,21 @@ contract UniswapV3IntegrationTests is TestBase {
     uint240 internal _excess;
 
     function setUp() external {
-        _wrapperBalanceOfM = _mToken.balanceOf(address(_wrappedMToken));
+        _wrapperBalanceOfM = _mToken.balanceOf(address(_smartMToken));
 
         _poolBalanceOfUSDC = IERC20(_USDC).balanceOf(_pool);
-        _poolBalanceOfWM = _wrappedMToken.balanceOf(_pool);
+        _poolBalanceOfWM = _smartMToken.balanceOf(_pool);
 
-        _excess = _wrappedMToken.excess();
+        _excess = _smartMToken.excess();
 
         _deployV2Components();
         _migrate();
     }
 
     function test_state() external view {
-        assertTrue(_mToken.isEarning(address(_wrappedMToken)));
-        assertTrue(_wrappedMToken.isEarningEnabled());
-        assertFalse(_wrappedMToken.isEarning(_pool));
+        assertTrue(_mToken.isEarning(address(_smartMToken)));
+        assertTrue(_smartMToken.isEarningEnabled());
+        assertFalse(_smartMToken.isEarning(_pool));
     }
 
     function test_uniswapV3_nonEarning() external {
@@ -73,7 +73,7 @@ contract UniswapV3IntegrationTests is TestBase {
 
         _giveWM(_alice, 1_000_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
 
         _give(_USDC, _alice, 1_000_100e6);
 
@@ -81,8 +81,8 @@ contract UniswapV3IntegrationTests is TestBase {
 
         _mintNewPosition(_alice, _alice, 1_000_000e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 995_091_379382);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 995_091_379382);
@@ -92,15 +92,15 @@ contract UniswapV3IntegrationTests is TestBase {
         // Move 1 year forward and check that no yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
-        // Wrapped M is earning M and has accrued yield.
-        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 383_154_367021);
+        // Smart M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_smartMToken)), _wrapperBalanceOfM += 383_154_367021);
 
         // `startEarningFor` hasn't been called so no wM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield);
 
-        // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), _excess += 383_154_367021);
+        // But excess yield has accrued in the Smart M contract.
+        assertEq(_smartMToken.excess(), _excess += 383_154_367021);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC);
@@ -115,7 +115,7 @@ contract UniswapV3IntegrationTests is TestBase {
 
         _giveWM(_alice, 1_000_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
 
         _give(_USDC, _alice, 1_000_100e6);
 
@@ -123,8 +123,8 @@ contract UniswapV3IntegrationTests is TestBase {
 
         _mintNewPosition(_alice, _alice, 1_000_000e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 995_091_379382);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 995_091_379382);
@@ -134,29 +134,29 @@ contract UniswapV3IntegrationTests is TestBase {
         _setClaimOverrideRecipient(_pool, _carol);
 
         _addToList(_EARNERS_LIST, _pool);
-        _wrappedMToken.startEarningFor(_pool);
+        _smartMToken.startEarningFor(_pool);
 
-        assertTrue(_wrappedMToken.isEarning(_pool));
+        assertTrue(_smartMToken.isEarning(_pool));
 
-        assertEq(_wrappedMToken.claimRecipientFor(_pool), _carol);
+        assertEq(_smartMToken.claimRecipientFor(_pool), _carol);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield);
 
         /* ============ First 1-Year Time Warp ============ */
 
         // Move 1 year forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
-        // Wrapped M is earning M and has accrued yield.
-        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 383_154_367021);
+        // Smart M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_smartMToken)), _wrapperBalanceOfM += 383_154_367021);
 
         // `startEarningFor` has been called so wM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 22_576_568720);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield += 22_576_568720);
 
-        // No excess yield has accrued in the wrapped M contract since the pool is the only earner.
-        assertEq(_wrappedMToken.excess(), _excess += 360_577_798299);
+        // No excess yield has accrued in the Smart M contract since the pool is the only earner.
+        assertEq(_smartMToken.excess(), _excess += 360_577_798299);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC);
@@ -167,33 +167,33 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += 100_000e6);
 
-        uint256 swapAmountOut_ = _swapExactInput(_bob, _bob, _USDC, address(_wrappedMToken), 100_000e6);
+        uint256 swapAmountOut_ = _swapExactInput(_bob, _bob, _USDC, address(_smartMToken), 100_000e6);
 
         // Check pool liquidity after the swap
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC -= 100_000e6);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 100_000e6);
-        assertEq(_wrappedMToken.balanceOf(_bob), swapAmountOut_);
+        assertEq(_smartMToken.balanceOf(_bob), swapAmountOut_);
 
         // The swap has triggered a wM transfer and the yield has been claimed to carol for the pool.
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= swapAmountOut_);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM -= swapAmountOut_);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
 
         /* ============ Second 1-Year Time Warp ============ */
 
         // Move 1 year forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
-        // Wrapped M is earning M and has accrued yield.
-        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 391_011_884644);
+        // Smart M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_smartMToken)), _wrapperBalanceOfM += 391_011_884644);
 
         // `startEarningFor` has been called so wM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 20_526_118817);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield += 20_526_118817);
 
-        // No excess yield has accrued in the wrapped M contract since the pool is the only earner.
-        assertEq(_wrappedMToken.excess(), _excess += 370_485_765825);
+        // No excess yield has accrued in the Smart M contract since the pool is the only earner.
+        assertEq(_smartMToken.excess(), _excess += 370_485_765825);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC);
@@ -201,29 +201,29 @@ contract UniswapV3IntegrationTests is TestBase {
         /* ============ Dave (Earner) Swaps Exact wM for USDC ============ */
 
         _addToList(_EARNERS_LIST, _dave);
-        _wrappedMToken.startEarningFor(_dave);
+        _smartMToken.startEarningFor(_dave);
 
         _giveWM(_dave, 100_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_dave), _daveBalanceOfWM += 100_100e6);
+        assertEq(_smartMToken.balanceOf(_dave), _daveBalanceOfWM += 100_100e6);
 
-        swapAmountOut_ = _swapExactInput(_dave, _dave, address(_wrappedMToken), _USDC, 100_000e6);
+        swapAmountOut_ = _swapExactInput(_dave, _dave, address(_smartMToken), _USDC, 100_000e6);
 
         // Check pool liquidity after the swap.
         assertEq(IERC20(_USDC).balanceOf(_dave), _daveBalanceOfUSDC += swapAmountOut_);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= swapAmountOut_);
 
         // The swap has triggered a wM transfer and the yield has been claimed to carol for the pool.
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
     }
 
-    function testFuzz_uniswapV3_earning(uint256 aliceAmount_, uint256 bobUsdc_, uint256 daveWrappedM_) public {
-        aliceAmount_ = bound(aliceAmount_, 10e6, _wrappedMToken.balanceOf(_wmSource) / 10);
+    function testFuzz_uniswapV3_earning(uint256 aliceAmount_, uint256 bobUsdc_, uint256 daveSmartM_) public {
+        aliceAmount_ = bound(aliceAmount_, 10e6, _smartMToken.balanceOf(_wmSource) / 10);
         bobUsdc_ = bound(bobUsdc_, 1e6, aliceAmount_ / 3);
-        daveWrappedM_ = bound(daveWrappedM_, 1e6, aliceAmount_ / 3);
+        daveSmartM_ = bound(daveSmartM_, 1e6, aliceAmount_ / 3);
 
         /* ============ Alice Mints New LP Position ============ */
 
@@ -233,8 +233,8 @@ contract UniswapV3IntegrationTests is TestBase {
 
         (, , uint256 amount0_, uint256 amount1_) = _mintNewPosition(_alice, _alice, aliceAmount_);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= amount0_);
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += amount0_);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM -= amount0_);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += amount0_);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= amount1_);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += amount1_);
@@ -244,15 +244,15 @@ contract UniswapV3IntegrationTests is TestBase {
         _setClaimOverrideRecipient(_pool, _carol);
 
         _addToList(_EARNERS_LIST, _pool);
-        _wrappedMToken.startEarningFor(_pool);
+        _smartMToken.startEarningFor(_pool);
 
         // Check that the pool is earning WM
-        assertTrue(_wrappedMToken.isEarning(_pool));
+        assertTrue(_smartMToken.isEarning(_pool));
 
-        assertEq(_wrappedMToken.claimRecipientFor(_pool), _carol);
+        assertEq(_smartMToken.claimRecipientFor(_pool), _carol);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield);
 
         /* ============ First 1-Year Time Warp ============ */
 
@@ -263,18 +263,18 @@ contract UniswapV3IntegrationTests is TestBase {
 
         uint128 newIndex_ = _mToken.currentIndex();
 
-        // Wrapped M is earning M and has accrued yield.
+        // Smart M is earning M and has accrued yield.
         assertApproxEqAbs(
-            _mToken.balanceOf(address(_wrappedMToken)),
+            _mToken.balanceOf(address(_smartMToken)),
             _wrapperBalanceOfM = (_wrapperBalanceOfM * newIndex_) / index_,
             10
         );
 
         // `startEarningFor` has been called so WM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM);
 
         assertApproxEqAbs(
-            _poolAccruedYield += _wrappedMToken.accruedYieldOf(_pool),
+            _poolAccruedYield += _smartMToken.accruedYieldOf(_pool),
             (_poolBalanceOfWM * newIndex_) / index_ - _poolBalanceOfWM,
             10
         );
@@ -286,18 +286,18 @@ contract UniswapV3IntegrationTests is TestBase {
 
         _give(_USDC, _bob, _bobBalanceOfUSDC += bobUsdc_);
 
-        uint256 swapOutWM_ = _swapExactInput(_bob, _bob, _USDC, address(_wrappedMToken), bobUsdc_);
+        uint256 swapOutWM_ = _swapExactInput(_bob, _bob, _USDC, address(_smartMToken), bobUsdc_);
 
         // Check pool liquidity after the swap
         assertEq(IERC20(_USDC).balanceOf(_bob), 0);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += bobUsdc_);
-        assertEq(_wrappedMToken.balanceOf(_bob), swapOutWM_);
+        assertEq(_smartMToken.balanceOf(_bob), swapOutWM_);
 
         // The swap has triggered a wM transfer and the yield has been claimed to carol for the pool.
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= swapOutWM_);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM -= swapOutWM_);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
 
         /* ============ Second 1-Year Time Warp ============ */
 
@@ -308,18 +308,18 @@ contract UniswapV3IntegrationTests is TestBase {
 
         newIndex_ = _mToken.currentIndex();
 
-        // Wrapped M is earning M and has accrued yield.
+        // Smart M is earning M and has accrued yield.
         assertApproxEqAbs(
-            _mToken.balanceOf(address(_wrappedMToken)),
+            _mToken.balanceOf(address(_smartMToken)),
             _wrapperBalanceOfM = (_wrapperBalanceOfM * newIndex_) / index_,
             10
         );
 
         // `startEarningFor` has been called so WM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM);
 
         assertApproxEqAbs(
-            _poolAccruedYield += _wrappedMToken.accruedYieldOf(_pool),
+            _poolAccruedYield += _smartMToken.accruedYieldOf(_pool),
             (_poolBalanceOfWM * newIndex_) / index_ - _poolBalanceOfWM,
             10
         );
@@ -330,21 +330,21 @@ contract UniswapV3IntegrationTests is TestBase {
         /* ============ Dave (Earner) Swaps Exact wM for USDC ============ */
 
         _addToList(_EARNERS_LIST, _dave);
-        _wrappedMToken.startEarningFor(_dave);
+        _smartMToken.startEarningFor(_dave);
 
-        _giveWM(_dave, daveWrappedM_);
+        _giveWM(_dave, daveSmartM_);
 
-        uint256 swapOutUSDC_ = _swapExactInput(_dave, _dave, address(_wrappedMToken), _USDC, daveWrappedM_);
+        uint256 swapOutUSDC_ = _swapExactInput(_dave, _dave, address(_smartMToken), _USDC, daveSmartM_);
 
         // Check pool liquidity after the swap.
         assertEq(IERC20(_USDC).balanceOf(_dave), swapOutUSDC_);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= swapOutUSDC_);
 
         // The swap has triggered a wM transfer and the yield has been claimed to carol for the pool.
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += daveWrappedM_);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += daveSmartM_);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
     }
 
     function test_uniswapV3_exactInputOrOutputForEarnersAndNonEarners() public {
@@ -353,17 +353,17 @@ contract UniswapV3IntegrationTests is TestBase {
         _setClaimOverrideRecipient(_pool, _carol);
 
         _addToList(_EARNERS_LIST, _pool);
-        _wrappedMToken.startEarningFor(_pool);
+        _smartMToken.startEarningFor(_pool);
 
-        assertTrue(_wrappedMToken.isEarning(_pool));
+        assertTrue(_smartMToken.isEarning(_pool));
 
-        assertEq(_wrappedMToken.claimRecipientFor(_pool), _carol);
+        assertEq(_smartMToken.claimRecipientFor(_pool), _carol);
 
         /* ============ Alice Mints New LP Position ============ */
 
         _giveWM(_alice, 1_000_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
 
         _give(_USDC, _alice, 1_000_100e6);
 
@@ -371,9 +371,9 @@ contract UniswapV3IntegrationTests is TestBase {
 
         _mintNewPosition(_alice, _alice, 1_000_000e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 995_091_379382);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 995_091_379382);
@@ -383,7 +383,7 @@ contract UniswapV3IntegrationTests is TestBase {
         // Move 10 days forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 10 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 612_449523);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield += 612_449523);
 
         /* ============ 2 Non-Earners and 2 Earners are Initialized ============ */
 
@@ -393,85 +393,85 @@ contract UniswapV3IntegrationTests is TestBase {
         _giveWM(_frank, 100_100e6);
 
         _addToList(_EARNERS_LIST, _eric);
-        _wrappedMToken.startEarningFor(_eric);
+        _smartMToken.startEarningFor(_eric);
 
         _addToList(_EARNERS_LIST, _frank);
-        _wrappedMToken.startEarningFor(_frank);
+        _smartMToken.startEarningFor(_frank);
 
         /* ============ Bob (Non-Earner) Swaps Exact wM for USDC ============ */
 
-        _swapExactInput(_bob, _bob, address(_wrappedMToken), _USDC, 100_000e6);
+        _swapExactInput(_bob, _bob, address(_smartMToken), _USDC, 100_000e6);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
 
         // Check that carol received yield.
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
 
         /* ============ 1-Day Time Warp ============ */
 
         // Move 1 day forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 1 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 66_791425);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield += 66_791425);
 
         // Claim yield for the pool and check that carol received yield.
-        _wrappedMToken.claimFor(_pool);
+        _smartMToken.claimFor(_pool);
 
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
 
         /* ============ 5-Day Time Warp ============ */
 
         // Move 5 days forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 5 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 333_994267);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield += 333_994267);
 
         /* ============ Eric (Earner) Swaps Exact wM for USDC ============ */
 
-        _swapExactInput(_eric, _eric, address(_wrappedMToken), _USDC, 100_000e6);
+        _swapExactInput(_eric, _eric, address(_smartMToken), _USDC, 100_000e6);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
 
         // Check that carol received yield.
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
 
         /* ============ 3-Day Time Warp ============ */
 
         // Move 3 days forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 3 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 217_071740);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield += 217_071740);
 
         /* ============ Dave (Non-Earner) Swaps wM for Exact USDC ============ */
 
         // Option 3: Exact output parameter swap from non-earner
-        uint256 daveOutput_ = _swapExactOutput(_dave, _dave, address(_wrappedMToken), _USDC, 10_000e6);
+        uint256 daveOutput_ = _swapExactOutput(_dave, _dave, address(_smartMToken), _USDC, 10_000e6);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += daveOutput_);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += daveOutput_);
 
         // Check that carol received yield.
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
 
         /* ============ 7-Day Time Warp ============ */
 
         // Move 7 day forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 7 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 510_530793);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield += 510_530793);
 
         /* ============ Frank (Earner) Swaps wM for Exact USDC ============ */
 
-        uint256 frankOutput_ = _swapExactOutput(_frank, _frank, address(_wrappedMToken), _USDC, 10_000e6);
+        uint256 frankOutput_ = _swapExactOutput(_frank, _frank, address(_smartMToken), _USDC, 10_000e6);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += frankOutput_);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += frankOutput_);
 
         // Check that carol received yield.
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
     }
 
     function test_uniswapV3_increaseDecreaseLiquidityAndFees() public {
@@ -480,28 +480,28 @@ contract UniswapV3IntegrationTests is TestBase {
         _setClaimOverrideRecipient(_pool, _carol);
 
         _addToList(_EARNERS_LIST, _pool);
-        _wrappedMToken.startEarningFor(_pool);
+        _smartMToken.startEarningFor(_pool);
 
-        assertTrue(_wrappedMToken.isEarning(_pool));
+        assertTrue(_smartMToken.isEarning(_pool));
 
-        assertEq(_wrappedMToken.claimRecipientFor(_pool), _carol);
+        assertEq(_smartMToken.claimRecipientFor(_pool), _carol);
 
         /* ============ Fund Alice (Non-Earner) and Bob (Earner) ============ */
 
         _giveWM(_alice, 2_000_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 2_000_100e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += 2_000_100e6);
 
         _give(_USDC, _alice, 2_000_100e6);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += 2_000_100e6);
 
         _addToList(_EARNERS_LIST, _bob);
-        _wrappedMToken.startEarningFor(_bob);
+        _smartMToken.startEarningFor(_bob);
 
         _giveWM(_bob, 2_000_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM += 2_000_100e6);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM += 2_000_100e6);
 
         _give(_USDC, _bob, 2_000_100e6);
 
@@ -511,16 +511,16 @@ contract UniswapV3IntegrationTests is TestBase {
 
         (uint256 aliceTokenId_, , , ) = _mintNewPosition(_alice, _alice, 1_000_000e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 995_091_379382);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 995_091_379382);
 
         (uint256 bobTokenId_, , , ) = _mintNewPosition(_bob, _bob, 1_000_000e6);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM -= 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000_000e6);
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC -= 995_091_379382);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 995_091_379382);
@@ -530,41 +530,41 @@ contract UniswapV3IntegrationTests is TestBase {
         // Move 10 days forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 10 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_bob), _bobAccruedYield += 556_374702);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 1_168_768595);
+        assertEq(_smartMToken.accruedYieldOf(_bob), _bobAccruedYield += 556_374702);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield += 1_168_768595);
 
         /* ============ Dave (Non-Earner) Swaps Exact wM for USDC ============ */
 
         _giveWM(_dave, 100_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_dave), _daveBalanceOfWM += 100_100e6);
+        assertEq(_smartMToken.balanceOf(_dave), _daveBalanceOfWM += 100_100e6);
 
-        _swapExactInput(_dave, _dave, address(_wrappedMToken), _USDC, 100_000e6);
+        _swapExactInput(_dave, _dave, address(_smartMToken), _USDC, 100_000e6);
 
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= 99_722_307058);
 
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += 100_000e6);
 
         // Check that carol received yield.
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _poolAccruedYield);
+        assertEq(_smartMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
 
         /* ============ Alice (Non-Earner) And Bob (Earner) Collect Fees ============ */
 
         (uint256 aliceAmountWM_, uint256 aliceAmountUSDC_) = _collect(_alice, aliceTokenId_);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += aliceAmountWM_);
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= aliceAmountWM_);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += aliceAmountWM_);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM -= aliceAmountWM_);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += aliceAmountUSDC_);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= aliceAmountUSDC_);
 
         (uint256 bobAmountWM_, uint256 bobAmountUSDC_) = _collect(_bob, bobTokenId_);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM += bobAmountWM_ + _bobAccruedYield);
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= bobAmountWM_);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM += bobAmountWM_ + _bobAccruedYield);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM -= bobAmountWM_);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_bob), _bobAccruedYield -= _bobAccruedYield);
+        assertEq(_smartMToken.accruedYieldOf(_bob), _bobAccruedYield -= _bobAccruedYield);
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += bobAmountUSDC_);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= bobAmountUSDC_);
@@ -573,23 +573,23 @@ contract UniswapV3IntegrationTests is TestBase {
 
         (aliceAmountWM_, aliceAmountUSDC_) = _decreaseLiquidityCurrentRange(_alice, aliceTokenId_, 500_000e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += aliceAmountWM_);
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= aliceAmountWM_);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += aliceAmountWM_);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM -= aliceAmountWM_);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += aliceAmountUSDC_);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= aliceAmountUSDC_);
 
         (, bobAmountWM_, bobAmountUSDC_) = _increaseLiquidityCurrentRange(_bob, bobTokenId_, 100_000e6);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM -= bobAmountWM_);
-        assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += bobAmountWM_);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM -= bobAmountWM_);
+        assertEq(_smartMToken.balanceOf(_pool), _poolBalanceOfWM += bobAmountWM_);
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC -= bobAmountUSDC_);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += bobAmountUSDC_);
     }
 
     function _createPool() internal returns (address pool_) {
-        pool_ = _factory.createPool(address(_wrappedMToken), _USDC, _POOL_FEE);
+        pool_ = _factory.createPool(address(_smartMToken), _USDC, _POOL_FEE);
         IUniswapV3Pool(pool_).initialize(UniswapUtils.encodePriceSqrt(1, 1));
     }
 
@@ -613,7 +613,7 @@ contract UniswapV3IntegrationTests is TestBase {
 
         vm.prank(account_);
         INonfungiblePositionManager.MintParams memory params_ = INonfungiblePositionManager.MintParams({
-            token0: address(_wrappedMToken),
+            token0: address(_smartMToken),
             token1: _USDC,
             fee: _POOL_FEE,
             tickLower: -1000,

@@ -7,12 +7,12 @@ import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.s
 import { IERC712 } from "../../lib/common/src/interfaces/IERC712.sol";
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
-import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
+import { ISmartMToken } from "../../src/interfaces/ISmartMToken.sol";
 
 import { EarnerManager } from "../../src/EarnerManager.sol";
 import { Proxy } from "../../src/Proxy.sol";
-import { WrappedMToken } from "../../src/WrappedMToken.sol";
-import { WrappedMTokenMigratorV1 } from "../../src/WrappedMTokenMigratorV1.sol";
+import { SmartMToken } from "../../src/SmartMToken.sol";
+import { SmartMTokenMigratorV1 } from "../../src/SmartMTokenMigratorV1.sol";
 
 import { IMTokenLike, IRegistrarLike } from "./vendor/protocol/Interfaces.sol";
 
@@ -26,7 +26,7 @@ contract TestBase is Test {
     address internal constant _mSource = 0x563AA56D0B627d1A734e04dF5762F5Eea1D56C2f;
     address internal constant _wmSource = 0xfE940BFE535013a52e8e2DF9644f95E3C94fa14B;
 
-    IWrappedMToken internal constant _wrappedMToken = IWrappedMToken(0x437cc33344a0B27A429f795ff6B469C72698B291);
+    ISmartMToken internal constant _smartMToken = ISmartMToken(0x437cc33344a0B27A429f795ff6B469C72698B291);
 
     bytes32 internal constant _EARNERS_LIST = "earners";
     bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
@@ -64,8 +64,8 @@ contract TestBase is Test {
 
     address internal _earnerManagerImplementation;
     address internal _earnerManager;
-    address internal _wrappedMTokenImplementationV2;
-    address internal _wrappedMTokenMigratorV1;
+    address internal _smartMTokenImplementationV2;
+    address internal _smartMTokenMigratorV1;
 
     function _getSource(address token_) internal pure returns (address source_) {
         if (token_ == _USDC) return _USDC_SOURCE;
@@ -97,7 +97,7 @@ contract TestBase is Test {
 
     function _giveWM(address account_, uint256 amount_) internal {
         vm.prank(_wmSource);
-        _wrappedMToken.transfer(account_, amount_);
+        _smartMToken.transfer(account_, amount_);
     }
 
     function _giveEth(address account_, uint256 amount_) internal {
@@ -106,18 +106,18 @@ contract TestBase is Test {
 
     function _wrap(address account_, address recipient_, uint256 amount_) internal {
         vm.prank(account_);
-        _mToken.approve(address(_wrappedMToken), amount_);
+        _mToken.approve(address(_smartMToken), amount_);
 
         vm.prank(account_);
-        _wrappedMToken.wrap(recipient_, amount_);
+        _smartMToken.wrap(recipient_, amount_);
     }
 
     function _wrap(address account_, address recipient_) internal {
         vm.prank(account_);
-        _mToken.approve(address(_wrappedMToken), type(uint256).max);
+        _mToken.approve(address(_smartMToken), type(uint256).max);
 
         vm.prank(account_);
-        _wrappedMToken.wrap(recipient_);
+        _smartMToken.wrap(recipient_);
     }
 
     function _wrapWithPermitVRS(
@@ -131,7 +131,7 @@ contract TestBase is Test {
         (uint8 v_, bytes32 r_, bytes32 s_) = _getPermit(account_, signerPrivateKey_, amount_, nonce_, deadline_);
 
         vm.prank(account_);
-        _wrappedMToken.wrapWithPermit(recipient_, amount_, deadline_, v_, r_, s_);
+        _smartMToken.wrapWithPermit(recipient_, amount_, deadline_, v_, r_, s_);
     }
 
     function _wrapWithPermitSignature(
@@ -145,27 +145,27 @@ contract TestBase is Test {
         (uint8 v_, bytes32 r_, bytes32 s_) = _getPermit(account_, signerPrivateKey_, amount_, nonce_, deadline_);
 
         vm.prank(account_);
-        _wrappedMToken.wrapWithPermit(recipient_, amount_, deadline_, abi.encodePacked(r_, s_, v_));
+        _smartMToken.wrapWithPermit(recipient_, amount_, deadline_, abi.encodePacked(r_, s_, v_));
     }
 
     function _unwrap(address account_, address recipient_, uint256 amount_) internal {
         vm.prank(account_);
-        _wrappedMToken.unwrap(recipient_, amount_);
+        _smartMToken.unwrap(recipient_, amount_);
     }
 
     function _unwrap(address account_, address recipient_) internal {
         vm.prank(account_);
-        _wrappedMToken.unwrap(recipient_);
+        _smartMToken.unwrap(recipient_);
     }
 
     function _transferWM(address sender_, address recipient_, uint256 amount_) internal {
         vm.prank(sender_);
-        _wrappedMToken.transfer(recipient_, amount_);
+        _smartMToken.transfer(recipient_, amount_);
     }
 
     function _approveWM(address account_, address spender_, uint256 amount_) internal {
         vm.prank(account_);
-        _wrappedMToken.approve(spender_, amount_);
+        _smartMToken.approve(spender_, amount_);
     }
 
     function _set(bytes32 key_, bytes32 value_) internal {
@@ -180,24 +180,24 @@ contract TestBase is Test {
     function _deployV2Components() internal {
         _earnerManagerImplementation = address(new EarnerManager(_registrar, _migrationAdmin));
         _earnerManager = address(new Proxy(_earnerManagerImplementation));
-        _wrappedMTokenImplementationV2 = address(
-            new WrappedMToken(address(_mToken), _registrar, _earnerManager, _excessDestination, _migrationAdmin)
+        _smartMTokenImplementationV2 = address(
+            new SmartMToken(address(_mToken), _registrar, _earnerManager, _excessDestination, _migrationAdmin)
         );
-        _wrappedMTokenMigratorV1 = address(new WrappedMTokenMigratorV1(_wrappedMTokenImplementationV2));
+        _smartMTokenMigratorV1 = address(new SmartMTokenMigratorV1(_smartMTokenImplementationV2));
     }
 
     function _migrate() internal {
         _set(
-            keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(_wrappedMToken))),
-            bytes32(uint256(uint160(_wrappedMTokenMigratorV1)))
+            keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(_smartMToken))),
+            bytes32(uint256(uint160(_smartMTokenMigratorV1)))
         );
 
-        _wrappedMToken.migrate();
+        _smartMToken.migrate();
     }
 
     function _migrateFromAdmin() internal {
         vm.prank(_migrationAdmin);
-        _wrappedMToken.migrate(_wrappedMTokenMigratorV1);
+        _smartMToken.migrate(_smartMTokenMigratorV1);
     }
 
     /* ============ utils ============ */
@@ -224,7 +224,7 @@ contract TestBase is Test {
                             abi.encode(
                                 IERC20Extended(address(_mToken)).PERMIT_TYPEHASH(),
                                 account_,
-                                address(_wrappedMToken),
+                                address(_smartMToken),
                                 amount_,
                                 nonce_,
                                 deadline_
