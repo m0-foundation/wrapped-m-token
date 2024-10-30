@@ -7,10 +7,10 @@ import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.s
 import { IMigratable } from "./IMigratable.sol";
 
 /**
- * @title  Wrapped M Token interface extending Extended ERC20.
+ * @title  Smart M Token interface extending Extended ERC20.
  * @author M^0 Labs
  */
-interface IWrappedMToken is IMigratable, IERC20Extended {
+interface ISmartMToken is IMigratable, IERC20Extended {
     /* ============ Events ============ */
 
     /**
@@ -29,19 +29,19 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     event ClaimRecipientSet(address indexed account, address indexed claimRecipient);
 
     /**
-     * @notice Emitted when earning is enabled for the entire wrapper.
+     * @notice Emitted when Smart M earning is enabled.
      * @param  index The index at the moment earning is enabled.
      */
     event EarningEnabled(uint128 index);
 
     /**
-     * @notice Emitted when earning is disabled for the entire wrapper.
+     * @notice Emitted when Smart M earning is disabled.
      * @param  index The index at the moment earning is disabled.
      */
     event EarningDisabled(uint128 index);
 
     /**
-     * @notice Emitted when the wrapper's excess M is claimed.
+     * @notice Emitted when this contract's excess M is claimed.
      * @param  excess The amount of excess M claimed.
      */
     event ExcessClaimed(uint240 excess);
@@ -184,15 +184,15 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function claimFor(address account) external returns (uint240 yield);
 
     /**
-     * @notice Claims any excess M of the wrapper.
+     * @notice Claims any excess M of this contract.
      * @return excess The amount of excess claimed.
      */
     function claimExcess() external returns (uint240 excess);
 
-    /// @notice Enables earning for the wrapper if allowed by the Registrar and if it has never been done.
+    /// @notice Enables earning of Smart M if allowed by the Registrar and if it has never been done.
     function enableEarning() external;
 
-    /// @notice Disables earning for the wrapper if disallowed by the Registrar and if it has never been done.
+    /// @notice Disables earning of Smart M if disallowed by the Registrar and if it has never been done.
     function disableEarning() external;
 
     /**
@@ -278,10 +278,10 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     function claimRecipientFor(address account) external view returns (address recipient);
 
-    /// @notice The current index of the wrapper's earning mechanism.
+    /// @notice The current index of Smart M's earning mechanism.
     function currentIndex() external view returns (uint128 index);
 
-    /// @notice The current excess M of the wrapper that is not earmarked for account balances or accrued yield.
+    /// @notice This contract's current excess M that is not earmarked for account balances or accrued yield.
     function excess() external view returns (uint240 excess);
 
     /**
@@ -291,10 +291,10 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     function isEarning(address account) external view returns (bool isEarning);
 
-    /// @notice Whether earning is enabled for the entire wrapper.
+    /// @notice Whether Smart M earning is enabled.
     function isEarningEnabled() external view returns (bool isEnabled);
 
-    /// @notice Whether earning has been enabled at least once or not.
+    /// @notice Whether Smart M earning has been enabled at least once.
     function wasEarningEnabled() external view returns (bool wasEnabled);
 
     /// @notice The account that can bypass the Registrar and call the `migrate(address migrator)` function.

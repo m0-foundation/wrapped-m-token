@@ -28,21 +28,21 @@ contract MorphoBlueTests is MorphoTestBase {
     function setUp() external {
         _oracle = _createOracle();
 
-        _wrapperBalanceOfM = _mToken.balanceOf(address(_wrappedMToken));
+        _wrapperBalanceOfM = _mToken.balanceOf(address(_smartMToken));
 
         _morphoBalanceOfUSDC = IERC20(_USDC).balanceOf(_MORPHO);
-        _morphoBalanceOfWM = _wrappedMToken.balanceOf(_MORPHO);
+        _morphoBalanceOfWM = _smartMToken.balanceOf(_MORPHO);
 
-        _excess = _wrappedMToken.excess();
+        _excess = _smartMToken.excess();
 
         _deployV2Components();
         _migrate();
     }
 
     function test_state() external view {
-        assertTrue(_mToken.isEarning(address(_wrappedMToken)));
-        assertTrue(_wrappedMToken.isEarningEnabled());
-        assertFalse(_wrappedMToken.isEarning(_MORPHO));
+        assertTrue(_mToken.isEarning(address(_smartMToken)));
+        assertTrue(_smartMToken.isEarningEnabled());
+        assertFalse(_smartMToken.isEarning(_MORPHO));
     }
 
     function test_morphoBlue_nonEarning_wM_as_collateralToken() external {
@@ -50,7 +50,7 @@ contract MorphoBlueTests is MorphoTestBase {
 
         _giveWM(_alice, 1_000_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
 
         _give(_USDC, _alice, 1_000_100e6);
 
@@ -60,15 +60,15 @@ contract MorphoBlueTests is MorphoTestBase {
         //       borrowing 0.90 USDC.
         _createMarket(_alice, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1e6);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 100000);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC += 100000);
 
         /* ============ Alice Supplies Seed USDC For Loans ============ */
 
-        _supply(_alice, _USDC, 1_000_000e6, address(_wrappedMToken));
+        _supply(_alice, _USDC, 1_000_000e6, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 1_000_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC += 1_000_000e6);
@@ -77,14 +77,14 @@ contract MorphoBlueTests is MorphoTestBase {
 
         _giveWM(_bob, 1_000_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM += 1_000_100e6);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM += 1_000_100e6);
 
-        _supplyCollateral(_bob, address(_wrappedMToken), 1_000_000e6, _USDC);
+        _supplyCollateral(_bob, address(_smartMToken), 1_000_000e6, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM -= 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1_000_000e6);
 
-        _borrow(_bob, _USDC, 900_000e6, _bob, address(_wrappedMToken));
+        _borrow(_bob, _USDC, 900_000e6, _bob, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += 900_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC -= 900_000e6);
@@ -94,34 +94,34 @@ contract MorphoBlueTests is MorphoTestBase {
         // Move 1 year forward and check that no yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
-        // Wrapped M is earning M and has accrued yield.
-        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 383_154_367021);
+        // Smart M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_smartMToken)), _wrapperBalanceOfM += 383_154_367021);
 
         // `startEarningFor` hasn't been called so no wM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
 
-        // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), _excess += 383_154_367021);
+        // But excess yield has accrued in the Smart M contract.
+        assertEq(_smartMToken.excess(), _excess += 383_154_367021);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC);
 
         /* ============ Bob Repays USDC Loan And Withdraws wM Collateral ============ */
 
-        _repay(_bob, _USDC, 900_000e6, address(_wrappedMToken));
+        _repay(_bob, _USDC, 900_000e6, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC -= 900_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC += 900_000e6);
 
-        _withdrawCollateral(_bob, address(_wrappedMToken), 1_000_000e6, _bob, _USDC);
+        _withdrawCollateral(_bob, address(_smartMToken), 1_000_000e6, _bob, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM += 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 1_000_000e6);
 
         /* ============ Alice Withdraws Seed USDC For Loans ============ */
 
-        _withdraw(_alice, _USDC, 1_000_000e6, _alice, address(_wrappedMToken));
+        _withdraw(_alice, _USDC, 1_000_000e6, _alice, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += 1_000_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC -= 1_000_000e6);
@@ -131,15 +131,15 @@ contract MorphoBlueTests is MorphoTestBase {
         // Move 1 year forward and check that no yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
-        // Wrapped M is earning M and has accrued yield.
-        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 391_011_884644);
+        // Smart M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_smartMToken)), _wrapperBalanceOfM += 391_011_884644);
 
         // `startEarningFor` hasn't been called so no wM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
 
-        // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), _excess += 391_011_884644);
+        // But excess yield has accrued in the Smart M contract.
+        assertEq(_smartMToken.excess(), _excess += 391_011_884644);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC);
@@ -150,7 +150,7 @@ contract MorphoBlueTests is MorphoTestBase {
 
         _giveWM(_alice, 1_000_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
 
         _give(_USDC, _alice, 1_000_100e6);
 
@@ -158,20 +158,20 @@ contract MorphoBlueTests is MorphoTestBase {
 
         // NOTE: Creating a market also result in `_alice` supplying 1.00 wM as supply, 1.00 USDC as collateral, and
         //       borrowing 0.90 wM.
-        _createMarket(_alice, address(_wrappedMToken));
+        _createMarket(_alice, address(_smartMToken));
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 100000);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 100000);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM -= 100000);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 100000);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 1e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC += 1e6);
 
         /* ============ Alice Supplies Seed wM For Loans ============ */
 
-        _supply(_alice, address(_wrappedMToken), 1_000_000e6, _USDC);
+        _supply(_alice, address(_smartMToken), 1_000_000e6, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1_000_000e6);
 
         /* ============ Bob Takes Out wM Loan Against USDC Collateral ============ */
 
@@ -179,67 +179,67 @@ contract MorphoBlueTests is MorphoTestBase {
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += 1_000_000e6);
 
-        _supplyCollateral(_bob, _USDC, 1_000_000e6, address(_wrappedMToken));
+        _supplyCollateral(_bob, _USDC, 1_000_000e6, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC -= 1_000_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC += 1_000_000e6);
 
-        _borrow(_bob, address(_wrappedMToken), 900_000e6, _bob, _USDC);
+        _borrow(_bob, address(_smartMToken), 900_000e6, _bob, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM += 900_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 900_000e6);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM += 900_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 900_000e6);
 
         /* ============ First 1-Year Time Warp ============ */
 
         // Move 1 year forward and check that no yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
-        // Wrapped M is earning M and has accrued yield.
-        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 383_154_367021);
+        // Smart M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_smartMToken)), _wrapperBalanceOfM += 383_154_367021);
 
         // `startEarningFor` hasn't been called so no wM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
 
-        // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), _excess += 383_154_367021);
+        // But excess yield has accrued in the Smart M contract.
+        assertEq(_smartMToken.excess(), _excess += 383_154_367021);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC);
 
         /* ============ Bob Repays wM Loan And Withdraws USDC Collateral ============ */
 
-        _repay(_bob, address(_wrappedMToken), 900_000e6, _USDC);
+        _repay(_bob, address(_smartMToken), 900_000e6, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM -= 900_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 900_000e6);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM -= 900_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 900_000e6);
 
-        _withdrawCollateral(_bob, _USDC, 1_000_000e6, _bob, address(_wrappedMToken));
+        _withdrawCollateral(_bob, _USDC, 1_000_000e6, _bob, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += 1_000_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC -= 1_000_000e6);
 
         /* ============ Alice Withdraws Seed wM For Loans ============ */
 
-        _withdraw(_alice, address(_wrappedMToken), 1_000_000e6, _alice, _USDC);
+        _withdraw(_alice, address(_smartMToken), 1_000_000e6, _alice, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 1_000_000e6);
 
         /* ============ Second 1-Year Time Warp ============ */
 
         // Move 1 year forward and check that no yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
-        // Wrapped M is earning M and has accrued yield.
-        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 391_011_884644);
+        // Smart M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_smartMToken)), _wrapperBalanceOfM += 391_011_884644);
 
         // `startEarningFor` hasn't been called so no wM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
 
-        // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), _excess += 391_011_884644);
+        // But excess yield has accrued in the Smart M contract.
+        assertEq(_smartMToken.excess(), _excess += 391_011_884644);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC);
@@ -250,7 +250,7 @@ contract MorphoBlueTests is MorphoTestBase {
 
         _giveWM(_alice, 1_000_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
 
         _give(_USDC, _alice, 1_000_100e6);
 
@@ -260,15 +260,15 @@ contract MorphoBlueTests is MorphoTestBase {
         //       borrowing 0.90 USDC.
         _createMarket(_alice, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1e6);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 100000);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC += 100000);
 
         /* ============ Alice Supplies Seed USDC For Loans ============ */
 
-        _supply(_alice, _USDC, 1_000_000e6, address(_wrappedMToken));
+        _supply(_alice, _USDC, 1_000_000e6, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 1_000_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC += 1_000_000e6);
@@ -277,14 +277,14 @@ contract MorphoBlueTests is MorphoTestBase {
 
         _giveWM(_bob, 1_000_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM += 1_000_100e6);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM += 1_000_100e6);
 
-        _supplyCollateral(_bob, address(_wrappedMToken), 1_000_000e6, _USDC);
+        _supplyCollateral(_bob, address(_smartMToken), 1_000_000e6, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM -= 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1_000_000e6);
 
-        _borrow(_bob, _USDC, 900_000e6, _bob, address(_wrappedMToken));
+        _borrow(_bob, _USDC, 900_000e6, _bob, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += 900_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC -= 900_000e6);
@@ -294,53 +294,53 @@ contract MorphoBlueTests is MorphoTestBase {
         _setClaimOverrideRecipient(_MORPHO, _carol);
 
         _addToList(_EARNERS_LIST, _MORPHO);
-        _wrappedMToken.startEarningFor(_MORPHO);
+        _smartMToken.startEarningFor(_MORPHO);
 
         // Check that the pool is earning wM.
-        assertTrue(_wrappedMToken.isEarning(_MORPHO));
+        assertTrue(_smartMToken.isEarning(_MORPHO));
 
-        assertEq(_wrappedMToken.claimRecipientFor(_MORPHO), _carol);
+        assertEq(_smartMToken.claimRecipientFor(_MORPHO), _carol);
 
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
 
         /* ============ First 1-Year Time Warp ============ */
 
         // Move 1 year forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
-        // Wrapped M is earning M and has accrued yield.
-        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 383_154_367021);
+        // Smart M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_smartMToken)), _wrapperBalanceOfM += 383_154_367021);
 
         // `startEarningFor` has been called so wM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 20_507_491868);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 20_507_491868);
 
-        // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), _excess += 362_646_875152);
+        // But excess yield has accrued in the Smart M contract.
+        assertEq(_smartMToken.excess(), _excess += 362_646_875152);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC);
 
         /* ============ Bob Repays USDC Loan And Withdraws wM Collateral ============ */
 
-        _repay(_bob, _USDC, 900_000e6, address(_wrappedMToken));
+        _repay(_bob, _USDC, 900_000e6, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC -= 900_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC += 900_000e6);
 
-        _withdrawCollateral(_bob, address(_wrappedMToken), 1_000_000e6, _bob, _USDC);
+        _withdrawCollateral(_bob, address(_smartMToken), 1_000_000e6, _bob, _USDC);
 
         // The collateral withdrawal has triggered a wM transfer and the yield has been claimed to carol for the pool.
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _morphoAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _morphoAccruedYield);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM += 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 1_000_000e6);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield -= _morphoAccruedYield);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield -= _morphoAccruedYield);
 
         /* ============ Alice Withdraws Seed USDC For Loans ============ */
 
-        _withdraw(_alice, _USDC, 1_000_000e6, _alice, address(_wrappedMToken));
+        _withdraw(_alice, _USDC, 1_000_000e6, _alice, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC += 1_000_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC -= 1_000_000e6);
@@ -350,15 +350,15 @@ contract MorphoBlueTests is MorphoTestBase {
         // Move 1 year forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
-        // Wrapped M is earning M and has accrued yield.
-        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 391_011_884644);
+        // Smart M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_smartMToken)), _wrapperBalanceOfM += 391_011_884644);
 
         // `startEarningFor` has been called so wM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 45526);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 45526);
 
-        // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), _excess += 391_011_839116);
+        // But excess yield has accrued in the Smart M contract.
+        assertEq(_smartMToken.excess(), _excess += 391_011_839116);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC);
@@ -369,7 +369,7 @@ contract MorphoBlueTests is MorphoTestBase {
 
         _giveWM(_alice, 1_000_100e6);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_100e6);
 
         _give(_USDC, _alice, 1_000_100e6);
 
@@ -377,20 +377,20 @@ contract MorphoBlueTests is MorphoTestBase {
 
         // NOTE: Creating a market also result in `_alice` supplying 1.00 wM as supply, 1.00 USDC as collateral, and
         //       borrowing 0.90 wM.
-        _createMarket(_alice, address(_wrappedMToken));
+        _createMarket(_alice, address(_smartMToken));
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 100000);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 100000);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM -= 100000);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 100000);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 1e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC += 1e6);
 
         /* ============ Alice Supplies Seed wM For Loans ============ */
 
-        _supply(_alice, address(_wrappedMToken), 1_000_000e6, _USDC);
+        _supply(_alice, address(_smartMToken), 1_000_000e6, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 1_000_000e6);
 
         /* ============ Bob Takes Out wM Loan Against USDC Collateral ============ */
 
@@ -398,93 +398,93 @@ contract MorphoBlueTests is MorphoTestBase {
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += 1_000_000e6);
 
-        _supplyCollateral(_bob, _USDC, 1_000_000e6, address(_wrappedMToken));
+        _supplyCollateral(_bob, _USDC, 1_000_000e6, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC -= 1_000_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC += 1_000_000e6);
 
-        _borrow(_bob, address(_wrappedMToken), 900_000e6, _bob, _USDC);
+        _borrow(_bob, address(_smartMToken), 900_000e6, _bob, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM += 900_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 900_000e6);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM += 900_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 900_000e6);
 
         /* ============ Morpho Becomes An Earner ============ */
 
         _setClaimOverrideRecipient(_MORPHO, _carol);
 
         _addToList(_EARNERS_LIST, _MORPHO);
-        _wrappedMToken.startEarningFor(_MORPHO);
+        _smartMToken.startEarningFor(_MORPHO);
 
         // Check that the pool is earning wM.
-        assertTrue(_wrappedMToken.isEarning(_MORPHO));
+        assertTrue(_smartMToken.isEarning(_MORPHO));
 
-        assertEq(_wrappedMToken.claimRecipientFor(_MORPHO), _carol);
+        assertEq(_smartMToken.claimRecipientFor(_MORPHO), _carol);
 
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield);
 
         /* ============ First 1-Year Time Warp ============ */
 
         // Move 1 year forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
-        // Wrapped M is earning M and has accrued yield.
-        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 383_154_367021);
+        // Smart M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_smartMToken)), _wrapperBalanceOfM += 383_154_367021);
 
         // `startEarningFor` has been called so wM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 2_050_771703);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 2_050_771703);
 
-        // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), _excess += 381_103_595317);
+        // But excess yield has accrued in the Smart M contract.
+        assertEq(_smartMToken.excess(), _excess += 381_103_595317);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC);
 
         /* ============ Bob Repays wM Loan And Withdraws USDC Collateral ============ */
 
-        _repay(_bob, address(_wrappedMToken), 900_000e6, _USDC);
+        _repay(_bob, address(_smartMToken), 900_000e6, _USDC);
 
         // The repay has triggered a wM transfer and the yield has been claimed to carol for the pool.
-        assertEq(_wrappedMToken.balanceOf(_carol), _carolBalanceOfWM += _morphoAccruedYield);
+        assertEq(_smartMToken.balanceOf(_carol), _carolBalanceOfWM += _morphoAccruedYield);
 
-        assertEq(_wrappedMToken.balanceOf(_bob), _bobBalanceOfWM -= 900_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 900_000e6);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield -= _morphoAccruedYield);
+        assertEq(_smartMToken.balanceOf(_bob), _bobBalanceOfWM -= 900_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM += 900_000e6);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield -= _morphoAccruedYield);
 
-        _withdrawCollateral(_bob, _USDC, 1_000_000e6, _bob, address(_wrappedMToken));
+        _withdrawCollateral(_bob, _USDC, 1_000_000e6, _bob, address(_smartMToken));
 
         assertEq(IERC20(_USDC).balanceOf(_bob), _bobBalanceOfUSDC += 1_000_000e6);
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC -= 1_000_000e6);
 
         /* ============ Alice Withdraws Seed wM For Loans ============ */
 
-        _withdraw(_alice, address(_wrappedMToken), 1_000_000e6, _alice, _USDC);
+        _withdraw(_alice, address(_smartMToken), 1_000_000e6, _alice, _USDC);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_000e6);
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_alice), _aliceBalanceOfWM += 1_000_000e6);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM -= 1_000_000e6);
 
         /* ============ Second 1-Year Time Warp ============ */
 
         // Move 1 year forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
-        // Wrapped M is earning M and has accrued yield.
-        assertEq(_mToken.balanceOf(address(_wrappedMToken)), _wrapperBalanceOfM += 391_011_884644);
+        // Smart M is earning M and has accrued yield.
+        assertEq(_mToken.balanceOf(address(_smartMToken)), _wrapperBalanceOfM += 391_011_884644);
 
         // `startEarningFor` has been called so wM yield has accrued in the pool.
-        assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 27069);
+        assertEq(_smartMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
+        assertEq(_smartMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 27069);
 
-        // But excess yield has accrued in the wrapped M contract.
-        assertEq(_wrappedMToken.excess(), _excess += 391_011_857572);
+        // But excess yield has accrued in the Smart M contract.
+        assertEq(_smartMToken.excess(), _excess += 391_011_857572);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC);
     }
 
     function _createMarket(address account_, address loanToken_) internal {
-        address collateralToken_ = loanToken_ == address(_wrappedMToken) ? _USDC : address(_wrappedMToken);
+        address collateralToken_ = loanToken_ == address(_smartMToken) ? _USDC : address(_smartMToken);
 
         _createMarket(account_, loanToken_, collateralToken_, _oracle, _LLTV);
 

@@ -5,10 +5,10 @@ pragma solidity 0.8.26;
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
 import { IEarnerManager } from "../../src/interfaces/IEarnerManager.sol";
-import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
+import { ISmartMToken } from "../../src/interfaces/ISmartMToken.sol";
 
 import { EarnerManager } from "../../src/EarnerManager.sol";
-import { WrappedMToken } from "../../src/WrappedMToken.sol";
+import { SmartMToken } from "../../src/SmartMToken.sol";
 import { Proxy } from "../../src/Proxy.sol";
 
 import { MockM, MockRegistrar } from "./../utils/Mocks.sol";
@@ -52,18 +52,12 @@ contract MigrationTests is Test {
     address internal _excessDestination = makeAddr("excessDestination");
     address internal _migrationAdmin = makeAddr("migrationAdmin");
 
-    function test_wrappedMToken_migration() external {
+    function test_smartMToken_migration() external {
         MockRegistrar registrar_ = new MockRegistrar();
         address mToken_ = makeAddr("mToken");
 
         address implementation_ = address(
-            new WrappedMToken(
-                address(mToken_),
-                address(registrar_),
-                _earnerManager,
-                _excessDestination,
-                _migrationAdmin
-            )
+            new SmartMToken(address(mToken_), address(registrar_), _earnerManager, _excessDestination, _migrationAdmin)
         );
 
         address proxy_ = address(new Proxy(address(implementation_)));
@@ -74,23 +68,17 @@ contract MigrationTests is Test {
         vm.expectRevert();
         Foo(proxy_).bar();
 
-        IWrappedMToken(proxy_).migrate();
+        ISmartMToken(proxy_).migrate();
 
         assertEq(Foo(proxy_).bar(), 1);
     }
 
-    function test_wrappedMToken_migration_fromAdmin() external {
+    function test_smartMToken_migration_fromAdmin() external {
         MockRegistrar registrar_ = new MockRegistrar();
         address mToken_ = makeAddr("mToken");
 
         address implementation_ = address(
-            new WrappedMToken(
-                address(mToken_),
-                address(registrar_),
-                _earnerManager,
-                _excessDestination,
-                _migrationAdmin
-            )
+            new SmartMToken(address(mToken_), address(registrar_), _earnerManager, _excessDestination, _migrationAdmin)
         );
 
         address proxy_ = address(new Proxy(address(implementation_)));
@@ -100,7 +88,7 @@ contract MigrationTests is Test {
         Foo(proxy_).bar();
 
         vm.prank(_migrationAdmin);
-        IWrappedMToken(proxy_).migrate(migrator_);
+        ISmartMToken(proxy_).migrate(migrator_);
 
         assertEq(Foo(proxy_).bar(), 1);
     }
@@ -117,7 +105,7 @@ contract MigrationTests is Test {
         vm.expectRevert();
         Foo(proxy_).bar();
 
-        IWrappedMToken(proxy_).migrate();
+        ISmartMToken(proxy_).migrate();
 
         assertEq(Foo(proxy_).bar(), 1);
     }

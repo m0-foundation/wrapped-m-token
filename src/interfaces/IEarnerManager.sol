@@ -5,7 +5,7 @@ pragma solidity 0.8.26;
 import { IMigratable } from "./IMigratable.sol";
 
 /**
- * @title  Earner Status Manager interface for setting and returning earner status for Wrapped M Token accounts.
+ * @title  Earner Status Manager interface for setting and returning earner status for Smart M Token accounts.
  * @author M^0 Labs
  */
 interface IEarnerManager is IMigratable {
