@@ -10,6 +10,7 @@ import { IERC20 } from "../lib/common/src/interfaces/IERC20.sol";
 import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 import { Migratable } from "../lib/common/src/Migratable.sol";
 
+import { IEarnerManager } from "./interfaces/IEarnerManager.sol";
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
@@ -38,6 +39,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param balance           The present amount of tokens held by the account.
      * @param earningPrincipal  The earning principal for the account.
      * @param hasClaimRecipient Whether the account has an explicitly set claim recipient.
+     * @param hasEarnerDetails  Whether the account has additional details for earning yield.
      */
     struct Account {
         // First Slot
@@ -46,9 +48,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         // Second slot
         uint112 earningPrincipal;
         bool hasClaimRecipient;
+        bool hasEarnerDetails;
     }
 
     /* ============ Variables ============ */
+
+    /// @inheritdoc IWrappedMToken
+    uint16 public constant HUNDRED_PERCENT = 10_000;
 
     /// @inheritdoc IWrappedMToken
     bytes32 public constant EARNERS_LIST_IGNORED_KEY = "earners_list_ignored";
@@ -61,6 +67,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     bytes32 public constant MIGRATOR_KEY_PREFIX = "wm_migrator_v2";
+
+    /// @inheritdoc IWrappedMToken
+    address public immutable earnerManager;
 
     /// @inheritdoc IWrappedMToken
     address public immutable migrationAdmin;
@@ -101,17 +110,20 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      *        Note that a proxy will not need to initialize since there are no mutable storage values affected.
      * @param mToken_            The address of an M Token.
      * @param registrar_         The address of a Registrar.
+     * @param earnerManager_     The address of an Earner Manager.
      * @param excessDestination_ The address of an excess destination.
      * @param migrationAdmin_    The address of a migration admin.
      */
     constructor(
         address mToken_,
         address registrar_,
+        address earnerManager_,
         address excessDestination_,
         address migrationAdmin_
     ) ERC20Extended("M (Wrapped) by M^0", "wM", 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
+        if ((earnerManager = earnerManager_) == address(0)) revert ZeroEarnerManager();
         if ((excessDestination = excessDestination_) == address(0)) revert ZeroExcessDestination();
         if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
     }
@@ -185,8 +197,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function enableEarning() external {
-        _revertIfNotApprovedEarner(address(this));
-
+        if (!_isThisApprovedEarner()) revert NotApprovedEarner(address(this));
         if (isEarningEnabled()) revert EarningIsEnabled();
 
         // NOTE: This is a temporary measure to prevent re-enabling earning after it has been disabled.
@@ -204,8 +215,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function disableEarning() external {
-        _revertIfApprovedEarner(address(this));
-
+        if (_isThisApprovedEarner()) revert IsApprovedEarner(address(this));
         if (!isEarningEnabled()) revert EarningIsDisabled();
 
         uint128 currentMIndex_ = _currentMIndex();
@@ -226,8 +236,29 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IWrappedMToken
+    function startEarningFor(address[] calldata accounts_) external {
+        if (!isEarningEnabled()) revert EarningIsDisabled();
+
+        // NOTE: Use `currentIndex()` if/when upgrading to support `startEarningFor` while earning is disabled.
+        uint128 currentIndex_ = _currentMIndex();
+
+        for (uint256 index_; index_ < accounts_.length; ++index_) {
+            _startEarningFor(accounts_[index_], currentIndex_);
+        }
+    }
+
+    /// @inheritdoc IWrappedMToken
     function stopEarningFor(address account_) external {
         _stopEarningFor(account_, currentIndex());
+    }
+
+    /// @inheritdoc IWrappedMToken
+    function stopEarningFor(address[] calldata accounts_) external {
+        uint128 currentIndex_ = currentIndex();
+
+        for (uint256 index_; index_ < accounts_.length; ++index_) {
+            _stopEarningFor(accounts_[index_], currentIndex_);
+        }
     }
 
     /// @inheritdoc IWrappedMToken
@@ -490,10 +521,51 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         emit Claimed(account_, claimRecipient_, yield_);
         emit Transfer(address(0), account_, yield_);
 
-        if (claimRecipient_ != account_) {
-            // NOTE: Watch out for a long chain of earning claim override recipients.
-            _transfer(account_, claimRecipient_, yield_, currentIndex_);
+        uint240 yieldNetOfFees_ = yield_;
+
+        if (accountInfo_.hasEarnerDetails) {
+            unchecked {
+                yieldNetOfFees_ -= _handleEarnerDetails(account_, yield_, currentIndex_);
+            }
         }
+
+        if ((claimRecipient_ != account_) && (yieldNetOfFees_ != 0)) {
+            // NOTE: Watch out for a long chain of earning claim override recipients.
+            _transfer(account_, claimRecipient_, yieldNetOfFees_, currentIndex_);
+        }
+    }
+
+    /**
+     * @dev    Handles the computation and transfer of fees to the admin of an account with earner details.
+     * @param  account_      The address of the account to handle earner details for.
+     * @param  yield_        The yield accrued by the account.
+     * @param  currentIndex_ The current index to use to compute the principal amount.
+     * @return fee_          The fee amount that was transferred to the admin.
+     */
+    function _handleEarnerDetails(
+        address account_,
+        uint240 yield_,
+        uint128 currentIndex_
+    ) internal returns (uint240 fee_) {
+        (, uint16 feeRate_, address admin_) = _getEarnerDetails(account_);
+
+        if (admin_ == address(0)) {
+            // Prevent transferring to address(0) and remove `hasEarnerDetails` property going forward.
+            _accounts[account_].hasEarnerDetails = false;
+            return 0;
+        }
+
+        if (feeRate_ == 0) return 0;
+
+        feeRate_ = feeRate_ > HUNDRED_PERCENT ? HUNDRED_PERCENT : feeRate_; // Ensure fee rate is capped at 100%.
+
+        unchecked {
+            fee_ = (feeRate_ * yield_) / HUNDRED_PERCENT;
+        }
+
+        if (fee_ == 0) return 0;
+
+        _transfer(account_, admin_, fee_, currentIndex_);
     }
 
     /**
@@ -627,7 +699,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param currentIndex_ The current index.
      */
     function _startEarningFor(address account_, uint128 currentIndex_) internal {
-        _revertIfNotApprovedEarner(account_);
+        (bool isEarner_, , address admin_) = _getEarnerDetails(account_);
+
+        if (!isEarner_) revert NotApprovedEarner(account_);
 
         Account storage accountInfo_ = _accounts[account_];
 
@@ -638,6 +712,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         accountInfo_.isEarning = true;
         accountInfo_.earningPrincipal = earningPrincipal_;
+        accountInfo_.hasEarnerDetails = admin_ != address(0); // Has earner details if an admin exists for this account.
 
         _addTotalEarningSupply(balance_, earningPrincipal_);
 
@@ -654,7 +729,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param currentIndex_ The current index.
      */
     function _stopEarningFor(address account_, uint128 currentIndex_) internal {
-        _revertIfApprovedEarner(account_);
+        (bool isEarner_, , ) = _getEarnerDetails(account_);
+
+        if (isEarner_) revert IsApprovedEarner(account_);
 
         _claim(account_, currentIndex_);
 
@@ -667,6 +744,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         delete accountInfo_.isEarning;
         delete accountInfo_.earningPrincipal;
+        delete accountInfo_.hasEarnerDetails;
 
         _subtractTotalEarningSupply(balance_, earningPrincipal_);
 
@@ -726,6 +804,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         return IMTokenLike(mToken).currentIndex();
     }
 
+    /// @dev Returns whether this contract is a Registrar-approved earner.
+    function _isThisApprovedEarner() internal view returns (bool) {
+        return
+            _getFromRegistrar(EARNERS_LIST_IGNORED_KEY) != bytes32(0) ||
+            IRegistrarLike(registrar).listContains(EARNERS_LIST_NAME, address(this));
+    }
+
     /// @dev Returns the earning index from the last `disableEarning` call.
     function _lastDisableEarningIndex() internal view returns (uint128 index_) {
         return wasEarningEnabled() ? _unsafeAccess(_enableDisableEarningIndices, 1) : 0;
@@ -748,6 +833,19 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             return (balanceWithYield_ <= balance_) ? 0 : balanceWithYield_ - balance_;
         }
+    }
+
+    /**
+     * @dev    Retrieves the earner details for `account`.
+     * @param  account_  The account being queried.
+     * @return isEarner_ Whether the account is an earner.
+     * @return feeRate_  The fee rate to be taken from the yield.
+     * @return admin_    The admin who set the details and who will collect the fee.
+     */
+    function _getEarnerDetails(
+        address account_
+    ) internal view returns (bool isEarner_, uint16 feeRate_, address admin_) {
+        return IEarnerManager(earnerManager).getEarnerDetails(account_);
     }
 
     /**
@@ -795,17 +893,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /**
-     * @dev    Returns whether `account_` is a Registrar-approved earner.
-     * @param  account_    The account being queried.
-     * @return isApproved_ True if the account_ is a Registrar-approved earner, false otherwise.
-     */
-    function _isApprovedEarner(address account_) internal view returns (bool isApproved_) {
-        return
-            _getFromRegistrar(EARNERS_LIST_IGNORED_KEY) != bytes32(0) ||
-            IRegistrarLike(registrar).listContains(EARNERS_LIST_NAME, account_);
-    }
-
-    /**
      * @dev    Returns the M Token balance of `account_`.
      * @param  account_ The account being queried.
      * @return balance_ The M Token balance of the account.
@@ -829,22 +916,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _revertIfInvalidRecipient(address account_) internal pure {
         if (account_ == address(0)) revert InvalidRecipient(account_);
-    }
-
-    /**
-     * @dev   Reverts if `account_` is an approved earner.
-     * @param account_ Address of an account.
-     */
-    function _revertIfApprovedEarner(address account_) internal view {
-        if (_isApprovedEarner(account_)) revert IsApprovedEarner(account_);
-    }
-
-    /**
-     * @dev   Reverts if `account_` is not an approved earner.
-     * @param account_ Address of an account.
-     */
-    function _revertIfNotApprovedEarner(address account_) internal view {
-        if (!_isApprovedEarner(account_)) revert NotApprovedEarner(account_);
     }
 
     /**

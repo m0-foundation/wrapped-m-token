@@ -10,7 +10,7 @@ import { ListOfEarnersToMigrate } from "./ListOfEarnersToMigrate.sol";
  * @title  Migrator contract for migrating a WrappedMToken contract from V1 to V2.
  * @author M^0 Labs
  */
-contract MigratorV1 {
+contract WrappedMTokenMigratorV1 {
     /* ============ Structs ============ */
 
     /**
