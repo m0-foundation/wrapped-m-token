@@ -120,39 +120,28 @@ contract WrappedMTokenTests is Test {
         WrappedMTokenHarness(address(new Proxy(address(0))));
     }
 
-    /* ============ wrap ============ */
-    function test_wrap_insufficientAmount() external {
+    /* ============ _wrap ============ */
+    function test_internalWrap_insufficientAmount() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
 
-        _wrappedMToken.wrap(_alice, 0);
+        _wrappedMToken.internalWrap(_alice, _alice, 0);
     }
 
-    function test_wrap_invalidRecipient() external {
+    function test_internalWrap_invalidRecipient() external {
         _mToken.setBalanceOf(_alice, 1_000);
 
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InvalidRecipient.selector, address(0)));
 
-        vm.prank(_alice);
-        _wrappedMToken.wrap(address(0), 1_000);
+        _wrappedMToken.internalWrap(_alice, address(0), 1_000);
     }
 
-    function test_wrap_invalidAmount() external {
-        _mToken.setBalanceOf(_alice, uint256(type(uint240).max) + 1);
-
-        vm.expectRevert(UIntMath.InvalidUInt240.selector);
-
-        vm.prank(_alice);
-        _wrappedMToken.wrap(_alice, uint256(type(uint240).max) + 1);
-    }
-
-    function test_wrap_toNonEarner() external {
+    function test_internalWrap_toNonEarner() external {
         _mToken.setBalanceOf(_alice, 1_000);
 
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 1_000);
 
-        vm.prank(_alice);
-        assertEq(_wrappedMToken.wrap(_alice, 1_000), 1_000);
+        assertEq(_wrappedMToken.internalWrap(_alice, _alice, 1_000), 1_000);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 1_000);
@@ -160,7 +149,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
     }
 
-    function test_wrap_toEarner() external {
+    function test_internalWrap_toEarner() external {
         _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
 
         _wrappedMToken.enableEarning();
@@ -172,8 +161,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 999);
 
-        vm.prank(_alice);
-        assertEq(_wrappedMToken.wrap(_alice, 999), 999);
+        assertEq(_wrappedMToken.internalWrap(_alice, _alice, 999), 999);
 
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
         assertEq(_wrappedMToken.balanceOf(_alice), 999);
@@ -184,8 +172,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 1);
 
-        vm.prank(_alice);
-        assertEq(_wrappedMToken.wrap(_alice, 1), 1);
+        assertEq(_wrappedMToken.internalWrap(_alice, _alice, 1), 1);
 
         // No change due to principal round down on wrap.
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
@@ -197,14 +184,21 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 2);
 
-        vm.prank(_alice);
-        assertEq(_wrappedMToken.wrap(_alice, 2), 2);
+        assertEq(_wrappedMToken.internalWrap(_alice, _alice, 2), 2);
 
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_002);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 912);
         assertEq(_wrappedMToken.totalEarningSupply(), 1_002);
+    }
+
+    /* ============ wrap ============ */
+    function test_wrap_invalidAmount() external {
+        vm.expectRevert(UIntMath.InvalidUInt240.selector);
+
+        vm.prank(_alice);
+        _wrappedMToken.wrap(_alice, uint256(type(uint240).max) + 1);
     }
 
     function testFuzz_wrap(
@@ -265,7 +259,17 @@ contract WrappedMTokenTests is Test {
         );
     }
 
-    function testFuzz_wrapFull(
+    /* ============ wrap entire balance ============ */
+    function test_wrap_entireBalance_invalidAmount() external {
+        _mToken.setBalanceOf(_alice, uint256(type(uint240).max) + 1);
+
+        vm.expectRevert(UIntMath.InvalidUInt240.selector);
+
+        vm.prank(_alice);
+        _wrappedMToken.wrap(_alice, uint256(type(uint240).max) + 1);
+    }
+
+    function testFuzz_wrap_entireBalance(
         bool earningEnabled_,
         bool accountEarning_,
         uint240 balance_,
@@ -323,22 +327,153 @@ contract WrappedMTokenTests is Test {
         );
     }
 
-    /* ============ unwrap ============ */
-    function test_unwrap_insufficientAmount() external {
-        vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
+    /* ============ wrapWithPermit vrs ============ */
+    function test_wrapWithPermit_vrs_invalidAmount() external {
+        vm.expectRevert(UIntMath.InvalidUInt240.selector);
 
-        _wrappedMToken.unwrap(_alice, 0);
+        vm.prank(_alice);
+        _wrappedMToken.wrapWithPermit(_alice, uint256(type(uint240).max) + 1, 0, 0, bytes32(0), bytes32(0));
     }
 
-    function test_unwrap_insufficientBalance_fromNonEarner() external {
+    function testFuzz_wrapWithPermit_vrs(
+        bool earningEnabled_,
+        bool accountEarning_,
+        uint240 balance_,
+        uint240 wrapAmount_,
+        uint128 accountIndex_,
+        uint128 currentIndex_
+    ) external {
+        accountEarning_ = earningEnabled_ && accountEarning_;
+
+        if (earningEnabled_) {
+            _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+            _wrappedMToken.enableEarning();
+        }
+
+        accountIndex_ = uint128(bound(accountIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        balance_ = uint240(bound(balance_, 0, _getMaxAmount(accountIndex_)));
+
+        if (accountEarning_) {
+            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_, false);
+            _wrappedMToken.setTotalEarningSupply(balance_);
+
+            _wrappedMToken.setPrincipalOfTotalEarningSupply(
+                IndexingMath.getPrincipalAmountRoundedDown(balance_, accountIndex_)
+            );
+        } else {
+            _wrappedMToken.setAccountOf(_alice, balance_);
+            _wrappedMToken.setTotalNonEarningSupply(balance_);
+        }
+
+        currentIndex_ = uint128(bound(currentIndex_, accountIndex_, 10 * _EXP_SCALED_ONE));
+        wrapAmount_ = uint240(bound(wrapAmount_, 0, _getMaxAmount(currentIndex_) - balance_));
+
+        _mToken.setCurrentIndex(_currentIndex = currentIndex_);
+        _mToken.setBalanceOf(_alice, wrapAmount_);
+
+        uint240 accruedYield_ = _wrappedMToken.accruedYieldOf(_alice);
+
+        if (wrapAmount_ == 0) {
+            vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, (0)));
+        } else {
+            vm.expectEmit();
+            emit IERC20.Transfer(address(0), _alice, wrapAmount_);
+        }
+
+        vm.startPrank(_alice);
+        _wrappedMToken.wrapWithPermit(_alice, wrapAmount_, 0, 0, bytes32(0), bytes32(0));
+
+        if (wrapAmount_ == 0) return;
+
+        assertEq(_wrappedMToken.balanceOf(_alice), balance_ + accruedYield_ + wrapAmount_);
+
+        assertEq(
+            accountEarning_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply(),
+            _wrappedMToken.balanceOf(_alice)
+        );
+    }
+
+    /* ============ wrapWithPermit signature ============ */
+    function test_wrapWithPermit_signature_invalidAmount() external {
+        vm.expectRevert(UIntMath.InvalidUInt240.selector);
+
+        vm.prank(_alice);
+        _wrappedMToken.wrapWithPermit(_alice, uint256(type(uint240).max) + 1, 0, hex"");
+    }
+
+    function testFuzz_wrapWithPermit_signature(
+        bool earningEnabled_,
+        bool accountEarning_,
+        uint240 balance_,
+        uint240 wrapAmount_,
+        uint128 accountIndex_,
+        uint128 currentIndex_
+    ) external {
+        accountEarning_ = earningEnabled_ && accountEarning_;
+
+        if (earningEnabled_) {
+            _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+            _wrappedMToken.enableEarning();
+        }
+
+        accountIndex_ = uint128(bound(accountIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        balance_ = uint240(bound(balance_, 0, _getMaxAmount(accountIndex_)));
+
+        if (accountEarning_) {
+            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_, false);
+            _wrappedMToken.setTotalEarningSupply(balance_);
+
+            _wrappedMToken.setPrincipalOfTotalEarningSupply(
+                IndexingMath.getPrincipalAmountRoundedDown(balance_, accountIndex_)
+            );
+        } else {
+            _wrappedMToken.setAccountOf(_alice, balance_);
+            _wrappedMToken.setTotalNonEarningSupply(balance_);
+        }
+
+        currentIndex_ = uint128(bound(currentIndex_, accountIndex_, 10 * _EXP_SCALED_ONE));
+        wrapAmount_ = uint240(bound(wrapAmount_, 0, _getMaxAmount(currentIndex_) - balance_));
+
+        _mToken.setCurrentIndex(_currentIndex = currentIndex_);
+        _mToken.setBalanceOf(_alice, wrapAmount_);
+
+        uint240 accruedYield_ = _wrappedMToken.accruedYieldOf(_alice);
+
+        if (wrapAmount_ == 0) {
+            vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, (0)));
+        } else {
+            vm.expectEmit();
+            emit IERC20.Transfer(address(0), _alice, wrapAmount_);
+        }
+
+        vm.startPrank(_alice);
+        _wrappedMToken.wrapWithPermit(_alice, wrapAmount_, 0, hex"");
+
+        if (wrapAmount_ == 0) return;
+
+        assertEq(_wrappedMToken.balanceOf(_alice), balance_ + accruedYield_ + wrapAmount_);
+
+        assertEq(
+            accountEarning_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply(),
+            _wrappedMToken.balanceOf(_alice)
+        );
+    }
+
+    /* ============ _unwrap ============ */
+    function test_internalUnwrap_insufficientAmount() external {
+        vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
+
+        _wrappedMToken.internalUnwrap(_alice, _alice, 0);
+    }
+
+    function test_internalUnwrap_insufficientBalance_fromNonEarner() external {
         _wrappedMToken.setAccountOf(_alice, 999);
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
-        vm.prank(_alice);
-        _wrappedMToken.unwrap(_alice, 1_000);
+        _wrappedMToken.internalUnwrap(_alice, _alice, 1_000);
     }
 
-    function test_unwrap_insufficientBalance_fromEarner() external {
+    function test_internalUnwrap_insufficientBalance_fromEarner() external {
         _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
 
         _wrappedMToken.enableEarning();
@@ -346,11 +481,10 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setAccountOf(_alice, 999, _currentIndex, false);
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
-        vm.prank(_alice);
-        _wrappedMToken.unwrap(_alice, 1_000);
+        _wrappedMToken.internalUnwrap(_alice, _alice, 1_000);
     }
 
-    function test_unwrap_fromNonEarner() external {
+    function test_internalUnwrap_fromNonEarner() external {
         _wrappedMToken.setTotalNonEarningSupply(1_000);
 
         _wrappedMToken.setAccountOf(_alice, 1_000);
@@ -360,8 +494,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 500);
 
-        vm.prank(_alice);
-        assertEq(_wrappedMToken.unwrap(_alice, 500), 500);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 500), 500);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 500);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 500);
@@ -371,8 +504,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 500);
 
-        vm.prank(_alice);
-        assertEq(_wrappedMToken.unwrap(_alice, 500), 500);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 500), 500);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
@@ -380,7 +512,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
     }
 
-    function test_unwrap_fromEarner() external {
+    function test_internalUnwrap_fromEarner() external {
         _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
 
         _wrappedMToken.enableEarning();
@@ -395,8 +527,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 1);
 
-        vm.prank(_alice);
-        assertEq(_wrappedMToken.unwrap(_alice, 1), 0);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 1), 0);
 
         // Change due to principal round up on unwrap.
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
@@ -407,13 +538,20 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 999);
 
-        vm.prank(_alice);
-        assertEq(_wrappedMToken.unwrap(_alice, 999), 998);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 999), 998);
 
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalEarningSupply(), 0);
+    }
+
+    /* ============ unwrap ============ */
+    function test_unwrap_invalidAmount() external {
+        vm.expectRevert(UIntMath.InvalidUInt240.selector);
+
+        vm.prank(_alice);
+        _wrappedMToken.unwrap(_alice, uint256(type(uint240).max) + 1);
     }
 
     function testFuzz_unwrap(
@@ -484,7 +622,8 @@ contract WrappedMTokenTests is Test {
         );
     }
 
-    function testFuzz_unwrapFull(
+    /* ============ unwrap entire balance ============ */
+    function testFuzz_unwrap_entireBalance(
         bool earningEnabled_,
         bool accountEarning_,
         uint240 balance_,
