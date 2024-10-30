@@ -466,17 +466,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         uint240 yieldNetOfFees_ = yield_;
 
         if (accountInfo_.hasEarnerDetails) {
-            (, uint16 feeRate_, address admin_) = IEarnerManager(earnerManager).getEarnerDetails(account_);
-
-            feeRate_ = feeRate_ > HUNDRED_PERCENT ? HUNDRED_PERCENT : feeRate_; // Ensure fee rate is capped at 100%.
-
             unchecked {
-                uint240 fee_ = (feeRate_ * yield_) / HUNDRED_PERCENT;
-
-                if (fee_ != 0) {
-                    yieldNetOfFees_ -= fee_;
-                    _transfer(account_, admin_, fee_, currentIndex_);
-                }
+                yieldNetOfFees_ -= _handleEarnerDetails(account_, yield_, currentIndex_);
             }
         }
 
@@ -484,6 +475,39 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             // NOTE: Watch out for a long chain of earning claim override recipients.
             _transfer(account_, claimRecipient_, yieldNetOfFees_, currentIndex_);
         }
+    }
+
+    /**
+     * @dev    Handles the computation and transfer of fees to the admin of an account with earner details.
+     * @param  account_      The address of the account to handle earner details for.
+     * @param  yield_        The yield accrued by the account.
+     * @param  currentIndex_ The current index to use to compute the principal amount.
+     * @return fee_          The fee amount that was transferred to the admin.
+     */
+    function _handleEarnerDetails(
+        address account_,
+        uint240 yield_,
+        uint128 currentIndex_
+    ) internal returns (uint240 fee_) {
+        (, uint16 feeRate_, address admin_) = IEarnerManager(earnerManager).getEarnerDetails(account_);
+
+        if (admin_ == address(0)) {
+            // Prevent transferring to address(0) and remove `hasEarnerDetails` property going forward.
+            _accounts[account_].hasEarnerDetails = false;
+            return 0;
+        }
+
+        if (feeRate_ == 0) return 0;
+
+        feeRate_ = feeRate_ > HUNDRED_PERCENT ? HUNDRED_PERCENT : feeRate_; // Ensure fee rate is capped at 100%.
+
+        unchecked {
+            fee_ = (feeRate_ * yield_) / HUNDRED_PERCENT;
+        }
+
+        if (fee_ == 0) return 0;
+
+        _transfer(account_, admin_, fee_, currentIndex_);
     }
 
     /**
