@@ -2,19 +2,18 @@
 
 pragma solidity 0.8.26;
 
+import { IndexingMath } from "../lib/common/src/libs/IndexingMath.sol";
 import { UIntMath } from "../lib/common/src/libs/UIntMath.sol";
 
 import { IERC20 } from "../lib/common/src/interfaces/IERC20.sol";
 import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
 
-import { IndexingMath } from "./libs/IndexingMath.sol";
+import { Migratable } from "../lib/common/src/Migratable.sol";
 
 import { IEarnerManager } from "./interfaces/IEarnerManager.sol";
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 import { ISmartMToken } from "./interfaces/ISmartMToken.sol";
-
-import { Migratable } from "./Migratable.sol";
 
 /*
 

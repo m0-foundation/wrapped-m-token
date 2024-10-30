@@ -5,12 +5,13 @@ pragma solidity 0.8.26;
 import { IERC20 } from "../../lib/common/src/interfaces/IERC20.sol";
 import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.sol";
 import { IERC712 } from "../../lib/common/src/interfaces/IERC712.sol";
+
+import { Proxy } from "../../lib/common/src/Proxy.sol";
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
 import { ISmartMToken } from "../../src/interfaces/ISmartMToken.sol";
 
 import { EarnerManager } from "../../src/EarnerManager.sol";
-import { Proxy } from "../../src/Proxy.sol";
 import { SmartMToken } from "../../src/SmartMToken.sol";
 import { SmartMTokenMigratorV1 } from "../../src/SmartMTokenMigratorV1.sol";
 

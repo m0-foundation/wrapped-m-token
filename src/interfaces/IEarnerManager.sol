@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.26;
 
-import { IMigratable } from "./IMigratable.sol";
+import { IMigratable } from "../../lib/common/src/interfaces/IMigratable.sol";
 
 /**
  * @title  Earner Status Manager interface for setting and returning earner status for Smart M Token accounts.

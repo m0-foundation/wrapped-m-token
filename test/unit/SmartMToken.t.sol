@@ -2,16 +2,16 @@
 
 pragma solidity 0.8.26;
 
-import { Test, console2 } from "../../lib/forge-std/src/Test.sol";
+import { IndexingMath } from "../../lib/common/src/libs/IndexingMath.sol";
+
 import { IERC20 } from "../../lib/common/src/interfaces/IERC20.sol";
 import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.sol";
+
 import { UIntMath } from "../../lib/common/src/libs/UIntMath.sol";
+import { Proxy } from "../../lib/common/src/Proxy.sol";
+import { Test, console2 } from "../../lib/forge-std/src/Test.sol";
 
 import { ISmartMToken } from "../../src/interfaces/ISmartMToken.sol";
-
-import { IndexingMath } from "../../src/libs/IndexingMath.sol";
-
-import { Proxy } from "../../src/Proxy.sol";
 
 import { MockEarnerManager, MockM, MockRegistrar } from "../utils/Mocks.sol";
 import { SmartMTokenHarness } from "../utils/SmartMTokenHarness.sol";
