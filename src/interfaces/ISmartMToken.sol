@@ -3,8 +3,7 @@
 pragma solidity 0.8.26;
 
 import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.sol";
-
-import { IMigratable } from "./IMigratable.sol";
+import { IMigratable } from "../../lib/common/src/interfaces/IMigratable.sol";
 
 /**
  * @title  Smart M Token interface extending Extended ERC20.

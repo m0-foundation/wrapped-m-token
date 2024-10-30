@@ -2,6 +2,7 @@
 
 pragma solidity 0.8.26;
 
+import { Proxy } from "../../lib/common/src/Proxy.sol";
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
 import { IEarnerManager } from "../../src/interfaces/IEarnerManager.sol";
@@ -9,7 +10,6 @@ import { ISmartMToken } from "../../src/interfaces/ISmartMToken.sol";
 
 import { EarnerManager } from "../../src/EarnerManager.sol";
 import { SmartMToken } from "../../src/SmartMToken.sol";
-import { Proxy } from "../../src/Proxy.sol";
 
 import { MockM, MockRegistrar } from "./../utils/Mocks.sol";
 
