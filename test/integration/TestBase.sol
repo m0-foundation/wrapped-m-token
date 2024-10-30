@@ -7,11 +7,13 @@ import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.s
 import { IERC712 } from "../../lib/common/src/interfaces/IERC712.sol";
 
 import { Test } from "../../lib/forge-std/src/Test.sol";
+import { Proxy } from "../../lib/common/src/Proxy.sol";
 
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
+import { EarnerManager } from "../../src/EarnerManager.sol";
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
-import { MigratorV1 } from "../../src/MigratorV1.sol";
+import { WrappedMTokenMigratorV1 } from "../../src/WrappedMTokenMigratorV1.sol";
 
 import { IMTokenLike, IRegistrarLike } from "./vendor/protocol/Interfaces.sol";
 
@@ -61,8 +63,10 @@ contract TestBase is Test {
 
     address[] internal _accounts = [_alice, _bob, _carol, _dave, _eric, _frank, _grace, _henry, _ivan, _judy];
 
-    address internal _implementationV2;
-    address internal _migratorV1;
+    address internal _earnerManagerImplementation;
+    address internal _earnerManager;
+    address internal _wrappedMTokenImplementationV2;
+    address internal _wrappedMTokenMigratorV1;
 
     function _getSource(address token_) internal pure returns (address source_) {
         if (token_ == _USDC) return _USDC_SOURCE;
@@ -175,16 +179,18 @@ contract TestBase is Test {
     }
 
     function _deployV2Components() internal {
-        _implementationV2 = address(
-            new WrappedMToken(address(_mToken), _registrar, _excessDestination, _migrationAdmin)
+        _earnerManagerImplementation = address(new EarnerManager(_registrar, _migrationAdmin));
+        _earnerManager = address(new Proxy(_earnerManagerImplementation));
+        _wrappedMTokenImplementationV2 = address(
+            new WrappedMToken(address(_mToken), _registrar, _earnerManager, _excessDestination, _migrationAdmin)
         );
-        _migratorV1 = address(new MigratorV1(_implementationV2));
+        _wrappedMTokenMigratorV1 = address(new WrappedMTokenMigratorV1(_wrappedMTokenImplementationV2));
     }
 
     function _migrate() internal {
         _set(
             keccak256(abi.encode(_MIGRATOR_V1_PREFIX, address(_wrappedMToken))),
-            bytes32(uint256(uint160(_migratorV1)))
+            bytes32(uint256(uint160(_wrappedMTokenMigratorV1)))
         );
 
         _wrappedMToken.migrate();
@@ -192,7 +198,7 @@ contract TestBase is Test {
 
     function _migrateFromAdmin() internal {
         vm.prank(_migrationAdmin);
-        _wrappedMToken.migrate(_migratorV1);
+        _wrappedMToken.migrate(_wrappedMTokenMigratorV1);
     }
 
     /* ============ utils ============ */
