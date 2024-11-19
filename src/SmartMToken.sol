@@ -218,7 +218,14 @@ contract SmartMToken is ISmartMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc ISmartMToken
-    function startEarningFor(address account_) external {
+    function startEarningFor(bytes calldata data_) external {
+        IEarnerManager(earnerManager).approveEarning(msg.sender, data_);
+
+        startEarningFor(msg.sender);
+    }
+
+    /// @inheritdoc ISmartMToken
+    function startEarningFor(address account_) public {
         if (!isEarningEnabled()) revert EarningIsDisabled();
 
         // NOTE: Use `currentIndex()` if/when upgrading to support `startEarningFor` while earning is disabled.

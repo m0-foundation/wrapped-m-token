@@ -195,6 +195,12 @@ interface ISmartMToken is IMigratable, IERC20Extended {
     function disableEarning() external;
 
     /**
+     * @notice Starts earning for caller if allowed by the Earner Manager, given data.
+     * @param  data Some data used by the Earner Manager to authorize earning.
+     */
+    function startEarningFor(bytes calldata data) external;
+
+    /**
      * @notice Starts earning for `account` if allowed by the Earner Manager.
      * @param  account The account to start earning for.
      */

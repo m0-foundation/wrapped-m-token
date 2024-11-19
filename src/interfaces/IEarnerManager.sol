@@ -40,6 +40,8 @@ interface IEarnerManager is IMigratable {
     /// @notice Emitted when the fee rate provided is to high (higher than 100% in basis points).
     error FeeRateTooHigh();
 
+    error InvalidAuthorizationData();
+
     /// @notice Emitted when setting fee rate to a nonzero value while setting status to false.
     error InvalidDetails();
 
@@ -58,7 +60,17 @@ interface IEarnerManager is IMigratable {
     /// @notice Emitted in constructor if Registrar is 0x0.
     error ZeroRegistrar();
 
+    /// @notice Emitted in constructor if World ID Router is 0x0.
+    error ZeroWorldIDRouter();
+
     /* ============ Interactive Functions ============ */
+
+    /**
+     * @notice Approves earning for `account` given some encoded authorization data.
+     * @param  account           The account under which yield should generate.
+     * @param  authorizationData Encoded data to be used for authorization.
+     */
+    function approveEarning(address account, bytes calldata authorizationData) external;
 
     /**
      * @notice Sets the status for `account` to `status`.
@@ -108,6 +120,9 @@ interface IEarnerManager is IMigratable {
 
     /// @notice Registrar key prefix to determine the migrator contract.
     function MIGRATOR_KEY_PREFIX() external pure returns (bytes32 migratorKeyPrefix);
+
+    /// @notice World ID external nullifier hash for an `approveEarning` call.
+    function WORLD_ID_APPROVE_EARNING_EXTERNAL_NULLIFIER_HASH() external pure returns (uint256 externalNullifierHash);
 
     /**
      * @notice Returns the earner status for `account`.
@@ -170,9 +185,19 @@ interface IEarnerManager is IMigratable {
      */
     function isAdmin(address account) external view returns (bool isAdmin);
 
+    /**
+     * @notice Returns whether a nullifier hash was already used.
+     * @param  nullifierHash Some nullifier hash.
+     * @return isUsed        Whether the nullifier hash was already used.
+     */
+    function isNullifierHashUsed(uint256 nullifierHash) external view returns (bool isUsed);
+
     /// @notice The account that can bypass the Registrar and call the `migrate(address migrator)` function.
     function migrationAdmin() external view returns (address migrationAdmin);
 
     /// @notice Returns the address of the Registrar.
     function registrar() external view returns (address);
+
+    /// @notice Returns the address of the World ID Router.
+    function worldIDRouter() external view returns (address);
 }
