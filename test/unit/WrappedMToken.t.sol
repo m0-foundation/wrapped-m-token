@@ -11,6 +11,7 @@ import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.s
 import { Proxy } from "../../lib/common/src/Proxy.sol";
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
+import { IMTokenLike } from "../../src/interfaces/IMTokenLike.sol";
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
 import { MockM, MockRegistrar } from "../utils/Mocks.sol";
@@ -19,6 +20,7 @@ import { WrappedMTokenHarness } from "../utils/WrappedMTokenHarness.sol";
 // TODO: All operations involving earners should include demonstration of accrued yield being added to their balance.
 // TODO: Add relevant unit tests while earning enabled/disabled.
 // TODO: Remove unneeded _wrappedMToken.enableEarning.
+// TODO: Expect call for IMTokenLike(mToken).transfer
 
 contract WrappedMTokenTests is Test {
     uint56 internal constant _EXP_SCALED_ONE = IndexingMath.EXP_SCALED_ONE;
@@ -481,6 +483,8 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 500);
 
+        vm.expectCall(address(_mToken), abi.encodeWithSelector(IMTokenLike.transfer.selector, _alice, 500));
+
         assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 500), 500);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 500);
@@ -492,6 +496,26 @@ contract WrappedMTokenTests is Test {
         emit IERC20.Transfer(_alice, address(0), 500);
 
         assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 500), 500);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 0);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
+        assertEq(_wrappedMToken.totalEarningSupply(), 0);
+        assertEq(_wrappedMToken.principalOfTotalEarningSupply(), 0);
+    }
+
+    function test_internalUnwrap_fromNonEarner_toMEarnerWhileWrapperNotEarning() external {
+        _wrappedMToken.setTotalNonEarningSupply(500);
+
+        _wrappedMToken.setAccountOf(_alice, 500);
+
+        _mToken.setBalanceOf(address(_wrappedMToken), 501);
+
+        _mToken.setIsEarning(_bob, true);
+        _mToken.setPrincipalBalanceOf(_bob, 905);
+
+        vm.expectCall(address(_mToken), abi.encodeWithSelector(IMTokenLike.transfer.selector, _bob, 501));
+
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _bob, 500), 500);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
@@ -514,7 +538,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 1);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 1), 0);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 1), 1);
 
         // Change due to principal round up on unwrap.
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
@@ -525,7 +549,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 999);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 999), 998);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 999), 999);
 
         assertEq(_wrappedMToken.lastIndexOf(_alice), _currentIndex);
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
