@@ -141,7 +141,7 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.enableEarning();
 
-        _wrappedMToken.setAccountOf(_alice, 0, _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 0, _EXP_SCALED_ONE, false);
 
         _mToken.setBalanceOf(_alice, 1_002);
 
@@ -207,7 +207,7 @@ contract WrappedMTokenTests is Test {
         balance_ = uint240(bound(balance_, 0, _getMaxAmount(accountIndex_)));
 
         if (accountEarning_) {
-            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_);
+            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_, false);
             _wrappedMToken.setTotalEarningSupply(balance_);
 
             _wrappedMToken.setPrincipalOfTotalEarningSupply(
@@ -275,7 +275,7 @@ contract WrappedMTokenTests is Test {
         balance_ = uint240(bound(balance_, 0, _getMaxAmount(accountIndex_)));
 
         if (accountEarning_) {
-            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_);
+            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_, false);
             _wrappedMToken.setTotalEarningSupply(balance_);
 
             _wrappedMToken.setPrincipalOfTotalEarningSupply(
@@ -341,7 +341,7 @@ contract WrappedMTokenTests is Test {
         balance_ = uint240(bound(balance_, 0, _getMaxAmount(accountIndex_)));
 
         if (accountEarning_) {
-            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_);
+            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_, false);
             _wrappedMToken.setTotalEarningSupply(balance_);
 
             _wrappedMToken.setPrincipalOfTotalEarningSupply(
@@ -407,7 +407,7 @@ contract WrappedMTokenTests is Test {
         balance_ = uint240(bound(balance_, 0, _getMaxAmount(accountIndex_)));
 
         if (accountEarning_) {
-            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_);
+            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_, false);
             _wrappedMToken.setTotalEarningSupply(balance_);
 
             _wrappedMToken.setPrincipalOfTotalEarningSupply(
@@ -465,7 +465,7 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.enableEarning();
 
-        _wrappedMToken.setAccountOf(_alice, 999, _currentIndex);
+        _wrappedMToken.setAccountOf(_alice, 999, _currentIndex, false);
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
         _wrappedMToken.internalUnwrap(_alice, _alice, 1_000);
@@ -507,7 +507,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
         _wrappedMToken.setTotalEarningSupply(1_000);
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, _currentIndex);
+        _wrappedMToken.setAccountOf(_alice, 1_000, _currentIndex, false);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 1_000);
 
@@ -560,7 +560,7 @@ contract WrappedMTokenTests is Test {
         balance_ = uint240(bound(balance_, 0, _getMaxAmount(accountIndex_)));
 
         if (accountEarning_) {
-            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_);
+            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_, false);
             _wrappedMToken.setTotalEarningSupply(balance_);
 
             _wrappedMToken.setPrincipalOfTotalEarningSupply(
@@ -629,7 +629,7 @@ contract WrappedMTokenTests is Test {
         balance_ = uint240(bound(balance_, 0, _getMaxAmount(accountIndex_)));
 
         if (accountEarning_) {
-            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_);
+            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_, false);
             _wrappedMToken.setTotalEarningSupply(balance_);
 
             _wrappedMToken.setPrincipalOfTotalEarningSupply(
@@ -680,7 +680,7 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.enableEarning();
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 1_000, _EXP_SCALED_ONE, false);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
 
@@ -705,7 +705,7 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.enableEarning();
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 1_000, _EXP_SCALED_ONE, false);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
 
@@ -742,7 +742,7 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.setTotalEarningSupply(balance_);
 
-        _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_);
+        _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_, false);
 
         _mToken.setCurrentIndex(index_);
 
@@ -824,7 +824,7 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.enableEarning();
 
-        _wrappedMToken.setAccountOf(_alice, 999, _currentIndex);
+        _wrappedMToken.setAccountOf(_alice, 999, _currentIndex, false);
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
         vm.prank(_alice);
@@ -891,7 +891,7 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.setTotalNonEarningSupply(500);
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, _currentIndex);
+        _wrappedMToken.setAccountOf(_alice, 1_000, _currentIndex, false);
         _wrappedMToken.setAccountOf(_bob, 500);
 
         vm.expectEmit();
@@ -934,7 +934,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setTotalNonEarningSupply(1_000);
 
         _wrappedMToken.setAccountOf(_alice, 1_000);
-        _wrappedMToken.setAccountOf(_bob, 500, _currentIndex);
+        _wrappedMToken.setAccountOf(_bob, 500, _currentIndex, false);
 
         vm.expectEmit();
         emit IERC20.Transfer(_alice, _bob, 500);
@@ -959,8 +959,8 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setPrincipalOfTotalEarningSupply(1_363);
         _wrappedMToken.setTotalEarningSupply(1_500);
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, _currentIndex);
-        _wrappedMToken.setAccountOf(_bob, 500, _currentIndex);
+        _wrappedMToken.setAccountOf(_alice, 1_000, _currentIndex, false);
+        _wrappedMToken.setAccountOf(_bob, 500, _currentIndex, false);
 
         vm.expectEmit();
         emit IERC20.Transfer(_alice, _bob, 500);
@@ -1004,7 +1004,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
         _wrappedMToken.setTotalEarningSupply(1_000);
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, _currentIndex);
+        _wrappedMToken.setAccountOf(_alice, 1_000, _currentIndex, false);
 
         _mToken.setCurrentIndex((_currentIndex * 5) / 3); // 1_833333447838
 
@@ -1043,7 +1043,7 @@ contract WrappedMTokenTests is Test {
         aliceBalance_ = uint240(bound(aliceBalance_, 0, _getMaxAmount(aliceIndex_) / 4));
 
         if (aliceEarning_) {
-            _wrappedMToken.setAccountOf(_alice, aliceBalance_, aliceIndex_);
+            _wrappedMToken.setAccountOf(_alice, aliceBalance_, aliceIndex_, false);
             _wrappedMToken.setTotalEarningSupply(aliceBalance_);
 
             _wrappedMToken.setPrincipalOfTotalEarningSupply(
@@ -1058,7 +1058,7 @@ contract WrappedMTokenTests is Test {
         bobBalance_ = uint240(bound(bobBalance_, 0, _getMaxAmount(bobIndex_) / 4));
 
         if (bobEarning_) {
-            _wrappedMToken.setAccountOf(_bob, bobBalance_, bobIndex_);
+            _wrappedMToken.setAccountOf(_bob, bobBalance_, bobIndex_, false);
             _wrappedMToken.setTotalEarningSupply(_wrappedMToken.totalEarningSupply() + bobBalance_);
 
             _wrappedMToken.setPrincipalOfTotalEarningSupply(
@@ -1227,7 +1227,7 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setPrincipalOfTotalEarningSupply(909);
         _wrappedMToken.setTotalEarningSupply(1_000);
 
-        _wrappedMToken.setAccountOf(_alice, 999, _currentIndex);
+        _wrappedMToken.setAccountOf(_alice, 999, _currentIndex, false);
 
         vm.expectEmit();
         emit IWrappedMToken.StoppedEarning(_alice);
@@ -1252,7 +1252,7 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.setTotalEarningSupply(balance_);
 
-        _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_);
+        _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_, false);
 
         _mToken.setCurrentIndex(index_);
 
@@ -1268,6 +1268,38 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.totalNonEarningSupply(), balance_ + accruedYield_);
         assertEq(_wrappedMToken.totalEarningSupply(), 0);
+    }
+
+    /* ============ setClaimRecipient ============ */
+    function test_setClaimRecipient() external {
+        (, , , bool hasClaimRecipient_) = _wrappedMToken.getAccountOf(_alice);
+
+        assertFalse(hasClaimRecipient_);
+        assertEq(_wrappedMToken.getInternalClaimRecipientOf(_alice), address(0));
+
+        vm.prank(_alice);
+        _wrappedMToken.setClaimRecipient(_alice);
+
+        (, , , hasClaimRecipient_) = _wrappedMToken.getAccountOf(_alice);
+
+        assertTrue(hasClaimRecipient_);
+        assertEq(_wrappedMToken.getInternalClaimRecipientOf(_alice), _alice);
+
+        vm.prank(_alice);
+        _wrappedMToken.setClaimRecipient(_bob);
+
+        (, , , hasClaimRecipient_) = _wrappedMToken.getAccountOf(_alice);
+
+        assertTrue(hasClaimRecipient_);
+        assertEq(_wrappedMToken.getInternalClaimRecipientOf(_alice), _bob);
+
+        vm.prank(_alice);
+        _wrappedMToken.setClaimRecipient(address(0));
+
+        (, , , hasClaimRecipient_) = _wrappedMToken.getAccountOf(_alice);
+
+        assertFalse(hasClaimRecipient_);
+        assertEq(_wrappedMToken.getInternalClaimRecipientOf(_alice), address(0));
     }
 
     /* ============ enableEarning ============ */
@@ -1361,11 +1393,11 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.enableEarning();
 
-        _wrappedMToken.setAccountOf(_alice, 500, _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 500, _EXP_SCALED_ONE, false);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 500);
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 1_000, _EXP_SCALED_ONE, false);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
 
@@ -1373,7 +1405,7 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, 3 * _currentIndex);
+        _wrappedMToken.setAccountOf(_alice, 1_000, 3 * _currentIndex, false);
 
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
     }
@@ -1402,11 +1434,11 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.enableEarning();
 
-        _wrappedMToken.setAccountOf(_alice, 500, _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 500, _EXP_SCALED_ONE, false);
 
         assertEq(_wrappedMToken.balanceWithYieldOf(_alice), 550);
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 1_000, _EXP_SCALED_ONE, false);
 
         assertEq(_wrappedMToken.balanceWithYieldOf(_alice), 1_100);
 
@@ -1414,7 +1446,7 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.balanceWithYieldOf(_alice), 2_200);
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, 3 * _currentIndex);
+        _wrappedMToken.setAccountOf(_alice, 1_000, 3 * _currentIndex, false);
 
         assertEq(_wrappedMToken.balanceWithYieldOf(_alice), 1_000);
     }
@@ -1443,11 +1475,11 @@ contract WrappedMTokenTests is Test {
 
         _wrappedMToken.enableEarning();
 
-        _wrappedMToken.setAccountOf(_alice, 500, _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 500, _EXP_SCALED_ONE, false);
 
         assertEq(_wrappedMToken.accruedYieldOf(_alice), 50);
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 1_000, _EXP_SCALED_ONE, false);
 
         assertEq(_wrappedMToken.accruedYieldOf(_alice), 100);
 
@@ -1455,18 +1487,18 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.accruedYieldOf(_alice), 1_200);
 
-        _wrappedMToken.setAccountOf(_alice, 1_000, 3 * _currentIndex);
+        _wrappedMToken.setAccountOf(_alice, 1_000, 3 * _currentIndex, false);
 
         assertEq(_wrappedMToken.accruedYieldOf(_alice), 0);
     }
 
     /* ============ lastIndexOf ============ */
     function test_lastIndexOf() external {
-        _wrappedMToken.setAccountOf(_alice, 0, _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 0, _EXP_SCALED_ONE, false);
 
         assertEq(_wrappedMToken.lastIndexOf(_alice), _EXP_SCALED_ONE);
 
-        _wrappedMToken.setAccountOf(_alice, 0, 2 * _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 0, 2 * _EXP_SCALED_ONE, false);
 
         assertEq(_wrappedMToken.lastIndexOf(_alice), 2 * _EXP_SCALED_ONE);
     }
@@ -1477,7 +1509,7 @@ contract WrappedMTokenTests is Test {
 
         assertFalse(_wrappedMToken.isEarning(_alice));
 
-        _wrappedMToken.setAccountOf(_alice, 0, _EXP_SCALED_ONE);
+        _wrappedMToken.setAccountOf(_alice, 0, _EXP_SCALED_ONE, false);
 
         assertTrue(_wrappedMToken.isEarning(_alice));
     }
@@ -1516,16 +1548,37 @@ contract WrappedMTokenTests is Test {
         assertTrue(_wrappedMToken.wasEarningEnabled());
     }
 
-    /* ============ claimOverrideRecipientFor ============ */
-    function test_claimOverrideRecipientFor() external {
-        assertEq(_wrappedMToken.claimOverrideRecipientFor(_alice), address(0));
+    /* ============ claimRecipientFor ============ */
+    function test_claimRecipientFor() external view {
+        assertEq(_wrappedMToken.claimRecipientFor(_alice), _alice);
+    }
+
+    function test_claimRecipientFor_hasClaimRecipient() external {
+        _wrappedMToken.setAccountOf(_alice, 0, 0, true);
+        _wrappedMToken.setInternalClaimRecipient(_alice, _bob);
+
+        assertEq(_wrappedMToken.claimRecipientFor(_alice), _bob);
+    }
+
+    function test_claimRecipientFor_hasClaimOverrideRecipient() external {
+        _registrar.set(
+            keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX, _alice)),
+            bytes32(uint256(uint160(_charlie)))
+        );
+
+        assertEq(_wrappedMToken.claimRecipientFor(_alice), _charlie);
+    }
+
+    function test_claimRecipientFor_hasClaimRecipientAndOverrideRecipient() external {
+        _wrappedMToken.setAccountOf(_alice, 0, 0, true);
+        _wrappedMToken.setInternalClaimRecipient(_alice, _bob);
 
         _registrar.set(
             keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX, _alice)),
             bytes32(uint256(uint160(_charlie)))
         );
 
-        assertEq(_wrappedMToken.claimOverrideRecipientFor(_alice), _charlie);
+        assertEq(_wrappedMToken.claimRecipientFor(_alice), _bob);
     }
 
     /* ============ totalSupply ============ */
