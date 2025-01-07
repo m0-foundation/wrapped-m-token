@@ -90,26 +90,23 @@ library Invariants {
 
     // Invariant 4: Sum of all earning accounts' principals is less than or equal to principal of total earning supply.
     function checkInvariant4(address wrappedMToken_, address[] memory accounts_) internal view returns (bool success_) {
-        uint256 principalOfTotalEarningSupply_;
+        uint256 totalEarningPrincipal_;
 
         for (uint256 i_; i_ < accounts_.length; ++i_) {
             address account_ = accounts_[i_];
 
             if (!IWrappedMToken(wrappedMToken_).isEarning(account_)) continue;
 
-            principalOfTotalEarningSupply_ += IndexingMath.getPrincipalAmountRoundedDown(
-                uint240(IWrappedMToken(wrappedMToken_).balanceOf(account_)),
-                IWrappedMToken(wrappedMToken_).lastIndexOf(account_)
-            );
+            totalEarningPrincipal_ += IWrappedMToken(wrappedMToken_).earningPrincipalOf(account_);
         }
 
-        // console2.log("Invariant 2: principalOfTotalEarningSupply_ = %d", principalOfTotalEarningSupply_);
+        // console2.log("Invariant 2: totalEarningPrincipal_ = %d", totalEarningPrincipal_);
 
         // console2.log(
-        //     "Invariant 2: principalOfTotalEarningSupply()         = %d",
-        //     IWrappedMToken(wrappedMToken_).principalOfTotalEarningSupply()
+        //     "Invariant 2: totalEarningPrincipal()         = %d",
+        //     IWrappedMToken(wrappedMToken_).totalEarningPrincipal()
         // );
 
-        return IWrappedMToken(wrappedMToken_).principalOfTotalEarningSupply() >= principalOfTotalEarningSupply_;
+        return IWrappedMToken(wrappedMToken_).totalEarningPrincipal() >= totalEarningPrincipal_;
     }
 }
