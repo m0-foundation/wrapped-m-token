@@ -80,6 +80,8 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.symbol(), "wM");
         assertEq(_wrappedMToken.decimals(), 6);
         assertEq(_wrappedMToken.implementation(), address(_implementation));
+        assertEq(_wrappedMToken.enableMIndex(), 0);
+        assertEq(_wrappedMToken.disableIndex(), 0);
     }
 
     function test_constructor_zeroMToken() external {
@@ -169,8 +171,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_wrap_toEarner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _mToken.setBalanceOf(_alice, 1_002);
 
@@ -242,11 +244,17 @@ contract WrappedMTokenTests is Test {
         uint240 balanceWithYield_,
         uint240 balance_,
         uint240 wrapAmount_,
-        uint128 currentMIndex_
+        uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_
     ) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         (balanceWithYield_, balance_) = _getFuzzedBalances(
             balanceWithYield_,
@@ -296,11 +304,17 @@ contract WrappedMTokenTests is Test {
         uint240 balanceWithYield_,
         uint240 balance_,
         uint240 wrapAmount_,
-        uint128 currentMIndex_
+        uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_
     ) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         (balanceWithYield_, balance_) = _getFuzzedBalances(
             balanceWithYield_,
@@ -348,11 +362,17 @@ contract WrappedMTokenTests is Test {
         uint240 balanceWithYield_,
         uint240 balance_,
         uint240 wrapAmount_,
-        uint128 currentMIndex_
+        uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_
     ) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         (balanceWithYield_, balance_) = _getFuzzedBalances(
             balanceWithYield_,
@@ -400,11 +420,17 @@ contract WrappedMTokenTests is Test {
         uint240 balanceWithYield_,
         uint240 balance_,
         uint240 wrapAmount_,
-        uint128 currentMIndex_
+        uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_
     ) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         (balanceWithYield_, balance_) = _getFuzzedBalances(
             balanceWithYield_,
@@ -453,8 +479,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_internalUnwrap_insufficientBalance_fromEarner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setAccountOf(_alice, 999, 909, false, false);
 
@@ -464,8 +490,8 @@ contract WrappedMTokenTests is Test {
 
     function test_internalUnwrap_fromNonEarner() external {
         _mToken.setIsEarning(address(_wrappedMToken), true);
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 1_000);
 
@@ -523,8 +549,8 @@ contract WrappedMTokenTests is Test {
 
     function test_internalUnwrap_fromEarner() external {
         _mToken.setIsEarning(address(_wrappedMToken), true);
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 1_000);
 
@@ -596,11 +622,17 @@ contract WrappedMTokenTests is Test {
         uint240 balanceWithYield_,
         uint240 balance_,
         uint240 unwrapAmount_,
-        uint128 currentMIndex_
+        uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_
     ) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         (balanceWithYield_, balance_) = _getFuzzedBalances(
             balanceWithYield_,
@@ -644,11 +676,17 @@ contract WrappedMTokenTests is Test {
         bool accountEarning_,
         uint240 balanceWithYield_,
         uint240 balance_,
-        uint128 currentMIndex_
+        uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_
     ) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         (balanceWithYield_, balance_) = _getFuzzedBalances(
             balanceWithYield_,
@@ -688,8 +726,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_claimFor_earner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setTotalEarningPrincipal(1_000);
         _wrappedMToken.setTotalEarningSupply(1_000);
@@ -716,8 +754,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_claimFor_earner_withOverrideRecipient() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _registrar.set(
             keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX, _alice)),
@@ -756,8 +794,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_claimFor_earner_withFee() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, false, true);
         _earnerManager.setEarnerDetails(_alice, true, 1_500, _bob);
@@ -780,8 +818,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_claimFor_earner_withFeeAboveOneHundredPercent() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, false, true);
         _earnerManager.setEarnerDetails(_alice, true, type(uint16).max, _bob);
@@ -804,8 +842,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_claimFor_earner_withOverrideRecipientAndFee() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _registrar.set(
             keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX, _alice)),
@@ -842,12 +880,18 @@ contract WrappedMTokenTests is Test {
         uint240 balanceWithYield_,
         uint240 balance_,
         uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_,
         bool claimOverride_,
         uint16 feeRate_
     ) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         (balanceWithYield_, balance_) = _getFuzzedBalances(
             balanceWithYield_,
@@ -904,13 +948,19 @@ contract WrappedMTokenTests is Test {
     function testFuzz_claimExcess(
         bool earningEnabled_,
         uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_,
         uint240 totalNonEarningSupply_,
         uint240 totalProjectedEarningSupply_,
         uint112 mPrincipalBalance_
     ) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         uint240 maxAmount_ = _getMaxAmount(_wrappedMToken.currentIndex());
 
@@ -982,8 +1032,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_transfer_insufficientBalance_fromEarner_toNonEarner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, false, false); // 1_100 balance with yield.
 
@@ -1043,8 +1093,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_transfer_fromEarner_toNonEarner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setTotalEarningPrincipal(1_000);
         _wrappedMToken.setTotalEarningSupply(1_000);
@@ -1092,8 +1142,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_transfer_fromNonEarner_toEarner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setTotalEarningPrincipal(500);
         _wrappedMToken.setTotalEarningSupply(500);
@@ -1124,8 +1174,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_transfer_fromEarner_toEarner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setTotalEarningPrincipal(1_500);
         _wrappedMToken.setTotalEarningSupply(1_500);
@@ -1173,8 +1223,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_transfer_earnerToSelf() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setTotalEarningPrincipal(1_000);
         _wrappedMToken.setTotalEarningSupply(1_000);
@@ -1208,11 +1258,17 @@ contract WrappedMTokenTests is Test {
         uint240 bobBalanceWithYield_,
         uint240 bobBalance_,
         uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_,
         uint240 amount_
     ) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         (aliceBalanceWithYield_, aliceBalance_) = _getFuzzedBalances(
             aliceBalanceWithYield_,
@@ -1263,23 +1319,16 @@ contract WrappedMTokenTests is Test {
     }
 
     /* ============ startEarningFor ============ */
-    function test_startEarningFor_earningIsDisabled() external {
-        vm.expectRevert(IWrappedMToken.EarningIsDisabled.selector);
-        _wrappedMToken.startEarningFor(_alice);
-    }
-
     function test_startEarningFor_notApprovedEarner() external {
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
-
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.NotApprovedEarner.selector, _alice));
         _wrappedMToken.startEarningFor(_alice);
     }
 
     function test_startEarning_overflow() external {
-        _mToken.setCurrentIndex(1_000000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_100000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
-        uint240 aliceBalance_ = uint240(type(uint112).max) + 1;
+        uint240 aliceBalance_ = uint240(type(uint112).max) + 20; // TODO: _getMaxAmount(1_100000000000) + 2; ?
 
         _wrappedMToken.setTotalNonEarningSupply(aliceBalance_);
 
@@ -1292,8 +1341,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_startEarningFor() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setTotalNonEarningSupply(1_000);
 
@@ -1315,29 +1364,33 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 1_000);
     }
 
-    function testFuzz_startEarningFor(bool earningEnabled_, uint240 balance_, uint128 currentMIndex_) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+    function testFuzz_startEarningFor(
+        bool earningEnabled_,
+        uint240 balance_,
+        uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_
+    ) external {
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         uint128 currentIndex_ = _wrappedMToken.currentIndex();
 
         balance_ = uint240(bound(balance_, 0, _getMaxAmount(currentIndex_)));
 
-        _setupAccount(_alice, false, balance_, balance_);
+        _setupAccount(_alice, false, 0, balance_);
 
         _earnerManager.setEarnerDetails(_alice, true, 0, address(0));
 
-        if (earningEnabled_) {
-            vm.expectEmit();
-            emit IWrappedMToken.StartedEarning(_alice);
-        } else {
-            vm.expectRevert(IWrappedMToken.EarningIsDisabled.selector);
-        }
+        vm.expectEmit();
+        emit IWrappedMToken.StartedEarning(_alice);
 
         _wrappedMToken.startEarningFor(_alice);
-
-        if (!earningEnabled_) return;
 
         uint112 earningPrincipal_ = IndexingMath.getPrincipalAmountRoundedDown(balance_, currentIndex_);
 
@@ -1357,9 +1410,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_startEarningFor_batch_notApprovedEarner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _earnerManager.setEarnerDetails(_alice, true, 0, address(0));
 
@@ -1372,9 +1424,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_startEarningFor_batch() external {
-        _mToken.setCurrentIndex(1_100000000000);
-
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _earnerManager.setEarnerDetails(_alice, true, 0, address(0));
         _earnerManager.setEarnerDetails(_bob, true, 0, address(0));
@@ -1401,8 +1452,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_stopEarningFor() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setTotalEarningPrincipal(1_000);
         _wrappedMToken.setTotalEarningSupply(1_000);
@@ -1437,11 +1488,17 @@ contract WrappedMTokenTests is Test {
         bool earningEnabled_,
         uint240 balanceWithYield_,
         uint240 balance_,
-        uint128 currentMIndex_
+        uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_
     ) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         (balanceWithYield_, balance_) = _getFuzzedBalances(
             balanceWithYield_,
@@ -1547,14 +1604,18 @@ contract WrappedMTokenTests is Test {
     function test_enableEarning() external {
         _registrar.setListContains(_EARNERS_LIST_NAME, address(_wrappedMToken), true);
 
-        _mToken.setCurrentIndex(1_100000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+
+        assertEq(_wrappedMToken.enableMIndex(), 0);
+        assertEq(_wrappedMToken.currentIndex(), 1_000000000000);
 
         vm.expectEmit();
-        emit IWrappedMToken.EarningEnabled(1_100000000000);
+        emit IWrappedMToken.EarningEnabled(1_210000000000);
 
         _wrappedMToken.enableEarning();
 
-        assertEq(_wrappedMToken.currentIndex(), 1_100000000000);
+        assertEq(_wrappedMToken.enableMIndex(), 1_210000000000);
+        assertEq(_wrappedMToken.currentIndex(), 1_000000000000);
     }
 
     /* ============ disableEarning ============ */
@@ -1571,21 +1632,27 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_disableEarning() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        assertEq(_wrappedMToken.enableMIndex(), 1_100000000000);
+        assertEq(_wrappedMToken.disableIndex(), 0);
+        assertEq(_wrappedMToken.currentIndex(), 1_100000000000);
 
         vm.expectEmit();
         emit IWrappedMToken.EarningDisabled(1_100000000000);
 
         _wrappedMToken.disableEarning();
 
+        assertEq(_wrappedMToken.enableMIndex(), 0);
+        assertEq(_wrappedMToken.disableIndex(), 1_100000000000);
         assertEq(_wrappedMToken.currentIndex(), 1_100000000000);
     }
 
     /* ============ balanceOf ============ */
     function test_balanceOf_nonEarner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setAccountOf(_alice, 500);
 
@@ -1601,8 +1668,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_balanceOf_earner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setAccountOf(_alice, 500, 500, false, false); // 550 balance with yield.
 
@@ -1627,8 +1694,8 @@ contract WrappedMTokenTests is Test {
 
     /* ============ balanceWithYieldOf ============ */
     function test_balanceWithYieldOf_nonEarner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setAccountOf(_alice, 500);
 
@@ -1644,8 +1711,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_balanceWithYieldOf_earner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setAccountOf(_alice, 500, 500, false, false); // 550 balance with yield.
 
@@ -1655,7 +1722,7 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.balanceWithYieldOf(_alice), 1_100);
 
-        _mToken.setCurrentIndex(1_210000000000);
+        _mToken.setCurrentIndex(1_331000000000);
 
         assertEq(_wrappedMToken.balanceWithYieldOf(_alice), 1_210);
 
@@ -1666,8 +1733,8 @@ contract WrappedMTokenTests is Test {
 
     /* ============ accruedYieldOf ============ */
     function test_accruedYieldOf_nonEarner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setAccountOf(_alice, 500);
 
@@ -1683,8 +1750,8 @@ contract WrappedMTokenTests is Test {
     }
 
     function test_accruedYieldOf_earner() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setAccountOf(_alice, 500, 500, false, false); // 550 balance with yield.
 
@@ -1694,7 +1761,7 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.accruedYieldOf(_alice), 100);
 
-        _mToken.setCurrentIndex(1_210000000000);
+        _mToken.setCurrentIndex(1_331000000000);
 
         assertEq(_wrappedMToken.accruedYieldOf(_alice), 210);
 
@@ -1729,30 +1796,17 @@ contract WrappedMTokenTests is Test {
     function test_isEarningEnabled() external {
         assertFalse(_wrappedMToken.isEarningEnabled());
 
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         assertTrue(_wrappedMToken.isEarningEnabled());
 
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _wrappedMToken.setEnableMIndex(0);
 
         assertFalse(_wrappedMToken.isEarningEnabled());
-    }
 
-    /* ============ wasEarningEnabled ============ */
-    function test_wasEarningEnabled() external {
-        assertFalse(_wrappedMToken.wasEarningEnabled());
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
-        _registrar.setListContains(_EARNERS_LIST_NAME, address(_wrappedMToken), true);
-
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
-
-        assertTrue(_wrappedMToken.wasEarningEnabled());
-
-        _registrar.setListContains(_EARNERS_LIST_NAME, address(_wrappedMToken), false);
-
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
-
-        assertTrue(_wrappedMToken.wasEarningEnabled());
+        assertTrue(_wrappedMToken.isEarningEnabled());
     }
 
     /* ============ claimRecipientFor ============ */
@@ -1829,31 +1883,47 @@ contract WrappedMTokenTests is Test {
     function test_currentIndex() external {
         assertEq(_wrappedMToken.currentIndex(), _EXP_SCALED_ONE);
 
-        _mToken.setCurrentIndex(1_100000000000);
+        _mToken.setCurrentIndex(1_331000000000);
 
         assertEq(_wrappedMToken.currentIndex(), _EXP_SCALED_ONE);
 
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _wrappedMToken.setDisableIndex(1_050000000000);
+
+        assertEq(_wrappedMToken.currentIndex(), 1_050000000000);
+
+        _wrappedMToken.setDisableIndex(1_100000000000);
 
         assertEq(_wrappedMToken.currentIndex(), 1_100000000000);
 
-        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        assertEq(_wrappedMToken.currentIndex(), 1_331000000000);
+
+        _wrappedMToken.setEnableMIndex(1_155000000000);
+
+        assertEq(_wrappedMToken.currentIndex(), 1_267619047619);
+
+        _wrappedMToken.setEnableMIndex(1_210000000000);
 
         assertEq(_wrappedMToken.currentIndex(), 1_210000000000);
 
-        _wrappedMToken.pushEnableDisableEarningIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_270500000000);
 
-        assertEq(_wrappedMToken.currentIndex(), 1_210000000000);
+        assertEq(_wrappedMToken.currentIndex(), 1_152380952380);
 
-        _mToken.setCurrentIndex(1_331000000000);
+        _wrappedMToken.setEnableMIndex(1_331000000000);
+
+        assertEq(_wrappedMToken.currentIndex(), 1_100000000000);
+
+        _mToken.setCurrentIndex(1_464100000000);
 
         assertEq(_wrappedMToken.currentIndex(), 1_210000000000);
     }
 
     /* ============ excess ============ */
     function test_excess() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         assertEq(_wrappedMToken.excess(), 0);
 
@@ -1877,7 +1947,7 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.excess(), 1_002);
 
-        _mToken.setCurrentIndex(1_210000000000);
+        _mToken.setCurrentIndex(1_331000000000);
 
         assertEq(_wrappedMToken.excess(), 892);
     }
@@ -1885,13 +1955,19 @@ contract WrappedMTokenTests is Test {
     function testFuzz_excess(
         bool earningEnabled_,
         uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_,
         uint240 totalNonEarningSupply_,
         uint240 totalProjectedEarningSupply_,
         uint112 mPrincipalBalance_
     ) external {
-        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
+            currentMIndex_,
+            enableMIndex_,
+            disableIndex_
+        );
 
-        _setupIndexes(earningEnabled_, currentMIndex_);
+        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
 
         uint240 maxAmount_ = _getMaxAmount(_wrappedMToken.currentIndex());
 
@@ -1924,8 +2000,8 @@ contract WrappedMTokenTests is Test {
 
     /* ============ totalAccruedYield ============ */
     function test_totalAccruedYield() external {
-        _mToken.setCurrentIndex(1_100000000000);
-        _wrappedMToken.pushEnableDisableEarningIndex(1_000000000000);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
 
         _wrappedMToken.setTotalEarningPrincipal(909);
         _wrappedMToken.setTotalEarningSupply(1_000);
@@ -1940,7 +2016,7 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.totalAccruedYield(), 200);
 
-        _mToken.setCurrentIndex(1_210000000000);
+        _mToken.setCurrentIndex(1_331000000000);
 
         assertEq(_wrappedMToken.totalAccruedYield(), 310);
     }
@@ -1958,12 +2034,33 @@ contract WrappedMTokenTests is Test {
         return (uint240(type(uint112).max) * index_) / _EXP_SCALED_ONE;
     }
 
-    function _setupIndexes(bool earningEnabled_, uint128 currentMIndex_) internal {
+    function _getFuzzedIndices(
+        uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_
+    ) internal pure returns (uint128, uint128, uint128) {
+        currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        enableMIndex_ = uint128(bound(enableMIndex_, _EXP_SCALED_ONE, currentMIndex_));
+
+        disableIndex_ = uint128(
+            bound(disableIndex_, _EXP_SCALED_ONE, (currentMIndex_ * _EXP_SCALED_ONE) / enableMIndex_)
+        );
+
+        return (currentMIndex_, enableMIndex_, disableIndex_);
+    }
+
+    function _setupIndexes(
+        bool earningEnabled_,
+        uint128 currentMIndex_,
+        uint128 enableMIndex_,
+        uint128 disableIndex_
+    ) internal {
         _mToken.setCurrentIndex(currentMIndex_);
+        _wrappedMToken.setDisableIndex(disableIndex_);
 
         if (earningEnabled_) {
             _mToken.setIsEarning(address(_wrappedMToken), true);
-            _wrappedMToken.pushEnableDisableEarningIndex(_EXP_SCALED_ONE);
+            _wrappedMToken.setEnableMIndex(enableMIndex_);
         }
     }
 
