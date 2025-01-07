@@ -45,7 +45,7 @@ contract MigrationTests is Test {
 
     function test_migration() external {
         WrappedMTokenV3 implementationV3_ = new WrappedMTokenV3();
-        address migrator_ = address(new Migrator(address(implementationV3_)));
+        address migrator_ = address(new Migrator(address(implementationV3_), new address[](0)));
 
         _registrar.set(
             keccak256(abi.encode(_MIGRATOR_KEY_PREFIX, address(_wrappedMToken))),
@@ -62,7 +62,7 @@ contract MigrationTests is Test {
 
     function test_migration_fromAdmin() external {
         WrappedMTokenV3 implementationV3_ = new WrappedMTokenV3();
-        address migrator_ = address(new Migrator(address(implementationV3_)));
+        address migrator_ = address(new Migrator(address(implementationV3_), new address[](0)));
 
         vm.expectRevert();
         WrappedMTokenV3(address(_wrappedMToken)).foo();

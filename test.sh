@@ -34,7 +34,7 @@ if [ "$gas" = false ];
 then
     gasReport=""
 else
-    gasReport="--gas-report"
+    gasReport="--gas-report --isolate"
 fi
 
 if [ -z "$test" ]; then
