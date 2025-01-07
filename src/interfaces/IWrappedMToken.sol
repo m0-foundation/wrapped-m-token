@@ -29,13 +29,13 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /**
      * @notice Emitted when Wrapped M earning is enabled.
-     * @param  index The index at the moment earning is enabled.
+     * @param  index The M index at the moment earning is enabled.
      */
     event EarningEnabled(uint128 index);
 
     /**
      * @notice Emitted when Wrapped M earning is disabled.
-     * @param  index The index at the moment earning is disabled.
+     * @param  index The WrappedM index at the moment earning is disabled.
      */
     event EarningDisabled(uint128 index);
 
@@ -79,9 +79,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice Emitted when performing an operation that is not allowed when earning is enabled.
     error EarningIsEnabled();
-
-    /// @notice Emitted when trying to enable earning after it has been explicitly disabled.
-    error EarningCannotBeReenabled();
 
     /**
      * @notice Emitted when calling `stopEarning` for an account approved as an earner.
@@ -318,8 +315,14 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice The current index of Wrapped M's earning mechanism.
     function currentIndex() external view returns (uint128 index);
 
+    /// @notice The M token's index when earning was most recently enabled.
+    function enableMIndex() external view returns (uint128 enableMIndex);
+
     /// @notice This contract's current excess M that is not earmarked for account balances or accrued yield.
     function excess() external view returns (int248 excess);
+
+    /// @notice The wrapper's index when earning was most recently disabled.
+    function disableIndex() external view returns (uint128 disableIndex);
 
     /**
      * @notice Returns whether `account` is a wM earner.
@@ -330,9 +333,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice Whether Wrapped M earning is enabled.
     function isEarningEnabled() external view returns (bool isEnabled);
-
-    /// @notice Whether Wrapped M earning has been enabled at least once.
-    function wasEarningEnabled() external view returns (bool wasEnabled);
 
     /// @notice The account that can bypass the Registrar and call the `migrate(address migrator)` function.
     function migrationAdmin() external view returns (address migrationAdmin);
