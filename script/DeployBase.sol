@@ -44,13 +44,14 @@ contract DeployBase {
         address mToken_,
         address registrar_,
         address excessDestination_,
-        address migrationAdmin_
+        address migrationAdmin_,
+        address[] memory earners_
     ) public virtual returns (address implementation_, address migrator_) {
         // Wrapped M token needs `mToken_`, `registrar_`, `excessDestination_`, and `migrationAdmin_` addresses.
         // Migrator needs `implementation_` addresses.
 
         implementation_ = address(new WrappedMToken(mToken_, registrar_, excessDestination_, migrationAdmin_));
-        migrator_ = address(new MigratorV1(implementation_));
+        migrator_ = address(new MigratorV1(implementation_, earners_));
     }
 
     /**

@@ -48,6 +48,10 @@ contract MockM {
         currentIndex = currentIndex_;
     }
 
+    function setIsEarning(address account_, bool isEarning_) external {
+        isEarning[account_] = isEarning_;
+    }
+
     function startEarning() external {
         isEarning[msg.sender] = true;
     }
