@@ -69,7 +69,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     error EarningCannotBeReenabled();
 
     /**
-     * @notice Emitted when calling `stopEarning` for an account approved as earner by the Registrar.
+     * @notice Emitted when calling `stopEarning` for an account approved as an earner by the Registrar.
      * @param  account The account that is an approved earner.
      */
     error IsApprovedEarner(address account);
@@ -83,7 +83,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     error InsufficientBalance(address account, uint240 balance, uint240 amount);
 
     /**
-     * @notice Emitted when calling `startEarning` for an account not approved as earner by the Registrar.
+     * @notice Emitted when calling `startEarning` for an account not approved as an earner by the Registrar.
      * @param  account The account that is not an approved earner.
      */
     error NotApprovedEarner(address account);
@@ -243,11 +243,11 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function balanceWithYieldOf(address account) external view returns (uint256 balance);
 
     /**
-     * @notice Returns the last index of `account`.
-     * @param  account   The address of some account.
-     * @return lastIndex The last index of `account`, 0 if the account is not earning.
+     * @notice Returns the earning principal of `account`.
+     * @param  account          The address of some account.
+     * @return earningPrincipal The earning principal of `account`.
      */
-    function lastIndexOf(address account) external view returns (uint128 lastIndex);
+    function earningPrincipalOf(address account) external view returns (uint112 earningPrincipal);
 
     /**
      * @notice Returns the recipient to override as the destination for an account's claim of yield.
@@ -265,7 +265,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /**
      * @notice Returns whether `account` is a wM earner.
      * @param  account   The account being queried.
-     * @return isEarning true if the account has started earning.
+     * @return isEarning Whether the account is a wM earner.
      */
     function isEarning(address account) external view returns (bool isEarning);
 
@@ -293,8 +293,8 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice The portion of total supply that is earning yield.
     function totalEarningSupply() external view returns (uint240 totalSupply);
 
-    /// @notice The principal of totalEarningSupply to help compute totalAccruedYield(), and thus excess().
-    function principalOfTotalEarningSupply() external view returns (uint112 principalOfTotalEarningSupply);
+    /// @notice The total earning principal to help compute totalAccruedYield(), and thus excess().
+    function totalEarningPrincipal() external view returns (uint112 totalEarningPrincipal);
 
     /// @notice The address of the destination where excess is claimed to.
     function excessDestination() external view returns (address excessDestination);
