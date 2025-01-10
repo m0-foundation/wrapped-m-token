@@ -194,8 +194,8 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 300_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 300_000000);
         assertEq(_wrappedMToken.totalSupply(), 600_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), 50_000001);
-        assertEq(_wrappedMToken.excess(), 249_999999);
+        assertEq(_wrappedMToken.totalAccruedYield(), 49_999998);
+        assertEq(_wrappedMToken.excess(), 250_000002);
 
         vm.prank(_dave);
         _wrappedMToken.transfer(_bob, 50_000000);
@@ -212,8 +212,8 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 400_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 250_000000);
         assertEq(_wrappedMToken.totalSupply(), 650_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), 2);
-        assertEq(_wrappedMToken.excess(), 249_999996);
+        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.excess(), 250_000002);
 
         _mToken.setCurrentIndex(4 * _EXP_SCALED_ONE);
         _mToken.setBalanceOf(address(_wrappedMToken), 1_200_000000); // was 900 @ 3.0, so 1200 @ 4.0
@@ -238,8 +238,8 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 400_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 250_000000);
         assertEq(_wrappedMToken.totalSupply(), 650_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), 133_333336);
-        assertEq(_wrappedMToken.excess(), 416_666664);
+        assertEq(_wrappedMToken.totalAccruedYield(), 133_333328);
+        assertEq(_wrappedMToken.excess(), 416_666672);
 
         _registrar.setListContains(_EARNERS_LIST_NAME, _alice, false);
 
@@ -253,8 +253,8 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 200_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 516_666664);
         assertEq(_wrappedMToken.totalSupply(), 716_666664);
-        assertEq(_wrappedMToken.totalAccruedYield(), 66_666672);
-        assertEq(_wrappedMToken.excess(), 416_666664);
+        assertEq(_wrappedMToken.totalAccruedYield(), 66_666664);
+        assertEq(_wrappedMToken.excess(), 416_666672);
 
         _registrar.setListContains(_EARNERS_LIST_NAME, _carol, true);
 
@@ -268,8 +268,8 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 400_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 316_666664);
         assertEq(_wrappedMToken.totalSupply(), 716_666664);
-        assertEq(_wrappedMToken.totalAccruedYield(), 66_666672);
-        assertEq(_wrappedMToken.excess(), 416_666664);
+        assertEq(_wrappedMToken.totalAccruedYield(), 66_666664);
+        assertEq(_wrappedMToken.excess(), 416_666672);
 
         _mToken.setCurrentIndex(5 * _EXP_SCALED_ONE);
         _mToken.setBalanceOf(address(_wrappedMToken), 1_500_000000); // was 1200 @ 4.0, so 1500 @ 5.0
@@ -294,8 +294,8 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 400_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 316_666664);
         assertEq(_wrappedMToken.totalSupply(), 716_666664);
-        assertEq(_wrappedMToken.totalAccruedYield(), 183_333340);
-        assertEq(_wrappedMToken.excess(), 599_999995);
+        assertEq(_wrappedMToken.totalAccruedYield(), 183_333330);
+        assertEq(_wrappedMToken.excess(), 600_000005);
 
         vm.prank(_alice);
         _wrappedMToken.unwrap(_alice, 266_666664);
@@ -308,8 +308,8 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 400_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 50_000000);
         assertEq(_wrappedMToken.totalSupply(), 450_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), 183_333340);
-        assertEq(_wrappedMToken.excess(), 600_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 183_333330);
+        assertEq(_wrappedMToken.excess(), 600_000010);
 
         vm.prank(_bob);
         _wrappedMToken.unwrap(_bob, 333_333330);
@@ -322,8 +322,8 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 200_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 50_000000);
         assertEq(_wrappedMToken.totalSupply(), 250_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), 50_000010);
-        assertEq(_wrappedMToken.excess(), 600_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 50_000000);
+        assertEq(_wrappedMToken.excess(), 600_000010);
 
         vm.prank(_carol);
         _wrappedMToken.unwrap(_carol, 250_000000);

@@ -56,6 +56,8 @@ contract UniswapV3IntegrationTests is TestBase {
         _deployV2Components();
         _migrate();
 
+        _wrappedMToken.migrateAccount(_pool);
+
         _poolClaimRecipient = _wrappedMToken.claimOverrideRecipientFor(_pool);
 
         _wrapperBalanceOfM = _mToken.balanceOf(address(_wrappedMToken));
@@ -338,7 +340,7 @@ contract UniswapV3IntegrationTests is TestBase {
         // Move 5 days forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 5 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 11_753_024234);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 11_753_024235);
 
         /* ============ Eric (Earner) Swaps Exact wM for USDC ============ */
 

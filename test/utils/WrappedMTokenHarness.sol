@@ -25,19 +25,19 @@ contract WrappedMTokenHarness is WrappedMToken {
     }
 
     function setIsEarningOf(address account_, bool isEarning_) external {
-        _accounts[account_].isEarning = isEarning_;
+        _accounts[account_].earningState = isEarning_ ? EarningState.PRINCIPAL_BASED : EarningState.NOT_EARNING;
     }
 
-    function setLastIndexOf(address account_, uint256 index_) external {
-        _accounts[account_].lastIndex = uint128(index_);
+    function setEarningPrincipalOf(address account_, uint256 earningPrincipal_) external {
+        _accounts[account_].earningPrincipal = uint112(earningPrincipal_);
     }
 
-    function setAccountOf(address account_, uint256 balance_, uint256 index_) external {
-        _accounts[account_] = Account(true, uint240(balance_), uint128(index_));
+    function setAccountOf(address account_, uint256 balance_, uint256 earningPrincipal_) external {
+        _accounts[account_] = Account(EarningState.PRINCIPAL_BASED, uint240(balance_), uint112(earningPrincipal_));
     }
 
     function setAccountOf(address account_, uint256 balance_) external {
-        _accounts[account_] = Account(false, uint240(balance_), 0);
+        _accounts[account_] = Account(EarningState.NOT_EARNING, uint240(balance_), 0);
     }
 
     function setTotalNonEarningSupply(uint256 totalNonEarningSupply_) external {
@@ -48,8 +48,8 @@ contract WrappedMTokenHarness is WrappedMToken {
         totalEarningSupply = uint240(totalEarningSupply_);
     }
 
-    function setPrincipalOfTotalEarningSupply(uint256 principalOfTotalEarningSupply_) external {
-        principalOfTotalEarningSupply = uint112(principalOfTotalEarningSupply_);
+    function setTotalEarningPrincipal(uint256 totalEarningPrincipal_) external {
+        totalEarningPrincipal = uint112(totalEarningPrincipal_);
     }
 
     function setEnableMIndex(uint256 enableMIndex_) external {
@@ -58,5 +58,12 @@ contract WrappedMTokenHarness is WrappedMToken {
 
     function setDisableIndex(uint256 disableIndex_) external {
         disableIndex = uint128(disableIndex_);
+    }
+
+    function getAccountOf(
+        address account_
+    ) external view returns (bool isEarning_, uint240 balance_, uint112 earningPrincipal_) {
+        Account storage account = _accounts[account_];
+        return (account.earningState == EarningState.PRINCIPAL_BASED, account.balance, account.earningPrincipal);
     }
 }
