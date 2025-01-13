@@ -90,10 +90,10 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 999_930937);
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 999_930937);
 
-        // The mint has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
+        // The mint has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= 1);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 1_000e6);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 1_000e6);
@@ -105,7 +105,7 @@ contract UniswapV3IntegrationTests is TestBase {
 
         // `startEarningFor` has been called so wM yield has accrued in the pool.
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 878_557_430309);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 878_576_252249);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC);
@@ -123,11 +123,11 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 1_000e6);
         assertEq(_wrappedMToken.balanceOf(_bob), swapAmountOut_);
 
-        // The swap has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
+        // The swap has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= swapAmountOut_);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield);
 
         /* ============ Second 1-Year Time Warp ============ */
 
@@ -136,7 +136,7 @@ contract UniswapV3IntegrationTests is TestBase {
 
         // `startEarningFor` has been called so wM yield has accrued in the pool.
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 878_508_264721);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 921_727_256737);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC);
@@ -156,11 +156,11 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(IERC20(_USDC).balanceOf(_dave), _daveBalanceOfUSDC += swapAmountOut_);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= swapAmountOut_);
 
-        // The swap has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
+        // The swap has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000e6);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield);
     }
 
     function testFuzz_uniswapV3_earning(uint256 aliceAmount_, uint256 bobUsdc_, uint256 daveWrappedM_) public {
@@ -179,10 +179,8 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= amount0_);
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += amount0_);
 
-        // The mint has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
-
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        // The mint has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= amount1_);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += amount1_);
@@ -200,10 +198,12 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
 
         assertApproxEqAbs(
-            _poolAccruedYield += _wrappedMToken.accruedYieldOf(_pool),
-            (_poolBalanceOfWM * newIndex_) / index_ - _poolBalanceOfWM,
+            _wrappedMToken.accruedYieldOf(_pool),
+            ((_poolBalanceOfWM + _poolAccruedYield) * newIndex_) / index_ - _poolBalanceOfWM,
             10
         );
+
+        _poolAccruedYield = _wrappedMToken.accruedYieldOf(_pool);
 
         // _USDC balance is unchanged since no swap has been performed.
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC);
@@ -219,11 +219,10 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += bobUsdc_);
         assertEq(_wrappedMToken.balanceOf(_bob), swapOutWM_);
 
-        // The swap has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
+        // The swap has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM -= swapOutWM_);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
 
         /* ============ Second 1-Year Time Warp ============ */
 
@@ -238,10 +237,12 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM);
 
         assertApproxEqAbs(
-            _poolAccruedYield += _wrappedMToken.accruedYieldOf(_pool),
-            (_poolBalanceOfWM * newIndex_) / index_ - _poolBalanceOfWM,
+            _wrappedMToken.accruedYieldOf(_pool),
+            ((_poolBalanceOfWM + _poolAccruedYield) * newIndex_) / index_ - _poolBalanceOfWM,
             10
         );
+
+        _poolAccruedYield = _wrappedMToken.accruedYieldOf(_pool);
 
         // USDC balance is unchanged since no swap has been performed.
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC);
@@ -259,11 +260,10 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(IERC20(_USDC).balanceOf(_dave), swapOutUSDC_);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC -= swapOutUSDC_);
 
-        // The swap has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
+        // The swap has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += daveWrappedM_);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
     }
 
     function test_uniswapV3_exactInputOrOutputForEarnersAndNonEarners() public {
@@ -282,10 +282,10 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.balanceOf(_alice), _aliceBalanceOfWM -= 999_930937);
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 999_930937);
 
-        // The mint has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
+        // The mint has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= 1);
 
         assertEq(IERC20(_USDC).balanceOf(_alice), _aliceBalanceOfUSDC -= 1_000e6);
         assertEq(IERC20(_USDC).balanceOf(_pool), _poolBalanceOfUSDC += 1_000e6);
@@ -295,7 +295,7 @@ contract UniswapV3IntegrationTests is TestBase {
         // Move 10 days forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 10 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 23_512_463128);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 23_512_966853);
 
         /* ============ 2 Non-Earners and 2 Earners are Initialized ============ */
 
@@ -316,17 +316,17 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000e6);
 
-        // The swap has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
+        // The swap has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield);
 
         /* ============ 1-Day Time Warp ============ */
 
         // Move 1 day forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 1 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 2_349_986661);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 2_353_129323);
 
         // Claim yield for the pool and check that carol received yield.
         _wrappedMToken.claimFor(_pool);
@@ -348,17 +348,17 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000e6);
 
-        // The swap has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
+        // The swap has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= 1);
 
         /* ============ 3-Day Time Warp ============ */
 
         // Move 3 days forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 3 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 7_051_281772);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 7_055_919498);
 
         /* ============ Dave (Non-Earner) Swaps wM for Exact USDC ============ */
 
@@ -367,17 +367,17 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += daveOutput_);
 
-        // The swap has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
+        // The swap has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield);
 
         /* ============ 7-Day Time Warp ============ */
 
         // Move 7 day forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 7 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 16_458_240233);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 16_475_562741);
 
         /* ============ Frank (Earner) Swaps wM for Exact USDC ============ */
 
@@ -385,10 +385,10 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += frankOutput_);
 
-        // The swap has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
+        // The swap has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= 1);
     }
 
     function test_uniswapV3_increaseDecreaseLiquidity() public {
@@ -439,7 +439,7 @@ contract UniswapV3IntegrationTests is TestBase {
         vm.warp(vm.getBlockTimestamp() + 10 days);
 
         assertEq(_wrappedMToken.accruedYieldOf(_bob), _bobAccruedYield += 1_317339);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 23_130_990918);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 23_514_282694);
 
         /* ============ Dave (Non-Earner) Swaps Exact wM for USDC ============ */
 
@@ -453,10 +453,10 @@ contract UniswapV3IntegrationTests is TestBase {
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += 1_000e6);
 
-        // The swap has triggered a wM transfer and the yield has been claimed for the pool.
-        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
+        // The swap has triggered a wM transfer but the yield has not been claimed for the pool.
+        assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield);
 
         /* ============ Alice (Non-Earner) Decreases Liquidity And Bob (Earner) Increases Liquidity ============ */
 
