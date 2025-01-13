@@ -4,6 +4,8 @@
 
 Non-rebasing M token alternative with an additional possibility to preserve and forward yield to earners.
 
+World Dollar prototype enabling only verified World IDs to earn and claim yield.
+
 ## Development
 
 ### Installation

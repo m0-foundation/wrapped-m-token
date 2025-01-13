@@ -40,9 +40,10 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /**
      * @notice Emitted when `account` starts being an wM earner.
-     * @param  account The account that started earning.
+     * @param  account       The account that started earning.
+     * @param  nullifierHash The semaphore nullifier unique to a semaphore identity within this scope.
      */
-    event StartedEarning(address indexed account);
+    event StartedEarning(address indexed account, uint256 indexed nullifierHash);
 
     /**
      * @notice Emitted when `account` stops being an wM earner.
@@ -52,20 +53,14 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /* ============ Custom Errors ============ */
 
-    /// @notice Emitted when performing an operation that is not allowed on an un-migrated account.
-    error AccountNotMigrated();
-
     /// @notice Emitted when performing an operation that is not allowed when earning is disabled.
     error EarningIsDisabled();
 
     /// @notice Emitted when performing an operation that is not allowed when earning is enabled.
     error EarningIsEnabled();
 
-    /**
-     * @notice Emitted when calling `stopEarning` for an account approved as an earner by the Registrar.
-     * @param  account The account that is an approved earner.
-     */
-    error IsApprovedEarner(address account);
+    /// @notice Emitted when calling `disableEarning` when this wrapper is approved as an earner by the Registrar.
+    error IsApprovedEarner();
 
     /**
      * @notice Emitted when there is insufficient balance to decrement from `account`.
@@ -75,11 +70,8 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     error InsufficientBalance(address account, uint240 balance, uint240 amount);
 
-    /**
-     * @notice Emitted when calling `startEarning` for an account not approved as an earner by the Registrar.
-     * @param  account The account that is not an approved earner.
-     */
-    error NotApprovedEarner(address account);
+    /// @notice Emitted when calling `enableEarning` when this wrapper is not approved as an earner by the Registrar.
+    error NotApprovedEarner();
 
     /// @notice Emitted when the non-governance migrate function is called by a account other than the migration admin.
     error UnauthorizedMigration();
@@ -95,6 +87,27 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice Emitted in constructor if Registrar is 0x0.
     error ZeroRegistrar();
+
+    /// @notice Emitted in constructor if World ID Router is 0x0.
+    error ZeroWorldIDRouter();
+
+    /// @notice Emitted if the semaphore signal is invalid in the context it is being used.
+    error UnauthorizedSignal();
+
+    /// @notice Emitted if the semaphore nullifier is not associated to an account.
+    error NullifierNotFound();
+
+    /// @notice Emitted when trying to start earning for a second account using the same semaphore identity.
+    error NullifierAlreadyUsed();
+
+    /// @notice Emitted when trying to stop earning for an account using the incorrect semaphore identity.
+    error NullifierMismatch();
+
+    /// @notice Emitted when trying to start earning for an account that is already earning.
+    error AlreadyEarning();
+
+    /// @notice Emitted when trying to stop earning for an account that is already not earning.
+    error AlreadyNotEarning();
 
     /* ============ Interactive Functions ============ */
 
@@ -163,11 +176,22 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function unwrap(address recipient) external returns (uint240 unwrapped);
 
     /**
-     * @notice Claims any claimable yield for `account`.
-     * @param  account The account under which yield was generated.
-     * @return yield   The amount of yield claimed.
+     * @notice Claims any claimable yield for the account associated with the nullifier, to `destination`.
+     * @param  destination   The account to send the yield to.
+     * @param  root          The merkle root of the semaphore group.
+     * @param  groupId       The identifier of the World group.
+     * @param  signalHash    The semaphore signal authorizing this action.
+     * @param  nullifierHash The semaphore nullifier unique to a semaphore identity within this scope.
+     * @return yield         The amount of yield claimed.
      */
-    function claimFor(address account) external returns (uint240 yield);
+    function claim(
+        address destination,
+        uint256 root,
+        uint256 groupId,
+        uint256 signalHash,
+        uint256 nullifierHash,
+        uint256[8] calldata proof
+    ) external returns (uint240 yield);
 
     /**
      * @notice Claims any excess M of this contract.
@@ -182,28 +206,41 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function disableEarning() external;
 
     /**
-     * @notice Starts earning for `account` if allowed by the Registrar.
-     * @param  account The account to start earning for.
+     * @notice Starts earning for the caller if a valid proof is provided by a verified World ID identity.
+     * @param  root          The merkle root of the semaphore group.
+     * @param  groupId       The identifier of the World group.
+     * @param  signalHash    The semaphore signal authorizing this action.
+     * @param  nullifierHash The semaphore nullifier unique to a semaphore identity within this scope.
      */
-    function startEarningFor(address account) external;
+    function startEarning(
+        uint256 root,
+        uint256 groupId,
+        uint256 signalHash,
+        uint256 nullifierHash,
+        uint256[8] calldata proof
+    ) external;
 
     /**
-     * @notice Stops earning for `account` if disallowed by the Registrar.
-     * @param  account The account to stop earning for.
+     * @notice Stops earning for `account` if a valid proof is provided by the associated verified World ID identity.
+     * @param  root          The merkle root of the semaphore group.
+     * @param  groupId       The identifier of the World group.
+     * @param  signalHash    The semaphore signal authorizing this action.
+     * @param  nullifierHash The semaphore nullifier unique to a semaphore identity within this scope.
      */
-    function stopEarningFor(address account) external;
+    function stopEarning(
+        address account,
+        uint256 root,
+        uint256 groupId,
+        uint256 signalHash,
+        uint256 nullifierHash,
+        uint256[8] calldata proof
+    ) external;
 
     /**
-     * @notice Migrates the account struct for `account` from v1 to v2.
-     * @param  account The account to migrate.
+     * @notice Stops earning for the caller by disassociating the verified World ID identity.
+     * @param  nullifierHash The semaphore nullifier unique to a semaphore identity within this scope.
      */
-    function migrateAccount(address account) external;
-
-    /**
-     * @notice Migrates the account structs for `accounts` from v1 to v2.
-     * @param  accounts The accounts to migrate.
-     */
-    function migrateAccounts(address[] calldata accounts) external;
+    function stopEarning(uint256 nullifierHash) external;
 
     /* ============ Temporary Admin Migration ============ */
 
@@ -221,11 +258,17 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Registrar key of earners list.
     function EARNERS_LIST_NAME() external pure returns (bytes32 earnersListName);
 
-    /// @notice Registrar key prefix to determine the override recipient of an account's accrued yield.
-    function CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX() external pure returns (bytes32 claimOverrideRecipientKeyPrefix);
-
     /// @notice Registrar key prefix to determine the migrator contract.
     function MIGRATOR_KEY_PREFIX() external pure returns (bytes32 migratorKeyPrefix);
+
+    /// @notice Prefix to validate semaphore signal to start earning.
+    function START_EARNING_SIGNAL_PREFIX() external pure returns (bytes32 startEarningSignalPrefix);
+
+    /// @notice Prefix to validate semaphore signal to stop earning.
+    function STOP_EARNING_SIGNAL_PREFIX() external pure returns (bytes32 stopEarningSignalPrefix);
+
+    /// @notice Prefix to validate semaphore signal to claim yield.
+    function CLAIM_SIGNAL_PREFIX() external pure returns (bytes32 claimSignalPrefix);
 
     /**
      * @notice Returns the yield accrued for `account`, which is claimable.
@@ -248,13 +291,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     function earningPrincipalOf(address account) external view returns (uint112 earningPrincipal);
 
-    /**
-     * @notice Returns the recipient to override as the destination for an account's claim of yield.
-     * @param  account   The account being queried.
-     * @return recipient The address of the recipient, if any, to override as the destination of claimed yield.
-     */
-    function claimOverrideRecipientFor(address account) external view returns (address recipient);
-
     /// @notice The current index of Wrapped M's earning mechanism.
     function currentIndex() external view returns (uint128 index);
 
@@ -264,8 +300,19 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice This contract's current excess M that is not earmarked for account balances or accrued yield.
     function excess() external view returns (uint240 excess);
 
+    /// @notice Hash to validate semaphore scope, unique to this app and action.
+    function externalNullifier() external view returns (uint256 externalNullifier);
+
     /// @notice The wrapper's index when earning was most recently disabled.
     function disableIndex() external view returns (uint128 disableIndex);
+
+    /**
+     * @notice Returns the account and nonce associated with a nullifier hash.
+     * @param  nullifierHash The semaphore nullifier unique to a semaphore identity within this scope.
+     * @return account       The account associated with the nullifier hash.
+     * @return nonce         The next expected signal nonce for this nullifier hash.
+     */
+    function getNullifier(uint256 nullifierHash) external view returns (address account, uint96 nonce);
 
     /**
      * @notice Returns whether `account` is a wM earner.
@@ -300,4 +347,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice The address of the destination where excess is claimed to.
     function excessDestination() external view returns (address excessDestination);
+
+    /// @notice The address of the World ID Router to verify semaphore proofs with.
+    function worldIDRouter() external view returns (address worldIDRouter);
 }
