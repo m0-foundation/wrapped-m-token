@@ -177,9 +177,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function unwrap(address recipient_) external returns (uint240 unwrapped_) {
-        _migrateEarner(msg.sender); // NOTE: Need to migrate before calling `balanceWithYieldOf`.
-
-        return _unwrap(msg.sender, recipient_, uint240(balanceWithYieldOf(msg.sender)));
+        return _unwrap(msg.sender, recipient_, uint240(balanceOf(msg.sender)));
     }
 
     /// @inheritdoc IWrappedMToken
@@ -270,7 +268,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IWrappedMToken
-    function balanceWithYieldOf(address account_) public view returns (uint256 balance_) {
+    function balanceWithYieldOf(address account_) external view returns (uint256 balance_) {
         unchecked {
             return balanceOf(account_) + accruedYieldOf(account_);
         }
@@ -349,12 +347,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _revertIfInvalidRecipient(recipient_);
 
         if (_isEarning(_accounts[recipient_])) {
-            uint128 currentIndex_ = currentIndex();
-
-            _claim(recipient_, currentIndex_);
+            _migrateEarner(recipient_);
 
             // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
-            _addEarningAmount(recipient_, amount_, currentIndex_);
+            _addEarningAmount(recipient_, amount_, currentIndex());
         } else {
             _addNonEarningAmount(recipient_, amount_);
         }
@@ -371,12 +367,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _revertIfInsufficientAmount(amount_);
 
         if (_isEarning(_accounts[account_])) {
-            uint128 currentIndex_ = currentIndex();
-
-            _claim(account_, currentIndex_);
+            _migrateEarner(account_);
 
             // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
-            _subtractEarningAmount(account_, amount_, currentIndex_);
+            _subtractEarningAmount(account_, amount_, currentIndex());
         } else {
             _subtractNonEarningAmount(account_, amount_);
         }
@@ -511,8 +505,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
         _revertIfInvalidRecipient(recipient_);
 
-        _claim(sender_, currentIndex_);
-        _claim(recipient_, currentIndex_);
+        _migrateEarner(sender_);
+        _migrateEarner(recipient_);
 
         emit Transfer(sender_, recipient_, amount_);
 
