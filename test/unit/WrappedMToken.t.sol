@@ -689,6 +689,86 @@ contract WrappedMTokenTests is Test {
         assertEq(accountEarning_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply(), 0);
     }
 
+    function testFuzz_wrap_unwrap_roundtripFull(
+        bool earningEnabled_,
+        bool accountEarning_,
+        uint240 balance_,
+        uint240 wrapAmount_,
+        uint128 accountIndex_,
+        uint128 currentIndex_
+    ) external {
+        accountEarning_ = earningEnabled_ && accountEarning_;
+
+        if (earningEnabled_) {
+            _registrar.setListContains(_EARNERS_LIST_NAME, address(_wrappedMToken), true);
+            _wrappedMToken.enableEarning();
+        }
+
+        accountIndex_ = uint128(bound(accountIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
+        // balance_ = uint240(bound(balance_, 0, _getMaxAmount(accountIndex_)));
+        // restrict to smaller amounts to make it's not just an issue with impractical values
+        balance_ = uint240(bound(balance_, 0, 1e12));
+
+        if (accountEarning_) {
+            _wrappedMToken.setAccountOf(_alice, balance_, accountIndex_);
+            _wrappedMToken.setTotalEarningSupply(balance_);
+
+            _wrappedMToken.setPrincipalOfTotalEarningSupply(
+                IndexingMath.getPrincipalAmountRoundedDown(balance_, accountIndex_)
+            );
+        } else {
+            _wrappedMToken.setAccountOf(_alice, balance_);
+            _wrappedMToken.setTotalNonEarningSupply(balance_);
+        }
+
+        currentIndex_ = uint128(bound(currentIndex_, accountIndex_, 10 * _EXP_SCALED_ONE));
+        // wrapAmount_ = uint240(bound(wrapAmount_, 0, _getMaxAmount(currentIndex_) - balance_));
+        // restrict to smaller amounts to make it's not just an issue with impractical values
+        wrapAmount_ = uint240(bound(wrapAmount_, 0, 1e12));
+
+        _mToken.setCurrentIndex(_currentIndex = currentIndex_);
+        _mToken.setBalanceOf(_alice, wrapAmount_);
+
+        uint240 accruedYield_ = _wrappedMToken.accruedYieldOf(_alice);
+
+        if (wrapAmount_ == 0) {
+            vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, (0)));
+        } else {
+            vm.expectEmit();
+            emit IERC20.Transfer(address(0), _alice, wrapAmount_);
+        }
+
+        vm.prank(_alice);
+        _wrappedMToken.wrap(_alice);
+
+        if (wrapAmount_ == 0) return;
+
+        assertEq(_wrappedMToken.balanceOf(_alice), balance_ + accruedYield_ + wrapAmount_);
+
+        assertEq(
+            accountEarning_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply(),
+            _wrappedMToken.balanceOf(_alice)
+        );
+    
+        // Goal: check if roundtrip behavior is an issue if the wrapped M token is eating the rounding issues
+
+        // if (balance_ + accruedYield_ == 0) {
+        //     vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, (0)));
+        // } else {
+        //     vm.expectEmit();
+        //     emit IERC20.Transfer(_alice, address(0), balance_ + accruedYield_);
+        // }
+
+        vm.prank(_alice);
+        _wrappedMToken.unwrap(_alice);
+
+        if (balance_ + accruedYield_ == 0) return;
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 0);
+
+        assertEq(accountEarning_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply(), 0);        
+    }
+
     /* ============ claimFor ============ */
     function test_claimFor_nonEarner() external {
         _wrappedMToken.setAccountOf(_alice, 1_000);
