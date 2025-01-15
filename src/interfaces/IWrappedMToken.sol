@@ -52,9 +52,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /* ============ Custom Errors ============ */
 
-    /// @notice Emitted when performing an operation that is not allowed on an un-migrated account.
-    error AccountNotMigrated();
-
     /// @notice Emitted when performing an operation that is not allowed when earning is disabled.
     error EarningIsDisabled();
 
@@ -192,18 +189,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      * @param  account The account to stop earning for.
      */
     function stopEarningFor(address account) external;
-
-    /**
-     * @notice Migrates the account struct for `account` from v1 to v2.
-     * @param  account The account to migrate.
-     */
-    function migrateAccount(address account) external;
-
-    /**
-     * @notice Migrates the account structs for `accounts` from v1 to v2.
-     * @param  accounts The accounts to migrate.
-     */
-    function migrateAccounts(address[] calldata accounts) external;
 
     /* ============ Temporary Admin Migration ============ */
 

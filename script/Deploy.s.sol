@@ -60,6 +60,8 @@ contract DeployProduction is Script, DeployBase {
         if (currentNonce_ != startNonce_) revert UnexpectedDeployerNonce();
 
         (implementation_, proxy_) = deploy(
+            vm.envString("TOKEN_NAME"),
+            vm.envString("TOKEN_SYMBOL"),
             vm.envAddress("M_TOKEN"),
             vm.envAddress("REGISTRAR"),
             vm.envAddress("EXCESS_DESTINATION"),

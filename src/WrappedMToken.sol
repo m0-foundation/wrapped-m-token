@@ -14,17 +14,6 @@ import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
 
-/*
-
-██╗    ██╗██████╗  █████╗ ██████╗ ██████╗ ███████╗██████╗     ███╗   ███╗    ████████╗ ██████╗ ██╗  ██╗███████╗███╗   ██╗
-██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗    ████╗ ████║    ╚══██╔══╝██╔═══██╗██║ ██╔╝██╔════╝████╗  ██║
-██║ █╗ ██║██████╔╝███████║██████╔╝██████╔╝█████╗  ██║  ██║    ██╔████╔██║       ██║   ██║   ██║█████╔╝ █████╗  ██╔██╗ ██║
-██║███╗██║██╔══██╗██╔══██║██╔═══╝ ██╔═══╝ ██╔══╝  ██║  ██║    ██║╚██╔╝██║       ██║   ██║   ██║██╔═██╗ ██╔══╝  ██║╚██╗██║
-╚███╔███╔╝██║  ██║██║  ██║██║     ██║     ███████╗██████╔╝    ██║ ╚═╝ ██║       ██║   ╚██████╔╝██║  ██╗███████╗██║ ╚████║
- ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═════╝     ╚═╝     ╚═╝       ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝
-
-*/
-
 /**
  * @title  ERC20 Token contract for wrapping M into a non-rebasing token with claimable yields.
  * @author M^0 Labs
@@ -33,34 +22,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ Structs ============ */
 
     /**
-     * @dev   Struct to represent an account's balance and yield earning details with last index (prior version).
-     * @param isEarning Whether the account is actively earning yield.
-     * @param balance   The present amount of tokens held by the account.
-     * @param lastIndex The index of the last interaction for the account (0 for non-earning accounts).
-     */
-    struct IndexBasedAccount {
-        // First Slot
-        bool isEarning;
-        uint240 balance;
-        // Second slot
-        uint128 lastIndex;
-    }
-
-    enum EarningState {
-        NOT_EARNING,
-        INDEX_BASED,
-        PRINCIPAL_BASED
-    }
-
-    /**
      * @dev   Struct to represent an account's balance and yield earning details.
-     * @param earningState     How the account is actively earning yield.
+     * @param isEarning        Whether account is actively earning yield.
      * @param balance          The present amount of tokens held by the account.
      * @param earningPrincipal The earning principal for the account (0 for non-earning accounts).
      */
     struct Account {
         // First Slot
-        EarningState earningState;
+        bool isEarning;
         uint240 balance;
         // Second slot
         uint112 earningPrincipal;
@@ -115,17 +84,21 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /**
      * @dev   Constructs the contract given an M Token address and migration admin.
      *        Note that a proxy will not need to initialize since there are no mutable storage values affected.
+     * @param name_              The name of the token.
+     * @param symbol_            The symbol of the token.
      * @param mToken_            The address of an M Token.
      * @param registrar_         The address of a Registrar.
      * @param excessDestination_ The address of an excess destination.
      * @param migrationAdmin_    The address of a migration admin.
      */
     constructor(
+        string memory name_,
+        string memory symbol_,
         address mToken_,
         address registrar_,
         address excessDestination_,
         address migrationAdmin_
-    ) ERC20Extended("M (Wrapped) by M^0", "wM", 6) {
+    ) ERC20Extended(name_, symbol_, 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
         if ((excessDestination = excessDestination_) == address(0)) revert ZeroExcessDestination();
@@ -226,18 +199,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _stopEarningFor(account_, currentIndex());
     }
 
-    /// @inheritdoc IWrappedMToken
-    function migrateAccount(address account_) external {
-        _migrateEarner(account_);
-    }
-
-    /// @inheritdoc IWrappedMToken
-    function migrateAccounts(address[] calldata accounts_) external {
-        for (uint256 index_; index_ < accounts_.length; ++index_) {
-            _migrateEarner(accounts_[index_]);
-        }
-    }
-
     /* ============ Temporary Admin Migration ============ */
 
     /// @inheritdoc IWrappedMToken
@@ -253,11 +214,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function accruedYieldOf(address account_) public view returns (uint240 yield_) {
         Account storage accountInfo_ = _accounts[account_];
 
-        // TODO: Add function to compute accrued yield for an account given a last index.
-        if (accountInfo_.earningState == EarningState.INDEX_BASED) revert AccountNotMigrated();
-
         return
-            _isEarning(accountInfo_)
+            accountInfo_.isEarning
                 ? _getAccruedYield(accountInfo_.balance, accountInfo_.earningPrincipal, currentIndex())
                 : 0;
     }
@@ -298,7 +256,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function isEarning(address account_) external view returns (bool isEarning_) {
-        return _isEarning(_accounts[account_]);
+        return _accounts[account_].isEarning;
     }
 
     /// @inheritdoc IWrappedMToken
@@ -346,9 +304,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _revertIfInsufficientAmount(amount_);
         _revertIfInvalidRecipient(recipient_);
 
-        if (_isEarning(_accounts[recipient_])) {
-            _migrateEarner(recipient_);
-
+        if (_accounts[recipient_].isEarning) {
             // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
             _addEarningAmount(recipient_, amount_, currentIndex());
         } else {
@@ -366,9 +322,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _burn(address account_, uint240 amount_) internal {
         _revertIfInsufficientAmount(amount_);
 
-        if (_isEarning(_accounts[account_])) {
-            _migrateEarner(account_);
-
+        if (_accounts[account_].isEarning) {
             // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
             _subtractEarningAmount(account_, amount_, currentIndex());
         } else {
@@ -465,13 +419,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
         Account storage accountInfo_ = _accounts[account_];
 
-        if (!_isEarning(accountInfo_)) return 0;
-
-        _migrateEarner(account_);
+        if (!accountInfo_.isEarning) return 0;
 
         uint240 startingBalance_ = accountInfo_.balance;
 
-        // NOTE": Account must be migrated before entering this section.
         yield_ = _getAccruedYield(startingBalance_, accountInfo_.earningPrincipal, currentIndex_);
 
         if (yield_ == 0) return 0;
@@ -505,9 +456,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
         _revertIfInvalidRecipient(recipient_);
 
-        _migrateEarner(sender_);
-        _migrateEarner(recipient_);
-
         emit Transfer(sender_, recipient_, amount_);
 
         if (amount_ == 0) return;
@@ -522,11 +470,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         // TODO: Don't touch globals if both are earning or not earning.
 
-        _isEarning(_accounts[sender_])
+        _accounts[sender_].isEarning
             ? _subtractEarningAmount(sender_, amount_, currentIndex_)
             : _subtractNonEarningAmount(sender_, amount_);
 
-        _isEarning(_accounts[recipient_])
+        _accounts[recipient_].isEarning
             ? _addEarningAmount(recipient_, amount_, currentIndex_)
             : _addNonEarningAmount(recipient_, amount_);
     }
@@ -621,12 +569,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         Account storage accountInfo_ = _accounts[account_];
 
-        if (_isEarning(accountInfo_)) return;
+        if (accountInfo_.isEarning) return;
 
         uint240 balance_ = accountInfo_.balance;
         uint112 earningPrincipal_ = IndexingMath.getPrincipalAmountRoundedDown(balance_, currentIndex_);
 
-        accountInfo_.earningState = EarningState.PRINCIPAL_BASED;
+        accountInfo_.isEarning = true;
         accountInfo_.earningPrincipal = earningPrincipal_;
 
         _addTotalEarningSupply(balance_, earningPrincipal_);
@@ -650,12 +598,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         Account storage accountInfo_ = _accounts[account_];
 
-        if (!_isEarning(accountInfo_)) return;
+        if (!accountInfo_.isEarning) return;
 
         uint240 balance_ = accountInfo_.balance;
         uint112 earningPrincipal_ = accountInfo_.earningPrincipal;
 
-        delete accountInfo_.earningState;
+        delete accountInfo_.isEarning;
         delete accountInfo_.earningPrincipal;
 
         _subtractTotalEarningSupply(balance_, earningPrincipal_);
@@ -665,29 +613,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         }
 
         emit StoppedEarning(account_);
-    }
-
-    /**
-     * @dev   Migrates the account struct for `account` from v1 to v2.
-     * @param account_ The account to migrate.
-     */
-    function _migrateEarner(address account_) internal {
-        Account storage accountInfo_ = _accounts[account_];
-
-        if (accountInfo_.earningState != EarningState.INDEX_BASED) return;
-
-        IndexBasedAccount storage accountInfoV1_;
-
-        assembly {
-            accountInfoV1_.slot := accountInfo_.slot
-        }
-
-        uint128 lastIndex_ = accountInfoV1_.lastIndex;
-
-        delete accountInfoV1_.lastIndex;
-
-        accountInfo_.earningPrincipal = IndexingMath.getPrincipalAmountRoundedDown(accountInfoV1_.balance, lastIndex_);
-        accountInfo_.earningState = EarningState.PRINCIPAL_BASED;
     }
 
     /* ============ Internal View/Pure Functions ============ */
@@ -762,15 +687,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         return
             _getFromRegistrar(EARNERS_LIST_IGNORED_KEY) != bytes32(0) ||
             IRegistrarLike(registrar).listContains(EARNERS_LIST_NAME, account_);
-    }
-
-    /**
-     * @dev    Returns whether an Account struct indicates the account is earning.
-     * @param  account_   The Account struct.
-     * @return isEarning_ Whether Account struct indicates the account is earning.
-     */
-    function _isEarning(Account storage account_) internal view returns (bool isEarning_) {
-        return account_.earningState != EarningState.NOT_EARNING;
     }
 
     /**

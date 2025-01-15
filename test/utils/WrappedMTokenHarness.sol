@@ -6,11 +6,13 @@ import { WrappedMToken } from "../../src/WrappedMToken.sol";
 
 contract WrappedMTokenHarness is WrappedMToken {
     constructor(
+        string memory name_,
+        string memory symbol_,
         address mToken_,
         address registrar_,
         address excessDestination_,
         address migrationAdmin_
-    ) WrappedMToken(mToken_, registrar_, excessDestination_, migrationAdmin_) {}
+    ) WrappedMToken(name_, symbol_, mToken_, registrar_, excessDestination_, migrationAdmin_) {}
 
     function internalWrap(address account_, address recipient_, uint240 amount_) external returns (uint240 wrapped_) {
         return _wrap(account_, recipient_, amount_);
@@ -25,7 +27,7 @@ contract WrappedMTokenHarness is WrappedMToken {
     }
 
     function setIsEarningOf(address account_, bool isEarning_) external {
-        _accounts[account_].earningState = isEarning_ ? EarningState.PRINCIPAL_BASED : EarningState.NOT_EARNING;
+        _accounts[account_].isEarning = isEarning_;
     }
 
     function setEarningPrincipalOf(address account_, uint256 earningPrincipal_) external {
@@ -33,11 +35,11 @@ contract WrappedMTokenHarness is WrappedMToken {
     }
 
     function setAccountOf(address account_, uint256 balance_, uint256 earningPrincipal_) external {
-        _accounts[account_] = Account(EarningState.PRINCIPAL_BASED, uint240(balance_), uint112(earningPrincipal_));
+        _accounts[account_] = Account(true, uint240(balance_), uint112(earningPrincipal_));
     }
 
     function setAccountOf(address account_, uint256 balance_) external {
-        _accounts[account_] = Account(EarningState.NOT_EARNING, uint240(balance_), 0);
+        _accounts[account_] = Account(false, uint240(balance_), 0);
     }
 
     function setTotalNonEarningSupply(uint256 totalNonEarningSupply_) external {
@@ -64,6 +66,6 @@ contract WrappedMTokenHarness is WrappedMToken {
         address account_
     ) external view returns (bool isEarning_, uint240 balance_, uint112 earningPrincipal_) {
         Account storage account = _accounts[account_];
-        return (account.earningState == EarningState.PRINCIPAL_BASED, account.balance, account.earningPrincipal);
+        return (account.isEarning, account.balance, account.earningPrincipal);
     }
 }

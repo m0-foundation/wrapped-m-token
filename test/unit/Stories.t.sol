@@ -18,6 +18,9 @@ contract StoryTests is Test {
 
     bytes32 internal constant _EARNERS_LIST_NAME = "earners";
 
+    string internal constant _M_TOKEN_NAME = "M (Wrapped) by M^0";
+    string internal constant _M_TOKEN_SYMBOL = "wM";
+
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
     address internal _carol = makeAddr("carol");
@@ -37,7 +40,14 @@ contract StoryTests is Test {
         _mToken = new MockM();
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
 
-        _implementation = new WrappedMToken(address(_mToken), address(_registrar), _excessDestination, _migrationAdmin);
+        _implementation = new WrappedMToken(
+            _M_TOKEN_NAME,
+            _M_TOKEN_SYMBOL,
+            address(_mToken),
+            address(_registrar),
+            _excessDestination,
+            _migrationAdmin
+        );
 
         _wrappedMToken = IWrappedMToken(address(new Proxy(address(_implementation))));
     }

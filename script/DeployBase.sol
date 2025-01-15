@@ -11,6 +11,8 @@ import { WrappedMToken } from "../src/WrappedMToken.sol";
 contract DeployBase {
     /**
      * @dev    Deploys Wrapped M Token.
+     * @param  name_              The name of the token.
+     * @param  symbol_            The symbol of the token.
      * @param  mToken_            The address of the M Token contract.
      * @param  registrar_         The address of the Registrar contract.
      * @param  excessDestination_ The address of the excess destination.
@@ -19,6 +21,8 @@ contract DeployBase {
      * @return proxy_             The address of the deployed Wrapped M Token proxy.
      */
     function deploy(
+        string memory name_,
+        string memory symbol_,
         address mToken_,
         address registrar_,
         address excessDestination_,
@@ -27,12 +31,16 @@ contract DeployBase {
         // Wrapped M token needs `mToken_`, `registrar_`, `excessDestination_`, and `migrationAdmin_` addresses.
         // Proxy needs `implementation_` addresses.
 
-        implementation_ = address(new WrappedMToken(mToken_, registrar_, excessDestination_, migrationAdmin_));
+        implementation_ = address(
+            new WrappedMToken(name_, symbol_, mToken_, registrar_, excessDestination_, migrationAdmin_)
+        );
         proxy_ = address(new Proxy(implementation_));
     }
 
     /**
      * @dev    Deploys Wrapped M Token components needed to upgrade an existing Wrapped M proxy.
+     * @param  name_              The name of the token.
+     * @param  symbol_            The symbol of the token.
      * @param  mToken_            The address of the M Token contract.
      * @param  registrar_         The address of the Registrar contract.
      * @param  excessDestination_ The address of the excess destination.
@@ -41,6 +49,8 @@ contract DeployBase {
      * @return migrator_          The address of the deployed Migrator.
      */
     function deployUpgrade(
+        string memory name_,
+        string memory symbol_,
         address mToken_,
         address registrar_,
         address excessDestination_,
@@ -49,7 +59,9 @@ contract DeployBase {
         // Wrapped M token needs `mToken_`, `registrar_`, `excessDestination_`, and `migrationAdmin_` addresses.
         // Migrator needs `implementation_` addresses.
 
-        implementation_ = address(new WrappedMToken(mToken_, registrar_, excessDestination_, migrationAdmin_));
+        implementation_ = address(
+            new WrappedMToken(name_, symbol_, mToken_, registrar_, excessDestination_, migrationAdmin_)
+        );
         migrator_ = address(new MigratorV1(implementation_));
     }
 

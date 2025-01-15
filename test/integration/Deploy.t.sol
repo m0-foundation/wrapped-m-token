@@ -23,7 +23,14 @@ contract DeployTests is Test, DeployBase {
         (address expectedImplementation_, address expectedProxy_) = mockDeploy(_DEPLOYER, _DEPLOYER_NONCE);
 
         vm.startPrank(_DEPLOYER);
-        (address implementation_, address proxy_) = deploy(_M_TOKEN, _REGISTRAR, _EXCESS_DESTINATION, _MIGRATION_ADMIN);
+        (address implementation_, address proxy_) = deploy(
+            "M (Wrapped) by M^0",
+            "wM",
+            _M_TOKEN,
+            _REGISTRAR,
+            _EXCESS_DESTINATION,
+            _MIGRATION_ADMIN
+        );
         vm.stopPrank();
 
         // Wrapped M Token Implementation assertions

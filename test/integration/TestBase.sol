@@ -32,6 +32,9 @@ contract TestBase is Test {
     bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
     bytes32 internal constant _EARNER_STATUS_ADMIN_LIST = "wm_earner_status_admins";
 
+    string internal constant _M_TOKEN_NAME = "M (Wrapped) by M^0";
+    string internal constant _M_TOKEN_SYMBOL = "wM";
+
     // USDC on Ethereum Mainnet
     address internal constant _USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
@@ -176,7 +179,14 @@ contract TestBase is Test {
 
     function _deployV2Components() internal {
         _implementationV2 = address(
-            new WrappedMToken(address(_mToken), _registrar, _excessDestination, _migrationAdmin)
+            new WrappedMToken(
+                _M_TOKEN_NAME,
+                _M_TOKEN_SYMBOL,
+                address(_mToken),
+                _registrar,
+                _excessDestination,
+                _migrationAdmin
+            )
         );
         _migratorV1 = address(new MigratorV1(_implementationV2));
     }

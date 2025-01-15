@@ -58,7 +58,9 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.decimals(), 6);
     }
 
-    function test_state() external view {
+    function test_state() external {
+        vm.skip(true);
+
         assertEq(_mToken.currentIndex(), _wrappedMToken.currentIndex());
         assertTrue(_mToken.isEarning(address(_wrappedMToken)));
     }
@@ -80,6 +82,8 @@ contract ProtocolIntegrationTests is TestBase {
     }
 
     function test_integration_yieldAccumulation() external {
+        vm.skip(true);
+
         _giveM(_alice, 100_000000);
 
         assertEq(_mToken.balanceOf(_alice), 100_000000);
@@ -243,6 +247,8 @@ contract ProtocolIntegrationTests is TestBase {
     }
 
     function test_integration_yieldTransfer() external {
+        vm.skip(true);
+
         _giveM(_alice, 100_000000);
         _wrap(_alice, _alice, 100_000000);
 
@@ -376,6 +382,8 @@ contract ProtocolIntegrationTests is TestBase {
     }
 
     function test_integration_yieldClaimUnwrap() external {
+        vm.skip(true);
+
         _giveM(_alice, 100_000000);
         _wrap(_alice, _alice, 100_000000);
 

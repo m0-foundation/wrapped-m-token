@@ -27,6 +27,9 @@ contract WrappedMTokenTests is Test {
 
     bytes32 internal constant _EARNERS_LIST_NAME = "earners";
 
+    string internal constant _M_TOKEN_NAME = "M (Wrapped) by M^0";
+    string internal constant _M_TOKEN_SYMBOL = "wM";
+
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
     address internal _charlie = makeAddr("charlie");
@@ -48,6 +51,8 @@ contract WrappedMTokenTests is Test {
         _mToken = new MockM();
 
         _implementation = new WrappedMTokenHarness(
+            _M_TOKEN_NAME,
+            _M_TOKEN_SYMBOL,
             address(_mToken),
             address(_registrar),
             _excessDestination,
@@ -81,22 +86,22 @@ contract WrappedMTokenTests is Test {
 
     function test_constructor_zeroMToken() external {
         vm.expectRevert(IWrappedMToken.ZeroMToken.selector);
-        new WrappedMTokenHarness(address(0), address(0), address(0), address(0));
+        new WrappedMTokenHarness("", "", address(0), address(0), address(0), address(0));
     }
 
     function test_constructor_zeroRegistrar() external {
         vm.expectRevert(IWrappedMToken.ZeroRegistrar.selector);
-        new WrappedMTokenHarness(address(_mToken), address(0), address(0), address(0));
+        new WrappedMTokenHarness("", "", address(_mToken), address(0), address(0), address(0));
     }
 
     function test_constructor_zeroExcessDestination() external {
         vm.expectRevert(IWrappedMToken.ZeroExcessDestination.selector);
-        new WrappedMTokenHarness(address(_mToken), address(_registrar), address(0), address(0));
+        new WrappedMTokenHarness("", "", address(_mToken), address(_registrar), address(0), address(0));
     }
 
     function test_constructor_zeroMigrationAdmin() external {
         vm.expectRevert(IWrappedMToken.ZeroMigrationAdmin.selector);
-        new WrappedMTokenHarness(address(_mToken), address(_registrar), _excessDestination, address(0));
+        new WrappedMTokenHarness("", "", address(_mToken), address(_registrar), _excessDestination, address(0));
     }
 
     function test_constructor_zeroImplementation() external {
