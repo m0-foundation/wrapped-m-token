@@ -3,7 +3,10 @@
 pragma solidity 0.8.26;
 
 import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.sol";
-import { IMigratable } from "../../lib/common/src/interfaces/IMigratable.sol";
+
+import { IMigratable } from "./IMigratable.sol";
+
+// TODO: Has implementation.
 
 /**
  * @title  Wrapped M Token interface extending Extended ERC20.
@@ -14,18 +17,10 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /**
      * @notice Emitted when some yield is claim for `account` to `recipient`.
-     * @param  account   The account under which yield was generated.
-     * @param  recipient The account that received the yield.
-     * @param  yield     The amount of yield claimed.
+     * @param  account The account under which yield was generated.
+     * @param  yield   The amount of yield claimed.
      */
-    event Claimed(address indexed account, address indexed recipient, uint240 yield);
-
-    /**
-     * @notice Emitted when `account` set their yield claim recipient.
-     * @param  account        The account that set their yield claim recipient.
-     * @param  claimRecipient The account that will receive the yield.
-     */
-    event ClaimRecipientSet(address indexed account, address indexed claimRecipient);
+    event Claimed(address indexed account, uint240 yield);
 
     /**
      * @notice Emitted when Wrapped M earning is enabled.
@@ -59,17 +54,14 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /* ============ Custom Errors ============ */
 
-    /// @notice Emitted when performing an operation that is not allowed when earning is disabled.
+    /// @notice Emitted when trying to disable earning when earning is already disabled.
     error EarningIsDisabled();
 
-    /// @notice Emitted when performing an operation that is not allowed when earning is enabled.
+    /// @notice Emitted when trying to enable earning when earning is already enabled.
     error EarningIsEnabled();
 
-    /**
-     * @notice Emitted when calling `stopEarning` for an account approved as an earner.
-     * @param  account The account that is an approved earner.
-     */
-    error IsApprovedEarner(address account);
+    /// @notice Emitted when trying to disable earning when the wrapper is approved by the Registrar.
+    error WrapperIsApprovedEarner();
 
     /**
      * @notice Emitted when there is insufficient balance to decrement from `account`.
@@ -79,29 +71,17 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     error InsufficientBalance(address account, uint240 balance, uint240 amount);
 
-    /**
-     * @notice Emitted when calling `startEarning` for an account not approved as an earner.
-     * @param  account The account that is not an approved earner.
-     */
-    error NotApprovedEarner(address account);
-
     /// @notice Emitted when there is no excess to claim.
     error NoExcess();
 
-    /// @notice Emitted when the non-governance migrate function is called by an account other than the migration admin.
-    error UnauthorizedMigration();
-
-    /// @notice Emitted in constructor if Earner Manager is 0x0.
-    error ZeroEarnerManager();
+    /// @notice Emitted when trying to enable earning when the wrapper is not approved by the Registrar.
+    error WrapperIsNotApprovedEarner();
 
     /// @notice Emitted in constructor if Excess Destination is 0x0.
     error ZeroExcessDestination();
 
     /// @notice Emitted in constructor if M Token is 0x0.
     error ZeroMToken();
-
-    /// @notice Emitted in constructor if Migration Admin is 0x0.
-    error ZeroMigrationAdmin();
 
     /// @notice Emitted in constructor if Registrar is 0x0.
     error ZeroRegistrar();
@@ -192,59 +172,36 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function disableEarning() external;
 
     /**
-     * @notice Starts earning for `account` if allowed by the Earner Manager.
+     * @notice Starts earning for `account` if allowed.
      * @param  account The account to start earning for.
      */
     function startEarningFor(address account) external;
 
     /**
-     * @notice Starts earning for multiple accounts if individually allowed by the Earner Manager.
+     * @notice Starts earning for multiple accounts if individually allowed.
      * @param  accounts The accounts to start earning for.
      */
     function startEarningFor(address[] calldata accounts) external;
 
     /**
-     * @notice Stops earning for `account` if disallowed by the Earner Manager.
+     * @notice Stops earning for `account` if disallowed.
      * @param  account The account to stop earning for.
      */
     function stopEarningFor(address account) external;
 
     /**
-     * @notice Stops earning for multiple accounts if individually disallowed by the Earner Manager.
+     * @notice Stops earning for multiple accounts if individually disallowed.
      * @param  accounts The accounts to stop earning for.
      */
     function stopEarningFor(address[] calldata accounts) external;
 
-    /**
-     * @notice Explicitly sets the recipient of any yield claimed for the caller.
-     * @param  claimRecipient The account that will receive the caller's yield.
-     */
-    function setClaimRecipient(address claimRecipient) external;
-
-    /* ============ Temporary Admin Migration ============ */
-
-    /**
-     * @notice Performs an arbitrarily defined migration.
-     * @param  migrator The address of a migrator contract.
-     */
-    function migrate(address migrator) external;
-
     /* ============ View/Pure Functions ============ */
-
-    /// @notice 100% in basis points.
-    function HUNDRED_PERCENT() external pure returns (uint16 hundredPercent);
 
     /// @notice Registrar key holding value of whether the earners list can be ignored or not.
     function EARNERS_LIST_IGNORED_KEY() external pure returns (bytes32 earnersListIgnoredKey);
 
     /// @notice Registrar key of earners list.
     function EARNERS_LIST_NAME() external pure returns (bytes32 earnersListName);
-
-    /// @notice Registrar key prefix to determine the override recipient of an account's accrued yield.
-    function CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX() external pure returns (bytes32 claimOverrideRecipientKeyPrefix);
-
-    /// @notice Registrar key prefix to determine the migrator contract.
-    function MIGRATOR_KEY_PREFIX() external pure returns (bytes32 migratorKeyPrefix);
 
     /**
      * @notice Returns the yield accrued for `account`, which is claimable.
@@ -266,13 +223,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      * @return earningPrincipal The earning principal of `account`.
      */
     function earningPrincipalOf(address account) external view returns (uint112 earningPrincipal);
-
-    /**
-     * @notice Returns the recipient to override as the destination for an account's claim of yield.
-     * @param  account   The account being queried.
-     * @return recipient The address of the recipient, if any, to override as the destination of claimed yield.
-     */
-    function claimRecipientFor(address account) external view returns (address recipient);
 
     /// @notice The current index of Wrapped M's earning mechanism.
     function currentIndex() external view returns (uint128 index);
@@ -296,9 +246,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Whether Wrapped M earning is enabled.
     function isEarningEnabled() external view returns (bool isEnabled);
 
-    /// @notice The account that can bypass the Registrar and call the `migrate(address migrator)` function.
-    function migrationAdmin() external view returns (address migrationAdmin);
-
     /// @notice The address of the M Token contract.
     function mToken() external view returns (address mToken);
 
@@ -307,9 +254,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice The address of the Registrar.
     function registrar() external view returns (address registrar);
-
-    /// @notice The address of the Earner Manager.
-    function earnerManager() external view returns (address earnerManager);
 
     /// @notice The portion of total supply that is not earning yield.
     function totalNonEarningSupply() external view returns (uint240 totalSupply);
