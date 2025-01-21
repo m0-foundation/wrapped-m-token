@@ -56,7 +56,7 @@ contract UniswapV3IntegrationTests is TestBase {
         _deployV2Components();
         _migrate();
 
-        _poolClaimRecipient = _wrappedMToken.claimOverrideRecipientFor(_pool);
+        _poolClaimRecipient = _wrappedMToken.claimRecipientFor(_pool);
 
         _wrapperBalanceOfM = _mToken.balanceOf(address(_wrappedMToken));
         _poolBalanceOfUSDC = IERC20(_USDC).balanceOf(_pool);
