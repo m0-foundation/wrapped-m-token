@@ -84,8 +84,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @dev Mapping of accounts to their respective `AccountInfo` structs.
     mapping(address account => Account balance) internal _accounts;
 
-    /// @dev Array of indices at which earning was enabled or disabled.
-    uint128[] internal _enableDisableEarningIndices;
+    /// @inheritdoc IWrappedMToken
+    uint128 public enableMIndex;
+
+    /// @inheritdoc IWrappedMToken
+    uint128 public disableIndex;
 
     /* ============ Constructor ============ */
 
@@ -175,17 +178,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (isEarningEnabled()) revert EarningIsEnabled();
 
-        // NOTE: This is a temporary measure to prevent re-enabling earning after it has been disabled.
-        //       This line will be removed in the future.
-        if (wasEarningEnabled()) revert EarningCannotBeReenabled();
-
-        uint128 currentMIndex_ = _currentMIndex();
-
-        _enableDisableEarningIndices.push(currentMIndex_);
+        emit EarningEnabled(enableMIndex = _currentMIndex());
 
         IMTokenLike(mToken).startEarning();
-
-        emit EarningEnabled(currentMIndex_);
     }
 
     /// @inheritdoc IWrappedMToken
@@ -194,21 +189,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (!isEarningEnabled()) revert EarningIsDisabled();
 
-        uint128 currentMIndex_ = _currentMIndex();
+        emit EarningDisabled(disableIndex = currentIndex());
 
-        _enableDisableEarningIndices.push(currentMIndex_);
+        delete enableMIndex;
 
         IMTokenLike(mToken).stopEarning();
-
-        emit EarningDisabled(currentMIndex_);
     }
 
     /// @inheritdoc IWrappedMToken
     function startEarningFor(address account_) external {
-        if (!isEarningEnabled()) revert EarningIsDisabled();
-
-        // NOTE: Use `currentIndex()` if/when upgrading to support `startEarningFor` while earning is disabled.
-        _startEarningFor(account_, _currentMIndex());
+        _startEarningFor(account_, currentIndex());
     }
 
     /// @inheritdoc IWrappedMToken
@@ -264,7 +254,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function currentIndex() public view returns (uint128 index_) {
-        return isEarningEnabled() ? _currentMIndex() : _lastDisableEarningIndex();
+        uint128 disableIndex_ = disableIndex == 0 ? IndexingMath.EXP_SCALED_ONE : disableIndex;
+
+        return enableMIndex == 0 ? disableIndex_ : (disableIndex_ * _currentMIndex()) / enableMIndex;
     }
 
     /// @inheritdoc IWrappedMToken
@@ -274,12 +266,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function isEarningEnabled() public view returns (bool isEnabled_) {
-        return _enableDisableEarningIndices.length % 2 == 1;
-    }
-
-    /// @inheritdoc IWrappedMToken
-    function wasEarningEnabled() public view returns (bool wasEarning_) {
-        return _enableDisableEarningIndices.length != 0;
+        return enableMIndex != 0;
     }
 
     /// @inheritdoc IWrappedMToken
@@ -663,11 +650,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         return IMTokenLike(mToken).currentIndex();
     }
 
-    /// @dev Returns the earning index from the last `disableEarning` call.
-    function _lastDisableEarningIndex() internal view returns (uint128 index_) {
-        return wasEarningEnabled() ? _unsafeAccess(_enableDisableEarningIndices, 1) : 0;
-    }
-
     /**
      * @dev    Compute the yield given an account's balance, last index, and the current index.
      * @param  balance_      The token balance of an earning account.
@@ -787,24 +769,5 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _revertIfNotApprovedEarner(address account_) internal view {
         if (!_isApprovedEarner(account_)) revert NotApprovedEarner(account_);
-    }
-
-    /**
-     * @dev   Reads the uint128 value at some index of an array of uint128 values whose storage pointer is given,
-     *        assuming the index is valid, without wasting gas checking for out-of-bounds errors.
-     * @param array_ The storage pointer of an array of uint128 values.
-     * @param i_     The index of the array to read.
-     */
-    function _unsafeAccess(uint128[] storage array_, uint256 i_) internal view returns (uint128 value_) {
-        assembly {
-            mstore(0, array_.slot)
-
-            value_ := sload(add(keccak256(0, 0x20), div(i_, 2)))
-
-            // Since uint128 values take up either the top half or bottom half of a slot, shift the result accordingly.
-            if eq(mod(i_, 2), 1) {
-                value_ := shr(128, value_)
-            }
-        }
     }
 }

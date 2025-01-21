@@ -52,8 +52,11 @@ contract WrappedMTokenHarness is WrappedMToken {
         principalOfTotalEarningSupply = uint112(principalOfTotalEarningSupply_);
     }
 
-    function getAccountOf(address account_) external view returns (bool isEarning_, uint240 balance_, uint128 index_) {
-        Account storage account = _accounts[account_];
-        return (account.isEarning, account.balance, account.lastIndex);
+    function setEnableMIndex(uint256 enableMIndex_) external {
+        enableMIndex = uint128(enableMIndex_);
+    }
+
+    function setDisableIndex(uint256 disableIndex_) external {
+        disableIndex = uint128(disableIndex_);
     }
 }
