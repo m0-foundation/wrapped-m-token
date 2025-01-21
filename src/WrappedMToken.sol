@@ -8,7 +8,6 @@ import { UIntMath } from "../lib/common/src/libs/UIntMath.sol";
 import { IERC20 } from "../lib/common/src/interfaces/IERC20.sol";
 
 import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
-import { Migratable } from "../lib/common/src/Migratable.sol";
 
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
@@ -18,7 +17,7 @@ import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
  * @title  ERC20 Token contract for wrapping M into a non-rebasing token with claimable yields.
  * @author M^0 Labs
  */
-contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
+abstract contract WrappedMToken is IWrappedMToken, ERC20Extended {
     /* ============ Structs ============ */
 
     /**
@@ -45,12 +44,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     bytes32 public constant CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX = "wm_claim_override_recipient";
-
-    /// @inheritdoc IWrappedMToken
-    bytes32 public constant MIGRATOR_KEY_PREFIX = "wm_migrator_v2";
-
-    /// @inheritdoc IWrappedMToken
-    address public immutable migrationAdmin;
 
     /// @inheritdoc IWrappedMToken
     address public immutable mToken;
@@ -82,27 +75,24 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ Constructor ============ */
 
     /**
-     * @dev   Constructs the contract given an M Token address and migration admin.
+     * @dev   Constructs the contract given an M Token address and other parameters.
      *        Note that a proxy will not need to initialize since there are no mutable storage values affected.
      * @param name_              The name of the token.
      * @param symbol_            The symbol of the token.
      * @param mToken_            The address of an M Token.
      * @param registrar_         The address of a Registrar.
      * @param excessDestination_ The address of an excess destination.
-     * @param migrationAdmin_    The address of a migration admin.
      */
     constructor(
         string memory name_,
         string memory symbol_,
         address mToken_,
         address registrar_,
-        address excessDestination_,
-        address migrationAdmin_
+        address excessDestination_
     ) ERC20Extended(name_, symbol_, 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
         if ((excessDestination = excessDestination_) == address(0)) revert ZeroExcessDestination();
-        if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
     }
 
     /* ============ Interactive Functions ============ */
@@ -167,7 +157,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function enableEarning() external {
-        _revertIfNotApprovedEarner(address(this));
+        if (!_isRegistrarApprovedEarner(address(this))) revert WrapperIsNotApprovedEarner();
 
         if (isEarningEnabled()) revert EarningIsEnabled();
 
@@ -178,7 +168,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function disableEarning() external {
-        _revertIfApprovedEarner(address(this));
+        if (_isRegistrarApprovedEarner(address(this))) revert WrapperIsApprovedEarner();
 
         if (!isEarningEnabled()) revert EarningIsDisabled();
 
@@ -197,15 +187,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @inheritdoc IWrappedMToken
     function stopEarningFor(address account_) external {
         _stopEarningFor(account_, currentIndex());
-    }
-
-    /* ============ Temporary Admin Migration ============ */
-
-    /// @inheritdoc IWrappedMToken
-    function migrate(address migrator_) external {
-        if (msg.sender != migrationAdmin) revert UnauthorizedMigration();
-
-        _migrate(migrator_);
     }
 
     /* ============ View/Pure Functions ============ */
@@ -455,6 +436,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
         _revertIfInvalidRecipient(recipient_);
+        _revertIfCannotTransfer(sender_, recipient_, amount_);
 
         emit Transfer(sender_, recipient_, amount_);
 
@@ -525,6 +507,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return wrapped_   The amount of wM minted.
      */
     function _wrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 wrapped_) {
+        _revertIfCannotWrap(account_, recipient_, amount_);
+
         uint240 startingBalance_ = _mBalanceOf(address(this));
 
         // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
@@ -545,6 +529,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return unwrapped_ The amount of M withdrawn.
      */
     function _unwrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 unwrapped_) {
+        _revertIfCannotUnwrap(account_, recipient_, amount_);
+
         _burn(account_, amount_);
 
         uint240 startingBalance_ = _mBalanceOf(address(this));
@@ -560,12 +546,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /**
-     * @dev   Starts earning for `account` if allowed by the Registrar.
+     * @dev   Starts earning for `account`.
      * @param account_      The account to start earning for.
      * @param currentIndex_ The current index.
      */
     function _startEarningFor(address account_, uint128 currentIndex_) internal {
-        _revertIfNotApprovedEarner(account_);
+        _revertIfCannotStartEarning(account_);
 
         Account storage accountInfo_ = _accounts[account_];
 
@@ -587,12 +573,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /**
-     * @dev   Stops earning for `account` if disallowed by the Registrar.
+     * @dev   Stops earning for `account`.
      * @param account_      The account to stop earning for.
      * @param currentIndex_ The current index.
      */
     function _stopEarningFor(address account_, uint128 currentIndex_) internal {
-        _revertIfApprovedEarner(account_);
+        _revertIfCannotStopEarning(account_);
 
         _claim(account_, currentIndex_);
 
@@ -667,23 +653,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
                 : amount_;
     }
 
-    /// @dev Returns the address of the contract to use as a migrator, if any.
-    function _getMigrator() internal view override returns (address migrator_) {
-        return
-            address(
-                uint160(
-                    // NOTE: A subsequent implementation should use a unique migrator prefix.
-                    uint256(_getFromRegistrar(keccak256(abi.encode(MIGRATOR_KEY_PREFIX, address(this)))))
-                )
-            );
-    }
-
     /**
      * @dev    Returns whether `account_` is a Registrar-approved earner.
      * @param  account_    The account being queried.
      * @return isApproved_ True if the account_ is a Registrar-approved earner, false otherwise.
      */
-    function _isApprovedEarner(address account_) internal view returns (bool isApproved_) {
+    function _isRegistrarApprovedEarner(address account_) internal view returns (bool isApproved_) {
         return
             _getFromRegistrar(EARNERS_LIST_IGNORED_KEY) != bytes32(0) ||
             IRegistrarLike(registrar).listContains(EARNERS_LIST_NAME, account_);
@@ -724,19 +699,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         if (account_ == address(0)) revert InvalidRecipient(account_);
     }
 
-    /**
-     * @dev   Reverts if `account_` is an approved earner.
-     * @param account_ Address of an account.
-     */
-    function _revertIfApprovedEarner(address account_) internal view {
-        if (_isApprovedEarner(account_)) revert IsApprovedEarner(account_);
-    }
+    /* ============ Internal Virtual View/Pure Functions ============ */
+    function _revertIfCannotTransfer(address sender_, address recipient_, uint240 amount_) internal view virtual {}
 
-    /**
-     * @dev   Reverts if `account_` is not an approved earner.
-     * @param account_ Address of an account.
-     */
-    function _revertIfNotApprovedEarner(address account_) internal view {
-        if (!_isApprovedEarner(account_)) revert NotApprovedEarner(account_);
-    }
+    function _revertIfCannotWrap(address account_, address recipient_, uint240 amount_) internal view virtual {}
+
+    function _revertIfCannotStartEarning(address account_) internal view virtual {}
+
+    function _revertIfCannotStopEarning(address account_) internal view virtual {}
+
+    function _revertIfCannotUnwrap(address account_, address recipient_, uint240 amount_) internal view virtual {}
 }

@@ -3,13 +3,12 @@
 pragma solidity 0.8.26;
 
 import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.sol";
-import { IMigratable } from "../../lib/common/src/interfaces/IMigratable.sol";
 
 /**
  * @title  Wrapped M Token interface extending Extended ERC20.
  * @author M^0 Labs
  */
-interface IWrappedMToken is IMigratable, IERC20Extended {
+interface IWrappedMToken is IERC20Extended {
     /* ============ Events ============ */
 
     /**
@@ -52,17 +51,14 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /* ============ Custom Errors ============ */
 
-    /// @notice Emitted when performing an operation that is not allowed when earning is disabled.
+    /// @notice Emitted when trying to disable earning when earning is already disabled.
     error EarningIsDisabled();
 
-    /// @notice Emitted when performing an operation that is not allowed when earning is enabled.
+    /// @notice Emitted when trying to enable earning when earning is already enabled.
     error EarningIsEnabled();
 
-    /**
-     * @notice Emitted when calling `stopEarning` for an account approved as an earner by the Registrar.
-     * @param  account The account that is an approved earner.
-     */
-    error IsApprovedEarner(address account);
+    /// @notice Emitted when trying to disable earning when the wrapper is approved by the Registrar.
+    error WrapperIsApprovedEarner();
 
     /**
      * @notice Emitted when there is insufficient balance to decrement from `account`.
@@ -72,23 +68,14 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     error InsufficientBalance(address account, uint240 balance, uint240 amount);
 
-    /**
-     * @notice Emitted when calling `startEarning` for an account not approved as an earner by the Registrar.
-     * @param  account The account that is not an approved earner.
-     */
-    error NotApprovedEarner(address account);
-
-    /// @notice Emitted when the non-governance migrate function is called by a account other than the migration admin.
-    error UnauthorizedMigration();
+    /// @notice Emitted when trying to enable earning when the wrapper is not approved by the Registrar.
+    error WrapperIsNotApprovedEarner();
 
     /// @notice Emitted in constructor if Excess Destination is 0x0.
     error ZeroExcessDestination();
 
     /// @notice Emitted in constructor if M Token is 0x0.
     error ZeroMToken();
-
-    /// @notice Emitted in constructor if Migration Admin is 0x0.
-    error ZeroMigrationAdmin();
 
     /// @notice Emitted in constructor if Registrar is 0x0.
     error ZeroRegistrar();
@@ -190,14 +177,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     function stopEarningFor(address account) external;
 
-    /* ============ Temporary Admin Migration ============ */
-
-    /**
-     * @notice Performs an arbitrarily defined migration.
-     * @param  migrator The address of a migrator contract.
-     */
-    function migrate(address migrator) external;
-
     /* ============ View/Pure Functions ============ */
 
     /// @notice Registrar key holding value of whether the earners list can be ignored or not.
@@ -208,9 +187,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice Registrar key prefix to determine the override recipient of an account's accrued yield.
     function CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX() external pure returns (bytes32 claimOverrideRecipientKeyPrefix);
-
-    /// @notice Registrar key prefix to determine the migrator contract.
-    function MIGRATOR_KEY_PREFIX() external pure returns (bytes32 migratorKeyPrefix);
 
     /**
      * @notice Returns the yield accrued for `account`, which is claimable.
@@ -261,9 +237,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice Whether Wrapped M earning is enabled.
     function isEarningEnabled() external view returns (bool isEnabled);
-
-    /// @notice The account that can bypass the Registrar and call the `migrate(address migrator)` function.
-    function migrationAdmin() external view returns (address migrationAdmin);
 
     /// @notice The address of the M Token contract.
     function mToken() external view returns (address mToken);
