@@ -9,10 +9,13 @@ update:; forge update
 
 # Deployment helpers
 deploy:
-	FOUNDRY_PROFILE=production forge script script/DeployProduction.s.sol --skip src --skip test --rpc-url mainnet --slow --broadcast -vvv --verify
+	FOUNDRY_PROFILE=production forge script script/Deploy.s.sol --skip src --skip test --rpc-url ${DEPLOY_RPC_URL} --etherscan-api-key ${ETHERSCAN_API_KEY} --slow --broadcast -vvv --verify --show-standard-json-input
 
 deploy-local:
-	FOUNDRY_PROFILE=production forge script script/DeployProduction.s.sol --skip src --skip test --rpc-url localhost --slow --broadcast -vvv
+	FOUNDRY_PROFILE=production forge script script/Deploy.s.sol --skip src --skip test --rpc-url localhost --slow --broadcast -vvv
+
+deploy-upgrade:
+	FOUNDRY_PROFILE=production forge script script/DeployUpgradeMainnet.s.sol --skip src --skip test --rpc-url mainnet --slow --broadcast -vvv --verify --show-standard-json-input
 
 # Run slither
 slither :
