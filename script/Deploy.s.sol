@@ -23,9 +23,9 @@ contract DeployProduction is Script, DeployBase {
         address deployer_ = vm.rememberKey(vm.envUint("PRIVATE_KEY"));
         address expectedDeployer_ = vm.envAddress("DEPLOYER");
 
-        uint64 deployerProxyNonce_ = uint64(vm.envUint("DEPLOYER_PROXY_NONCE"));
+        uint64 deployerWrappedMProxyNonce_ = uint64(vm.envUint("DEPLOYER_WRAPPED_M_PROXY_NONCE"));
 
-        address expectedProxy_ = vm.envAddress("EXPECTED_PROXY");
+        address expectedWrappedMProxy_ = vm.envAddress("EXPECTED_WRAPPED_M_PROXY");
 
         console2.log("Deployer:", deployer_);
 
@@ -34,15 +34,22 @@ contract DeployProduction is Script, DeployBase {
         uint64 currentNonce_ = vm.getNonce(deployer_);
 
         uint64 startNonce_ = currentNonce_;
-        address implementation_;
-        address proxy_;
+        address earnerManagerImplementation_;
+        address earnerManagerProxy_;
+        address wrappedMTokenImplementation_;
+        address wrappedMTokenProxy_;
 
         while (true) {
-            if (startNonce_ > deployerProxyNonce_) revert DeployerNonceTooHigh();
+            if (startNonce_ > deployerWrappedMProxyNonce_) revert DeployerNonceTooHigh();
 
-            (implementation_, proxy_) = mockDeploy(deployer_, startNonce_);
+            (
+                earnerManagerImplementation_,
+                earnerManagerProxy_,
+                wrappedMTokenImplementation_,
+                wrappedMTokenProxy_
+            ) = mockDeploy(deployer_, startNonce_);
 
-            if (proxy_ == expectedProxy_) break;
+            if (wrappedMTokenProxy_ == expectedWrappedMProxy_) break;
 
             ++startNonce_;
         }
@@ -59,18 +66,22 @@ contract DeployProduction is Script, DeployBase {
 
         if (currentNonce_ != startNonce_) revert UnexpectedDeployerNonce();
 
-        (implementation_, proxy_) = deploy(
+        (earnerManagerImplementation_, earnerManagerProxy_, wrappedMTokenImplementation_, wrappedMTokenProxy_) = deploy(
             vm.envAddress("M_TOKEN"),
             vm.envAddress("REGISTRAR"),
             vm.envAddress("EXCESS_DESTINATION"),
-            vm.envAddress("MIGRATION_ADMIN")
+            vm.envAddress("WRAPPED_M_MIGRATION_ADMIN"),
+            vm.envAddress("EARNER_MANAGER_MIGRATION_ADMIN")
         );
 
         vm.stopBroadcast();
 
-        console2.log("Wrapped M Implementation address:", implementation_);
-        console2.log("Wrapped M Proxy address:", proxy_);
+        console2.log("Wrapped M Implementation address:", wrappedMTokenImplementation_);
+        console2.log("Wrapped M Proxy address:", wrappedMTokenProxy_);
+        console2.log("Earner Manager Implementation address:", earnerManagerImplementation_);
+        console2.log("Earner Manager Proxy address:", earnerManagerProxy_);
 
-        if (proxy_ != expectedProxy_) revert ResultingProxyMismatch(expectedProxy_, proxy_);
+        if (wrappedMTokenProxy_ != expectedWrappedMProxy_)
+            revert ResultingProxyMismatch(expectedWrappedMProxy_, wrappedMTokenProxy_);
     }
 }
