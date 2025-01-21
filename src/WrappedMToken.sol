@@ -568,16 +568,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return wrapped_   The amount of wM minted.
      */
     function _wrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 wrapped_) {
-        uint240 startingBalance_ = _mBalanceOf(address(this));
-
         // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
         IMTokenLike(mToken).transferFrom(account_, address(this), amount_);
 
         // NOTE: When this WrappedMToken contract is earning, any amount of M sent to it is converted to a principal
         //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
-        //       amount less than `amount_`. In order to capture the real increase in M, the difference between the
-        //       starting and ending M balance is minted as WrappedM token.
-        _mint(recipient_, wrapped_ = _mBalanceOf(address(this)) - startingBalance_);
+        //       amount less than `amount_`. This will reduce excess by the rounding error.
+        _mint(recipient_, wrapped_ = amount_);
     }
 
     /**
@@ -588,18 +585,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return unwrapped_ The amount of M withdrawn.
      */
     function _unwrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 unwrapped_) {
-        _burn(account_, amount_);
-
-        uint240 startingBalance_ = _mBalanceOf(address(this));
-
-        // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
-        IMTokenLike(mToken).transfer(recipient_, _getSafeTransferableM(amount_, currentIndex()));
-
         // NOTE: When this WrappedMToken contract is earning, any amount of M sent from it is converted to a principal
         //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
-        //       amount more than `amount_`. In order to capture the real decrease in M, the difference between the
-        //       ending and starting M balance is returned.
-        return startingBalance_ - _mBalanceOf(address(this));
+        //       amount more than `amount_`. The real decrease in M may be larger than `amount_`.
+        _burn(account_, unwrapped_ = amount_);
+
+        // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
+        IMTokenLike(mToken).transfer(recipient_, _getSufficientTransferableM(recipient_, amount_));
     }
 
     /**
@@ -700,6 +692,15 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /**
+     * @dev    Returns whether `account_` is earning M Token.
+     * @param  account_   The account being queried.
+     * @return isEarning_ Whether the account is earning M Token.
+     */
+    function _isEarningM(address account_) internal view returns (bool isEarning_) {
+        return IMTokenLike(mToken).isEarning(account_);
+    }
+
+    /**
      * @dev    Compute the adjusted amount of M that can safely be transferred out given the current index.
      * @param  amount_       Some amount to be transferred out of this contract.
      * @param  currentIndex_ The current index.
@@ -708,12 +709,40 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _getSafeTransferableM(uint240 amount_, uint128 currentIndex_) internal view returns (uint240 safeAmount_) {
         // If this contract is earning, adjust `amount_` to ensure it's M balance decrement is limited to `amount_`.
         return
-            IMTokenLike(mToken).isEarning(address(this))
+            _isEarningM(address(this))
                 ? IndexingMath.getPresentAmountRoundedDown(
                     IndexingMath.getPrincipalAmountRoundedDown(amount_, currentIndex_),
                     currentIndex_
                 )
                 : amount_;
+    }
+
+    /**
+     * @dev    Compute the adjusted amount of M that must be transferred so the recipient receives at least that amount.
+     * @param  recipient_        The address of some recipient.
+     * @param  amount_           Some amount to be transferred out of the wrapper.
+     * @return sufficientAmount_ The adjusted amount that must be transferred.
+     */
+    function _getSufficientTransferableM(
+        address recipient_,
+        uint240 amount_
+    ) internal view returns (uint240 sufficientAmount_) {
+        // If the recipient is not earning or if the wrapper is earning, not need to adjust `amount_`.
+        // See: https://github.com/m0-foundation/protocol/blob/main/src/MToken.sol#L385
+        if (!_isEarningM(recipient_) || _isEarningM(address(this))) return amount_;
+
+        uint128 currentMIndex_ = _currentMIndex();
+        uint112 principal = uint112(IMTokenLike(mToken).principalBalanceOf(recipient_));
+        uint240 balance = IndexingMath.getPresentAmountRoundedDown(principal, currentMIndex_);
+
+        // Adjust `amount_` to ensure the recipient's M balance increments by at least `amount_`.
+        unchecked {
+            return
+                IndexingMath.getPresentAmountRoundedUp(
+                    IndexingMath.getPrincipalAmountRoundedUp(balance + amount_, currentMIndex_) - principal,
+                    currentMIndex_
+                );
+        }
     }
 
     /// @dev Returns the address of the contract to use as a migrator, if any.
