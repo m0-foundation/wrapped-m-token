@@ -29,6 +29,8 @@ contract MorphoBlueTests is MorphoTestBase {
         _deployV2Components();
         _migrate();
 
+        _wrappedMToken.migrateAccount(_MORPHO);
+
         _oracle = _createOracle();
 
         _morphoBalanceOfUSDC = IERC20(_USDC).balanceOf(_MORPHO);
@@ -95,7 +97,7 @@ contract MorphoBlueTests is MorphoTestBase {
         vm.warp(vm.getBlockTimestamp() + 365 days);
 
         assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 49_292101);
+        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 49_292100);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC);
@@ -188,7 +190,7 @@ contract MorphoBlueTests is MorphoTestBase {
 
         // `startEarningFor` has been called so wM yield has accrued in the pool.
         assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 4_994258);
+        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 4_994256);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC);
@@ -222,7 +224,7 @@ contract MorphoBlueTests is MorphoTestBase {
 
         // `startEarningFor` has been called so wM yield has accrued in the pool.
         assertEq(_wrappedMToken.balanceOf(_MORPHO), _morphoBalanceOfWM);
-        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 77193);
+        assertEq(_wrappedMToken.accruedYieldOf(_MORPHO), _morphoAccruedYield += 77192);
 
         // USDC balance is unchanged.
         assertEq(IERC20(_USDC).balanceOf(_MORPHO), _morphoBalanceOfUSDC);
