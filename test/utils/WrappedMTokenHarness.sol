@@ -52,7 +52,11 @@ contract WrappedMTokenHarness is WrappedMToken {
         totalEarningPrincipal = uint112(totalEarningPrincipal_);
     }
 
-    function pushEnableDisableEarningIndex(uint128 index_) external {
-        _enableDisableEarningIndices.push(index_);
+    function setEnableMIndex(uint256 enableMIndex_) external {
+        enableMIndex = uint128(enableMIndex_);
+    }
+
+    function setDisableIndex(uint256 disableIndex_) external {
+        disableIndex = uint128(disableIndex_);
     }
 }
