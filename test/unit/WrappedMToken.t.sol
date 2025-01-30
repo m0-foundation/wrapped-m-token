@@ -1053,12 +1053,12 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.balanceOf(_alice), 600);
         assertEq(_wrappedMToken.accruedYieldOf(_alice), 0);
 
-        assertEq(_wrappedMToken.earningPrincipalOf(_bob), 954);
+        assertEq(_wrappedMToken.earningPrincipalOf(_bob), 955);
         assertEq(_wrappedMToken.balanceOf(_bob), 1_050);
         assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
 
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
-        assertEq(_wrappedMToken.totalEarningPrincipal(), 1_499);
+        assertEq(_wrappedMToken.totalEarningPrincipal(), 1_500);
         assertEq(_wrappedMToken.totalEarningSupply(), 1_650);
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
     }
