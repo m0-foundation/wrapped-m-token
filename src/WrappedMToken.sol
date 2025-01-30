@@ -439,7 +439,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         uint112 earningPrincipal_ = accountInfo_.earningPrincipal;
 
         uint112 principal_ = UIntMath.min112(
-            IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_),
+            IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_), // prevents `earningPrincipal` underflow.
             earningPrincipal_
         );
 
@@ -503,23 +503,31 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (amount_ == 0) return;
 
-        if (sender_ == recipient_) {
-            uint240 balance_ = _accounts[sender_].balance;
+        Account storage senderInfo_ = _accounts[sender_];
+        Account storage recipientInfo_ = _accounts[recipient_];
 
-            if (balance_ < amount_) revert InsufficientBalance(sender_, balance_, amount_);
+        bool senderIsEarner_ = senderInfo_.isEarning;
+        bool recipientIsEarner_ = recipientInfo_.isEarning;
+
+        // If sender and earner are different earner states, transfer affects total supplies.
+        if (senderIsEarner_ != recipientIsEarner_) {
+            senderIsEarner_
+                ? _subtractEarningAmount(sender_, amount_, currentIndex_)
+                : _subtractNonEarningAmount(sender_, amount_);
+
+            recipientIsEarner_
+                ? _addEarningAmount(recipient_, amount_, currentIndex_)
+                : _addNonEarningAmount(recipient_, amount_);
 
             return;
         }
 
-        // TODO: Don't touch globals if both are earning or non-earning.
+        if (senderInfo_.balance < amount_) revert InsufficientBalance(sender_, senderInfo_.balance, amount_);
 
-        _accounts[sender_].isEarning
-            ? _subtractEarningAmount(sender_, amount_, currentIndex_)
-            : _subtractNonEarningAmount(sender_, amount_);
-
-        _accounts[recipient_].isEarning
-            ? _addEarningAmount(recipient_, amount_, currentIndex_)
-            : _addNonEarningAmount(recipient_, amount_);
+        // If sender and recipient are both earners or both non-earners, transfer does not affect total supplies.
+        senderIsEarner_
+            ? _transferBetweenEarners(senderInfo_, recipientInfo_, amount_, currentIndex_)
+            : _transferBetweenNonEarners(senderInfo_, recipientInfo_, amount_);
     }
 
     /**
@@ -530,6 +538,51 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _transfer(address sender_, address recipient_, uint256 amount_) internal override {
         _transfer(sender_, recipient_, UIntMath.safe240(amount_), currentIndex());
+    }
+
+    /**
+     * @dev   Transfers `amount_` tokens between earners given some current index.
+     * @param sender_       The sender's Account storage pointer.
+     * @param recipient_    The recipient's Account storage pointer.
+     * @param amount_       The amount to be transferred.
+     * @param currentIndex_ The current index.
+     */
+    function _transferBetweenEarners(
+        Account storage sender_,
+        Account storage recipient_,
+        uint240 amount_,
+        uint128 currentIndex_
+    ) internal {
+        uint112 earningPrincipal_ = sender_.earningPrincipal;
+
+        // `min112` prevents `earningPrincipal` underflow.
+        uint112 principal_ = UIntMath.min112(
+            IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_),
+            earningPrincipal_
+        );
+
+        // NOTE: Can be `unchecked` because `_transfer` already checked for insufficient sender balance.
+        unchecked {
+            sender_.balance -= amount_;
+            sender_.earningPrincipal = earningPrincipal_ - principal_;
+
+            recipient_.balance += amount_;
+            recipient_.earningPrincipal = UIntMath.safe112(uint256(recipient_.earningPrincipal) + principal_);
+        }
+    }
+
+    /**
+     * @dev   Transfers `amount_` tokens between non-earners.
+     * @param sender_    The sender's Account storage pointer.
+     * @param recipient_ The recipient's Account storage pointer.
+     * @param amount_    The amount to be transferred.
+     */
+    function _transferBetweenNonEarners(Account storage sender_, Account storage recipient_, uint240 amount_) internal {
+        // NOTE: Can be `unchecked` because `_transfer` already checked for insufficient sender balance.
+        unchecked {
+            sender_.balance -= amount_;
+            recipient_.balance += amount_;
+        }
     }
 
     /**
@@ -555,6 +608,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         uint112 totalEarningPrincipal_ = totalEarningPrincipal;
 
         unchecked {
+            // `min240` and `min112` prevent `totalEarningSupply` and `totalEarningPrincipal` underflow respectively.
             totalEarningSupply = totalEarningSupply_ - UIntMath.min240(amount_, totalEarningSupply_);
             totalEarningPrincipal = totalEarningPrincipal_ - UIntMath.min112(principal_, totalEarningPrincipal_);
         }
