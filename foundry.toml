@@ -2,7 +2,7 @@
 gas_reports = ["*"]
 gas_reports_ignore = []
 ignored_error_codes = []
-solc_version = "0.8.23"
+solc_version = "0.8.26"
 optimizer = true
 optimizer_runs = 999999
 verbosity = 3
