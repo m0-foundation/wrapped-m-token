@@ -79,11 +79,17 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted when the non-governance migrate function is called by a account other than the migration admin.
     error UnauthorizedMigration();
 
+    /// @notice Emitted in constructor if Excess Destination is 0x0.
+    error ZeroExcessDestination();
+
     /// @notice Emitted in constructor if M Token is 0x0.
     error ZeroMToken();
 
     /// @notice Emitted in constructor if Migration Admin is 0x0.
     error ZeroMigrationAdmin();
+
+    /// @notice Emitted in constructor if Registrar is 0x0.
+    error ZeroRegistrar();
 
     /* ============ Interactive Functions ============ */
 
@@ -226,6 +232,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice The principal of totalEarningSupply to help compute totalAccruedYield(), and thus excess().
     function principalOfTotalEarningSupply() external view returns (uint112 principalOfTotalEarningSupply);
 
-    /// @notice The address of the vault where excess is claimed to.
-    function vault() external view returns (address vault);
+    /// @notice The address where excess is claimed to.
+    function excessDestination() external view returns (address excessDestination);
 }

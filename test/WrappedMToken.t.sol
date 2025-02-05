@@ -32,10 +32,9 @@ contract WrappedMTokenTests is Test {
     address internal _david = makeAddr("david");
 
     address internal _migrationAdmin = makeAddr("migrationAdmin");
+    address internal _excessDestination = makeAddr("excessDestination");
 
     address[] internal _accounts = [_alice, _bob, _charlie, _david];
-
-    address internal _vault = makeAddr("vault");
 
     uint128 internal _currentIndex;
 
@@ -46,13 +45,12 @@ contract WrappedMTokenTests is Test {
 
     function setUp() external {
         _registrar = new MockRegistrar();
-        _registrar.setVault(_vault);
 
         _mToken = new MockM();
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
         _mToken.setTtgRegistrar(address(_registrar));
 
-        _implementation = new WrappedMTokenHarness(address(_mToken), _migrationAdmin);
+        _implementation = new WrappedMTokenHarness(address(_mToken), address(_registrar), _excessDestination, _migrationAdmin);
 
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
@@ -64,7 +62,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.migrationAdmin(), _migrationAdmin);
         assertEq(_wrappedMToken.mToken(), address(_mToken));
         assertEq(_wrappedMToken.registrar(), address(_registrar));
-        assertEq(_wrappedMToken.vault(), _vault);
+        assertEq(_wrappedMToken.excessDestination(), _excessDestination);
         assertEq(_wrappedMToken.name(), "WrappedM by M^0");
         assertEq(_wrappedMToken.symbol(), "wM");
         assertEq(_wrappedMToken.decimals(), 6);
@@ -73,12 +71,12 @@ contract WrappedMTokenTests is Test {
 
     function test_constructor_zeroMToken() external {
         vm.expectRevert(IWrappedMToken.ZeroMToken.selector);
-        new WrappedMTokenHarness(address(0), address(0));
+        new WrappedMTokenHarness(address(0), address(0), address(0), address(0));
     }
 
     function test_constructor_zeroMigrationAdmin() external {
         vm.expectRevert(IWrappedMToken.ZeroMigrationAdmin.selector);
-        new WrappedMTokenHarness(address(_mToken), address(0));
+        new WrappedMTokenHarness(address(_mToken), address(_registrar), _excessDestination, address(0));
     }
 
     function test_constructor_zeroImplementation() external {
@@ -539,7 +537,7 @@ contract WrappedMTokenTests is Test {
 
         uint240 expectedExcess_ = _wrappedMToken.excess();
 
-        vm.expectCall(address(_mToken), abi.encodeCall(_mToken.transfer, (_wrappedMToken.vault(), expectedExcess_)));
+        vm.expectCall(address(_mToken), abi.encodeCall(_mToken.transfer, (_excessDestination, expectedExcess_)));
 
         assertEq(_wrappedMToken.claimExcess(), expectedExcess_);
         assertEq(_wrappedMToken.excess(), 0);

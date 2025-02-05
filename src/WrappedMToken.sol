@@ -61,7 +61,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     address public immutable registrar;
 
     /// @inheritdoc IWrappedMToken
-    address public immutable vault;
+    address public immutable excessDestination;
 
     /// @inheritdoc IWrappedMToken
     uint112 public principalOfTotalEarningSupply;
@@ -83,15 +83,21 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /**
      * @dev   Constructs the contract given an M Token address and migration admin.
      *        Note that a proxy will not need to initialize since there are no mutable storage values affected.
-     * @param mToken_         The address of an M Token.
-     * @param migrationAdmin_ The address of a migration admin.
+     * @param mToken_            The address of an M Token.
+     * @param registrar_         The address of a Registrar.
+     * @param excessDestination_ The address of an excess destination.
+     * @param migrationAdmin_    The address of a migration admin.
      */
-    constructor(address mToken_, address migrationAdmin_) ERC20Extended("WrappedM by M^0", "wM", 6) {
+    constructor(
+        address mToken_,
+        address registrar_,
+        address excessDestination_,
+        address migrationAdmin_
+    ) ERC20Extended("WrappedM by M^0", "wM", 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
+        if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
+        if ((excessDestination = excessDestination_) == address(0)) revert ZeroExcessDestination();
         if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
-
-        registrar = IMTokenLike(mToken_).ttgRegistrar();
-        vault = IRegistrarLike(registrar).vault();
     }
 
     /* ============ Interactive Functions ============ */
@@ -125,7 +131,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function claimExcess() external returns (uint240 excess_) {
         emit ExcessClaimed(excess_ = excess());
 
-        IMTokenLike(mToken).transfer(vault, excess_);
+        IMTokenLike(mToken).transfer(excessDestination, excess_);
     }
 
     /// @inheritdoc IWrappedMToken

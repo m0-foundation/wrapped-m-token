@@ -43,7 +43,7 @@ contract TestBase is Test {
     bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
 
     function setUp() public virtual {
-        _wrappedMTokenImplementation = address(new WrappedMToken(address(_mToken), _migrationAdmin));
+        _wrappedMTokenImplementation = address(new WrappedMToken(address(_mToken), _registrar, _vault, _migrationAdmin));
         _wrappedMToken = WrappedMToken(address(new Proxy(_wrappedMTokenImplementation)));
     }
 
