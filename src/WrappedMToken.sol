@@ -465,7 +465,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         uint112 earningPrincipal_ = accountInfo_.earningPrincipal;
 
         uint112 principal_ = UIntMath.min112(
-            IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_),
+            IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_), // prevents `earningPrincipal` underflow.
             earningPrincipal_
         );
 
@@ -533,23 +533,52 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (amount_ == 0) return;
 
-        if (sender_ == recipient_) {
-            uint240 balance_ = _accounts[sender_].balance;
+        Account storage senderInfo_ = _accounts[sender_];
+        Account storage recipientInfo_ = _accounts[recipient_];
 
-            if (balance_ < amount_) revert InsufficientBalance(sender_, balance_, amount_);
+        bool senderIsEarner_ = _isEarning(senderInfo_);
+        bool recipientIsEarner_ = _isEarning(recipientInfo_);
+
+        if (senderIsEarner_ != recipientIsEarner_) {
+            senderIsEarner_
+                ? _subtractEarningAmount(sender_, amount_, currentIndex_)
+                : _subtractNonEarningAmount(sender_, amount_);
+
+            recipientIsEarner_
+                ? _addEarningAmount(recipient_, amount_, currentIndex_)
+                : _addNonEarningAmount(recipient_, amount_);
 
             return;
         }
 
-        // TODO: Don't touch globals if both are earning or not earning.
+        uint240 senderBalance_ = senderInfo_.balance;
 
-        _isEarning(_accounts[sender_])
-            ? _subtractEarningAmount(sender_, amount_, currentIndex_)
-            : _subtractNonEarningAmount(sender_, amount_);
+        if (senderBalance_ < amount_) revert InsufficientBalance(sender_, senderBalance_, amount_);
 
-        _isEarning(_accounts[recipient_])
-            ? _addEarningAmount(recipient_, amount_, currentIndex_)
-            : _addNonEarningAmount(recipient_, amount_);
+        if (!senderIsEarner_) {
+            unchecked {
+                senderInfo_.balance = senderBalance_ - amount_;
+                recipientInfo_.balance += amount_;
+            }
+
+            return;
+        }
+
+        uint112 earningPrincipal_ = senderInfo_.earningPrincipal;
+
+        // `min112` prevents `earningPrincipal` underflow.
+        uint112 principal_ = UIntMath.min112(
+            IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_),
+            earningPrincipal_
+        );
+
+        unchecked {
+            senderInfo_.balance = senderBalance_ - amount_;
+            senderInfo_.earningPrincipal = earningPrincipal_ - principal_;
+
+            recipientInfo_.balance += amount_;
+            recipientInfo_.earningPrincipal = UIntMath.safe112(uint256(recipientInfo_.earningPrincipal) + principal_);
+        }
     }
 
     /**
@@ -585,6 +614,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         uint112 totalEarningPrincipal_ = totalEarningPrincipal;
 
         unchecked {
+            // `min240` and `min112` prevent `totalEarningSupply` and `totalEarningPrincipal` underflow respectively.
             totalEarningSupply = totalEarningSupply_ - UIntMath.min240(amount_, totalEarningSupply_);
             totalEarningPrincipal = totalEarningPrincipal_ - UIntMath.min112(principal_, totalEarningPrincipal_);
         }
