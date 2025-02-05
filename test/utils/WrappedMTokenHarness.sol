@@ -28,12 +28,12 @@ contract WrappedMTokenHarness is WrappedMToken {
         _accounts[account_].isEarning = isEarning_;
     }
 
-    function setLastIndexOf(address account_, uint256 index_) external {
-        _accounts[account_].lastIndex = uint128(index_);
+    function setEarningPrincipalOf(address account_, uint256 earningPrincipal_) external {
+        _accounts[account_].earningPrincipal = uint112(earningPrincipal_);
     }
 
-    function setAccountOf(address account_, uint256 balance_, uint256 index_) external {
-        _accounts[account_] = Account(true, uint240(balance_), uint128(index_));
+    function setAccountOf(address account_, uint256 balance_, uint256 earningPrincipal_) external {
+        _accounts[account_] = Account(true, uint240(balance_), uint112(earningPrincipal_));
     }
 
     function setAccountOf(address account_, uint256 balance_) external {
@@ -48,12 +48,11 @@ contract WrappedMTokenHarness is WrappedMToken {
         totalEarningSupply = uint240(totalEarningSupply_);
     }
 
-    function setPrincipalOfTotalEarningSupply(uint256 principalOfTotalEarningSupply_) external {
-        principalOfTotalEarningSupply = uint112(principalOfTotalEarningSupply_);
+    function setTotalEarningPrincipal(uint256 totalEarningPrincipal_) external {
+        totalEarningPrincipal = uint112(totalEarningPrincipal_);
     }
 
-    function getAccountOf(address account_) external view returns (bool isEarning_, uint240 balance_, uint128 index_) {
-        Account storage account = _accounts[account_];
-        return (account.isEarning, account.balance, account.lastIndex);
+    function pushEnableDisableEarningIndex(uint128 index_) external {
+        _enableDisableEarningIndices.push(index_);
     }
 }
