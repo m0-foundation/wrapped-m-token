@@ -34,9 +34,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /**
      * @dev   Struct to represent an account's balance and yield earning details
-     * @param isEarning Whether the account is actively earning yield.
-     * @param balance   The present amount of tokens held by the account.
-     * @param lastIndex The index of the last interaction for the account (0 for non-earning accounts).
+     * @param isEarning         Whether the account is actively earning yield.
+     * @param balance           The present amount of tokens held by the account.
+     * @param lastIndex         The index of the last interaction for the account (0 for non-earning accounts).
+     * @param hasClaimRecipient Whether the account has an explicitly set claim recipient.
      */
     struct Account {
         // First Slot
@@ -44,6 +45,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         uint240 balance;
         // Second slot
         uint128 lastIndex;
+        bool hasClaimRecipient;
     }
 
     /* ============ Variables ============ */
@@ -86,6 +88,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @dev Array of indices at which earning was enabled or disabled.
     uint128[] internal _enableDisableEarningIndices;
+
+    mapping(address account => address claimRecipient) internal _claimRecipients;
 
     /* ============ Constructor ============ */
 
@@ -216,6 +220,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _stopEarningFor(account_, currentIndex());
     }
 
+    /// @inheritdoc IWrappedMToken
+    function setClaimRecipient(address claimRecipient_) external {
+        _accounts[msg.sender].hasClaimRecipient = (_claimRecipients[msg.sender] = claimRecipient_) != address(0);
+
+        emit ClaimRecipientSet(msg.sender, claimRecipient_);
+    }
+
     /* ============ Temporary Admin Migration ============ */
 
     /// @inheritdoc IWrappedMToken
@@ -253,13 +264,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IWrappedMToken
-    function claimOverrideRecipientFor(address account_) public view returns (address recipient_) {
-        return
-            address(
-                uint160(
-                    uint256(_getFromRegistrar(keccak256(abi.encode(CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX, account_))))
-                )
-            );
+    function claimRecipientFor(address account_) public view returns (address recipient_) {
+        if (_accounts[account_].hasClaimRecipient) return _claimRecipients[account_];
+
+        address claimOverrideRecipient_ = address(
+            uint160(uint256(_getFromRegistrar(keccak256(abi.encode(CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX, account_)))))
+        );
+
+        return claimOverrideRecipient_ == address(0) ? account_ : claimOverrideRecipient_;
     }
 
     /// @inheritdoc IWrappedMToken
@@ -454,8 +466,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             totalEarningSupply += yield_;
         }
 
-        address claimOverrideRecipient_ = claimOverrideRecipientFor(account_);
-        address claimRecipient_ = claimOverrideRecipient_ == address(0) ? account_ : claimOverrideRecipient_;
+        address claimRecipient_ = claimRecipientFor(account_);
 
         // Emit the appropriate `Claimed` and `Transfer` events, depending on the claim override recipient
         emit Claimed(account_, claimRecipient_, yield_);
