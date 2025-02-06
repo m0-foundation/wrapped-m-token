@@ -470,7 +470,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 1);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 1), 0);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 1), 1);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 999);
@@ -483,7 +483,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 499);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 499), 498);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 499), 499);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 500);
@@ -496,7 +496,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 500);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 500), 499);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 500), 500);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
@@ -525,12 +525,12 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalEarningPrincipal(), 909);
         assertEq(_wrappedMToken.totalEarningSupply(), 909);
-        assertEq(_wrappedMToken.totalAccruedYield(), 90);
+        assertEq(_wrappedMToken.totalAccruedYield(), 91);
 
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 1);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 1), 0);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 1), 1);
 
         // Change due to principal round up on unwrap.
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 909 - 1);
@@ -539,12 +539,12 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalEarningPrincipal(), 909 - 1);
         assertEq(_wrappedMToken.totalEarningSupply(), 999 - 1);
-        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.totalAccruedYield(), 91 - 90);
 
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 498);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 498), 497);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 498), 498);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 909 - 1 - 453);
         assertEq(_wrappedMToken.balanceOf(_alice), 999 - 1 - 498);
@@ -552,12 +552,12 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalEarningPrincipal(), 909 - 1 - 453);
         assertEq(_wrappedMToken.totalEarningSupply(), 999 - 1 - 498);
-        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.totalAccruedYield(), 91 - 90);
 
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 500);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 500), 499);
+        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 500), 500);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 909 - 1 - 453 - 455); // 0
         assertEq(_wrappedMToken.balanceOf(_alice), 999 - 1 - 498 - 500); // 0
@@ -565,7 +565,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalEarningPrincipal(), 909 - 1 - 453 - 455); // 0
         assertEq(_wrappedMToken.totalEarningSupply(), 999 - 1 - 498 - 500); // 0
-        assertEq(_wrappedMToken.totalAccruedYield(), 0);
+        assertEq(_wrappedMToken.totalAccruedYield(), 91 - 90 - 1); // 0
     }
 
     /* ============ unwrap ============ */
@@ -797,45 +797,58 @@ contract WrappedMTokenTests is Test {
         bool earningEnabled_,
         uint128 currentMIndex_,
         uint240 totalNonEarningSupply_,
-        uint240 projectedTotalEarningSupply_,
-        uint240 mBalance_
+        uint240 totalProjectedEarningSupply_,
+        uint112 mPrincipalBalance_,
+        int144 roundingError_
     ) external {
         currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
 
         _setupIndexes(earningEnabled_, currentMIndex_);
 
-        uint128 currentIndex_ = _wrappedMToken.currentIndex();
-        uint240 maxAmount_ = _getMaxAmount(currentIndex_);
+        uint240 maxAmount_ = _getMaxAmount(_wrappedMToken.currentIndex());
 
         totalNonEarningSupply_ = uint240(bound(totalNonEarningSupply_, 0, maxAmount_));
 
-        projectedTotalEarningSupply_ = uint240(
-            bound(projectedTotalEarningSupply_, 0, maxAmount_ - totalNonEarningSupply_)
+        totalProjectedEarningSupply_ = uint240(
+            bound(totalProjectedEarningSupply_, 0, maxAmount_ - totalNonEarningSupply_)
         );
 
         uint112 totalEarningPrincipal_ = IndexingMath.getPrincipalAmountRoundedUp(
-            projectedTotalEarningSupply_,
-            currentIndex_
+            totalProjectedEarningSupply_,
+            _wrappedMToken.currentIndex()
         );
 
-        mBalance_ = uint240(bound(mBalance_, 0, maxAmount_));
+        mPrincipalBalance_ = uint112(bound(mPrincipalBalance_, 0, type(uint112).max));
+
+        _mToken.setPrincipalBalanceOf(address(_wrappedMToken), mPrincipalBalance_);
+
+        uint240 mBalance_ = IndexingMath.getPresentAmountRoundedDown(mPrincipalBalance_, currentMIndex_);
 
         _mToken.setBalanceOf(address(_wrappedMToken), mBalance_);
 
         _wrappedMToken.setTotalEarningPrincipal(totalEarningPrincipal_);
         _wrappedMToken.setTotalNonEarningSupply(totalNonEarningSupply_);
 
-        uint240 expectedExcess_ = _wrappedMToken.excess();
+        roundingError_ = int144(bound(roundingError_, -1_000_000000, 1_000_000000));
 
-        vm.expectCall(
-            address(_mToken),
-            abi.encodeCall(_mToken.transfer, (_wrappedMToken.excessDestination(), expectedExcess_))
-        );
+        _wrappedMToken.setRoundingError(roundingError_);
 
-        vm.expectEmit();
-        emit IWrappedMToken.ExcessClaimed(expectedExcess_);
+        uint240 totalProjectedSupply_ = totalNonEarningSupply_ + totalProjectedEarningSupply_;
+        int248 earmarked_ = int248(uint248(totalProjectedSupply_)) + roundingError_;
+        int248 excess_ = earmarked_ <= 0 ? int248(uint248(mBalance_)) : int248(uint248(mBalance_)) - earmarked_;
 
-        assertEq(_wrappedMToken.claimExcess(), expectedExcess_);
+        if (excess_ <= 0) {
+            vm.expectRevert(IWrappedMToken.NoExcess.selector);
+        } else {
+            vm.expectEmit(false, false, false, false);
+            emit IWrappedMToken.ExcessClaimed(uint240(uint248(excess_)));
+        }
+
+        uint240 claimed_ = _wrappedMToken.claimExcess();
+
+        if (excess_ <= 0) return;
+
+        assertLe(claimed_, uint248(excess_));
     }
 
     /* ============ transfer ============ */
@@ -1718,21 +1731,41 @@ contract WrappedMTokenTests is Test {
 
         assertEq(_wrappedMToken.excess(), 0);
 
+        _wrappedMToken.setRoundingError(1);
+
+        assertEq(_wrappedMToken.excess(), -1);
+
         _mToken.setBalanceOf(address(_wrappedMToken), 2_101);
 
-        assertEq(_wrappedMToken.excess(), 1);
+        assertEq(_wrappedMToken.excess(), 0);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 2_102);
 
-        assertEq(_wrappedMToken.excess(), 2);
+        assertEq(_wrappedMToken.excess(), 1);
 
         _mToken.setBalanceOf(address(_wrappedMToken), 3_102);
 
-        assertEq(_wrappedMToken.excess(), 1_002);
+        assertEq(_wrappedMToken.excess(), 1_001);
 
         _mToken.setCurrentIndex(1_210000000000);
 
+        assertEq(_wrappedMToken.excess(), 891);
+
+        _wrappedMToken.setRoundingError(0);
+
         assertEq(_wrappedMToken.excess(), 892);
+
+        _wrappedMToken.setRoundingError(-1);
+
+        assertEq(_wrappedMToken.excess(), 893);
+
+        _wrappedMToken.setRoundingError(-2_210);
+
+        assertEq(_wrappedMToken.excess(), 3_102);
+
+        _wrappedMToken.setRoundingError(-2_211);
+
+        assertEq(_wrappedMToken.excess(), 3_102);
     }
 
     function testFuzz_excess(
@@ -1740,7 +1773,8 @@ contract WrappedMTokenTests is Test {
         uint128 currentMIndex_,
         uint240 totalNonEarningSupply_,
         uint240 totalProjectedEarningSupply_,
-        uint240 mBalance_
+        uint112 mPrincipalBalance_,
+        int144 roundingError_
     ) external {
         currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
 
@@ -1759,20 +1793,25 @@ contract WrappedMTokenTests is Test {
             _wrappedMToken.currentIndex()
         );
 
-        mBalance_ = uint240(bound(mBalance_, 0, maxAmount_));
+        mPrincipalBalance_ = uint112(bound(mPrincipalBalance_, 0, type(uint112).max));
+
+        _mToken.setPrincipalBalanceOf(address(_wrappedMToken), mPrincipalBalance_);
+
+        uint240 mBalance_ = IndexingMath.getPresentAmountRoundedDown(mPrincipalBalance_, currentMIndex_);
 
         _mToken.setBalanceOf(address(_wrappedMToken), mBalance_);
 
         _wrappedMToken.setTotalEarningPrincipal(totalEarningPrincipal_);
         _wrappedMToken.setTotalNonEarningSupply(totalNonEarningSupply_);
 
-        uint240 totalProjectedSupply_ = totalNonEarningSupply_ + totalProjectedEarningSupply_;
+        roundingError_ = int144(bound(roundingError_, -1_000_000000, 1_000_000000));
 
-        if (mBalance_ > totalProjectedSupply_) {
-            assertLe(_wrappedMToken.excess(), mBalance_ - totalProjectedSupply_);
-        } else {
-            assertEq(_wrappedMToken.excess(), 0);
-        }
+        _wrappedMToken.setRoundingError(roundingError_);
+
+        uint240 totalProjectedSupply_ = totalNonEarningSupply_ + totalProjectedEarningSupply_;
+        int248 earmarked_ = int248(uint248(totalProjectedSupply_)) + roundingError_;
+
+        assertLe(_wrappedMToken.excess(), int248(uint248(mBalance_)) - earmarked_);
     }
 
     /* ============ totalAccruedYield ============ */
