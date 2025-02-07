@@ -11,6 +11,9 @@ import { ListOfEarnersToMigrate } from "./ListOfEarnersToMigrate.sol";
  * @author M^0 Labs
  */
 contract WrappedMTokenMigratorV1 {
+    /// @notice Emitted when the `enableDisableEarningIndices` array has an invalid length.
+    error InvalidEnableDisableEarningIndicesArrayLength();
+
     /* ============ Structs ============ */
 
     /**
@@ -57,6 +60,14 @@ contract WrappedMTokenMigratorV1 {
     fallback() external virtual {
         _migrateEarners();
 
+        (bool earningEnabled_, uint128 disableIndex_) = _clearEnableDisableEarningIndices();
+
+        if (earningEnabled_) {
+            _setEnableMIndex(IndexingMath.EXP_SCALED_ONE);
+        } else {
+            _setDisableIndex(disableIndex_);
+        }
+
         address newImplementation_ = newImplementation;
 
         assembly {
@@ -96,6 +107,59 @@ contract WrappedMTokenMigratorV1 {
     function _getAccounts() internal pure returns (mapping(address => Account) storage accounts_) {
         assembly {
             accounts_.slot := 6 // `_accounts` is slot 6 in v1.
+        }
+    }
+
+    /**
+     * @dev    Clears the entire `_enableDisableEarningIndices` array in storage, returning useful information.
+     * @return earningEnabled_ Whether earning is enabled.
+     * @return disableIndex_   The index when earning was disabled, if any.
+     */
+    function _clearEnableDisableEarningIndices() internal returns (bool earningEnabled_, uint128 disableIndex_) {
+        uint128[] storage array_;
+
+        assembly {
+            array_.slot := 7 // `_enableDisableEarningIndices` was slot 7 in v1.
+        }
+
+        // If the array is empty, earning is disabled and thus the disable index was non-existent.
+        if (array_.length == 0) return (false, 0);
+
+        // If the array has one element, earning is enabled and the disable index is non-existent.
+        if (array_.length == 1) {
+            array_.pop();
+            return (true, 0);
+        }
+
+        // If the array has two elements, earning is disabled and the disable index is the second element.
+        if (array_.length == 2) {
+            disableIndex_ = array_[1];
+            array_.pop();
+            array_.pop();
+            return (false, disableIndex_);
+        }
+
+        // In v1, it is not possible for the `_enableDisableEarningIndices` array to have more than two elements.
+        revert InvalidEnableDisableEarningIndicesArrayLength();
+    }
+
+    /**
+     * @dev   Sets the `enableMIndex` slot to `index_`.
+     * @param index_ The index to set the `enableMIndex .
+     */
+    function _setEnableMIndex(uint128 index_) internal {
+        assembly {
+            sstore(7, index_) // `enableMIndex` is the lower half of slot 7 in v2.
+        }
+    }
+
+    /**
+     * @dev   Sets the `disableIndex` slot to `index_`.
+     * @param index_ The index to set the `disableIndex .
+     */
+    function _setDisableIndex(uint128 index_) internal {
+        assembly {
+            sstore(7, shl(128, index_)) // `disableIndex` is the upper half of slot 7 in v2.
         }
     }
 }
