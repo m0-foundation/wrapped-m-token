@@ -7,6 +7,7 @@ contract MockM {
 
     mapping(address account => uint256 balance) public balanceOf;
     mapping(address account => bool isEarning) public isEarning;
+    mapping(address account => uint240 principal) public principalBalanceOf;
 
     function permit(
         address owner_,
@@ -42,6 +43,10 @@ contract MockM {
 
     function setBalanceOf(address account_, uint256 balance_) external {
         balanceOf[account_] = balance_;
+    }
+
+    function setPrincipalBalanceOf(address account_, uint240 principal_) external {
+        principalBalanceOf[account_] = principal_;
     }
 
     function setCurrentIndex(uint128 currentIndex_) external {

@@ -87,6 +87,8 @@ contract UpgradeTests is Test, DeployBase {
         // Migrator assertions
         assertEq(migrator_, expectedMigrator_);
 
+        uint240 totalEarningSupply_ = IWrappedMToken(_WRAPPED_M_TOKEN).totalEarningSupply();
+
         vm.prank(IWrappedMToken(_WRAPPED_M_TOKEN).migrationAdmin());
         IWrappedMToken(_WRAPPED_M_TOKEN).migrate(migrator_);
 
@@ -96,5 +98,9 @@ contract UpgradeTests is Test, DeployBase {
         assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).registrar(), _REGISTRAR);
         assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).excessDestination(), _EXCESS_DESTINATION);
         assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).implementation(), implementation_);
+
+        // Relevant storage slots.
+        assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).totalEarningSupply(), totalEarningSupply_);
+        assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).roundingError(), 0);
     }
 }
