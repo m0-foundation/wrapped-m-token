@@ -5,88 +5,165 @@ pragma solidity 0.8.26;
 import { ContractHelper } from "../lib/common/src/libs/ContractHelper.sol";
 import { Proxy } from "../lib/common/src/Proxy.sol";
 
-import { MigratorV1 } from "../src/MigratorV1.sol";
+import { EarnerManager } from "../src/EarnerManager.sol";
+import { WrappedMTokenMigratorV1 } from "../src/WrappedMTokenMigratorV1.sol";
 import { WrappedMToken } from "../src/WrappedMToken.sol";
 
 contract DeployBase {
     /**
      * @dev    Deploys Wrapped M Token.
-     * @param  mToken_            The address of the M Token contract.
-     * @param  registrar_         The address of the Registrar contract.
-     * @param  excessDestination_ The address of the excess destination.
-     * @param  migrationAdmin_    The address of the Migration Admin.
-     * @return implementation_    The address of the deployed Wrapped M Token implementation.
-     * @return proxy_             The address of the deployed Wrapped M Token proxy.
+     * @param  mToken_                      The address of the M Token contract.
+     * @param  registrar_                   The address of the Registrar contract.
+     * @param  excessDestination_           The address of the excess destination.
+     * @param  wrappedMMigrationAdmin_      The address of the Wrapped M Migration Admin.
+     * @param  earnerManagerMigrationAdmin_ The address of the Earner Manager Migration Admin.
+     * @return earnerManagerImplementation_ The address of the deployed Earner Manager implementation.
+     * @return earnerManagerProxy_          The address of the deployed Earner Manager proxy.
+     * @return wrappedMTokenImplementation_ The address of the deployed Wrapped M Token implementation.
+     * @return wrappedMTokenProxy_          The address of the deployed Wrapped M Token proxy.
      */
     function deploy(
         address mToken_,
         address registrar_,
         address excessDestination_,
-        address migrationAdmin_
-    ) public virtual returns (address implementation_, address proxy_) {
-        // Wrapped M token needs `mToken_`, `registrar_`, `excessDestination_`, and `migrationAdmin_` addresses.
-        // Proxy needs `implementation_` addresses.
+        address wrappedMMigrationAdmin_,
+        address earnerManagerMigrationAdmin_
+    )
+        public
+        virtual
+        returns (
+            address earnerManagerImplementation_,
+            address earnerManagerProxy_,
+            address wrappedMTokenImplementation_,
+            address wrappedMTokenProxy_
+        )
+    {
+        // Earner Manager Implementation constructor needs only known values.
+        // Earner Manager Proxy constructor needs `earnerManagerImplementation_`.
+        // Wrapped M Token Implementation constructor needs `earnerManagerProxy_`.
+        // Wrapped M Token Proxy constructor needs `wrappedMTokenImplementation_`.
 
-        implementation_ = address(new WrappedMToken(mToken_, registrar_, excessDestination_, migrationAdmin_));
-        proxy_ = address(new Proxy(implementation_));
+        earnerManagerImplementation_ = address(new EarnerManager(registrar_, earnerManagerMigrationAdmin_));
+
+        earnerManagerProxy_ = address(new Proxy(earnerManagerImplementation_));
+
+        wrappedMTokenImplementation_ = address(
+            new WrappedMToken(mToken_, registrar_, earnerManagerProxy_, excessDestination_, wrappedMMigrationAdmin_)
+        );
+
+        wrappedMTokenProxy_ = address(new Proxy(wrappedMTokenImplementation_));
     }
 
     /**
      * @dev    Deploys Wrapped M Token components needed to upgrade an existing Wrapped M proxy.
-     * @param  mToken_            The address of the M Token contract.
-     * @param  registrar_         The address of the Registrar contract.
-     * @param  excessDestination_ The address of the excess destination.
-     * @param  migrationAdmin_    The address of the Migration Admin.
-     * @return implementation_    The address of the deployed Wrapped M Token implementation.
-     * @return migrator_          The address of the deployed Migrator.
+     * @param  mToken_                      The address of the M Token contract.
+     * @param  registrar_                   The address of the Registrar contract.
+     * @param  excessDestination_           The address of the excess destination.
+     * @param  wrappedMMigrationAdmin_      The address of the Wrapped M Migration Admin.
+     * @param  earnerManagerMigrationAdmin_ The address of the Earner Manager Migration Admin.
+     * @return earnerManagerImplementation_ The address of the deployed Earner Manager implementation.
+     * @return earnerManagerProxy_          The address of the deployed Earner Manager proxy.
+     * @return wrappedMTokenImplementation_ The address of the deployed Wrapped M Token implementation.
+     * @return wrappedMTokenMigrator_       The address of the deployed Wrapped M Token Migrator.
      */
     function deployUpgrade(
         address mToken_,
         address registrar_,
         address excessDestination_,
-        address migrationAdmin_,
+        address wrappedMMigrationAdmin_,
+        address earnerManagerMigrationAdmin_,
         address[] memory earners_
-    ) public virtual returns (address implementation_, address migrator_) {
-        // Wrapped M token needs `mToken_`, `registrar_`, `excessDestination_`, and `migrationAdmin_` addresses.
-        // Migrator needs `implementation_` addresses.
+    )
+        public
+        virtual
+        returns (
+            address earnerManagerImplementation_,
+            address earnerManagerProxy_,
+            address wrappedMTokenImplementation_,
+            address wrappedMTokenMigrator_
+        )
+    {
+        // Earner Manager Implementation constructor needs only known values.
+        // Earner Manager Proxy constructor needs `earnerManagerImplementation_`.
+        // Wrapped M Token Implementation constructor needs `earnerManagerProxy_`.
+        // Migrator needs `wrappedMTokenImplementation_` addresses.
 
-        implementation_ = address(new WrappedMToken(mToken_, registrar_, excessDestination_, migrationAdmin_));
-        migrator_ = address(new MigratorV1(implementation_, earners_));
+        earnerManagerImplementation_ = address(new EarnerManager(registrar_, earnerManagerMigrationAdmin_));
+
+        earnerManagerProxy_ = address(new Proxy(earnerManagerImplementation_));
+
+        wrappedMTokenImplementation_ = address(
+            new WrappedMToken(mToken_, registrar_, earnerManagerProxy_, excessDestination_, wrappedMMigrationAdmin_)
+        );
+
+        wrappedMTokenMigrator_ = address(new WrappedMTokenMigratorV1(wrappedMTokenImplementation_, earners_));
     }
 
     /**
      * @dev    Mock deploys Wrapped M Token, returning the would-be addresses.
-     * @param  deployer_       The address of the deployer.
-     * @param  deployerNonce_  The nonce of the deployer.
-     * @return implementation_ The address of the would-be Wrapped M Token implementation.
-     * @return proxy_          The address of the would-be Wrapped M Token proxy.
+     * @param  deployer_                    The address of the deployer.
+     * @param  deployerNonce_               The nonce of the deployer.
+     * @return earnerManagerImplementation_ The address of the would-be Earner Manager implementation.
+     * @return earnerManagerProxy_          The address of the would-be Earner Manager proxy.
+     * @return wrappedMTokenImplementation_ The address of the would-be Wrapped M Token implementation.
+     * @return wrappedMTokenProxy_          The address of the would-be Wrapped M Token proxy.
      */
     function mockDeploy(
         address deployer_,
         uint256 deployerNonce_
-    ) public view virtual returns (address implementation_, address proxy_) {
-        // Wrapped M token needs `mToken_`, `registrar_`, `excessDestination_`, and `migrationAdmin_` addresses.
-        // Proxy needs `implementation_` addresses.
+    )
+        public
+        view
+        virtual
+        returns (
+            address earnerManagerImplementation_,
+            address earnerManagerProxy_,
+            address wrappedMTokenImplementation_,
+            address wrappedMTokenProxy_
+        )
+    {
+        // Earner Manager Implementation constructor needs only known values.
+        // Earner Manager Proxy constructor needs `earnerManagerImplementation_`.
+        // Wrapped M Token Implementation constructor needs `earnerManagerProxy_`.
+        // Wrapped M Token Proxy constructor needs `wrappedMTokenImplementation_`.
 
-        implementation_ = ContractHelper.getContractFrom(deployer_, deployerNonce_);
-        proxy_ = ContractHelper.getContractFrom(deployer_, deployerNonce_ + 1);
+        earnerManagerImplementation_ = ContractHelper.getContractFrom(deployer_, deployerNonce_);
+        earnerManagerProxy_ = ContractHelper.getContractFrom(deployer_, deployerNonce_ + 1);
+        wrappedMTokenImplementation_ = ContractHelper.getContractFrom(deployer_, deployerNonce_ + 2);
+        wrappedMTokenProxy_ = ContractHelper.getContractFrom(deployer_, deployerNonce_ + 3);
     }
 
     /**
      * @dev    Mock deploys Wrapped M Token, returning the would-be addresses.
-     * @param  deployer_       The address of the deployer.
-     * @param  deployerNonce_  The nonce of the deployer.
-     * @return implementation_ The address of the would-be Wrapped M Token implementation.
-     * @return migrator_       The address of the would-be Migrator.
+     * @param  deployer_                    The address of the deployer.
+     * @param  deployerNonce_               The nonce of the deployer.
+     * @return earnerManagerImplementation_ The address of the would-be Earner Manager implementation.
+     * @return earnerManagerProxy_          The address of the would-be Earner Manager proxy.
+     * @return wrappedMTokenImplementation_ The address of the would-be Wrapped M Token implementation.
+     * @return wrappedMTokenMigrator_       The address of the deployed Wrapped M Token Migrator.
      */
     function mockDeployUpgrade(
         address deployer_,
         uint256 deployerNonce_
-    ) public view virtual returns (address implementation_, address migrator_) {
-        // Wrapped M token needs `mToken_`, `registrar_`, `excessDestination_`, and `migrationAdmin_` addresses.
-        // Migrator needs `implementation_` addresses.
+    )
+        public
+        view
+        virtual
+        returns (
+            address earnerManagerImplementation_,
+            address earnerManagerProxy_,
+            address wrappedMTokenImplementation_,
+            address wrappedMTokenMigrator_
+        )
+    {
+        // Earner Manager Implementation constructor needs only known values.
+        // Earner Manager Proxy constructor needs `earnerManagerImplementation_`.
+        // Wrapped M Token Implementation constructor needs `earnerManagerProxy_`.
+        // Migrator needs `wrappedMTokenImplementation_` addresses.
 
-        implementation_ = ContractHelper.getContractFrom(deployer_, deployerNonce_);
-        migrator_ = ContractHelper.getContractFrom(deployer_, deployerNonce_ + 1);
+        earnerManagerImplementation_ = ContractHelper.getContractFrom(deployer_, deployerNonce_);
+        earnerManagerProxy_ = ContractHelper.getContractFrom(deployer_, deployerNonce_ + 1);
+        wrappedMTokenImplementation_ = ContractHelper.getContractFrom(deployer_, deployerNonce_ + 2);
+        wrappedMTokenMigrator_ = ContractHelper.getContractFrom(deployer_, deployerNonce_ + 3);
     }
 }
