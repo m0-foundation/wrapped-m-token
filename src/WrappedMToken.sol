@@ -329,6 +329,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             int248 earmarked_ = int248(uint248(totalNonEarningSupply + projectedEarningSupply())) + roundingError;
             int248 balance_ = int248(uint248(_mBalanceOf(address(this))));
 
+            // The entire M balance is excess if the total projected supply (factoring rounding errors) is less than 0.
             return earmarked_ <= 0 ? balance_ : balance_ - earmarked_;
         }
     }
@@ -371,7 +372,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _revertIfInvalidRecipient(recipient_);
 
         if (_accounts[recipient_].isEarning) {
-            // NOTE: Additional principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
             _addEarningAmount(recipient_, amount_, currentIndex());
         } else {
             _addNonEarningAmount(recipient_, amount_);
@@ -389,7 +389,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _revertIfInsufficientAmount(amount_);
 
         if (_accounts[account_].isEarning) {
-            // NOTE: Subtracted principal may end up being rounded to 0 and this will not `_revertIfInsufficientAmount`.
             _subtractEarningAmount(account_, amount_, currentIndex());
         } else {
             _subtractNonEarningAmount(account_, amount_);
@@ -418,7 +417,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _subtractNonEarningAmount(address account_, uint240 amount_) internal {
         Account storage accountInfo_ = _accounts[account_];
-
         uint240 balance_ = accountInfo_.balance;
 
         if (balance_ < amount_) revert InsufficientBalance(account_, balance_, amount_);
@@ -514,7 +512,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         }
 
         if ((claimRecipient_ != account_) && (yieldNetOfFees_ != 0)) {
-            // NOTE: Watch out for a long chain of earning claim override recipients.
             _transfer(account_, claimRecipient_, yieldNetOfFees_, currentIndex_);
         }
     }
@@ -572,6 +569,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         bool senderIsEarner_ = senderInfo_.isEarning;
         bool recipientIsEarner_ = recipientInfo_.isEarning;
 
+        // If sender and earner are different earner states, transfer affects total supplies.
         if (senderIsEarner_ != recipientIsEarner_) {
             senderIsEarner_
                 ? _subtractEarningAmount(sender_, amount_, currentIndex_)
@@ -584,34 +582,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             return;
         }
 
-        uint240 senderBalance_ = senderInfo_.balance;
+        if (senderInfo_.balance < amount_) revert InsufficientBalance(sender_, senderInfo_.balance, amount_);
 
-        if (senderBalance_ < amount_) revert InsufficientBalance(sender_, senderBalance_, amount_);
-
-        if (!senderIsEarner_) {
-            unchecked {
-                senderInfo_.balance = senderBalance_ - amount_;
-                recipientInfo_.balance += amount_;
-            }
-
-            return;
-        }
-
-        uint112 earningPrincipal_ = senderInfo_.earningPrincipal;
-
-        // `min112` prevents `earningPrincipal` underflow.
-        uint112 principal_ = UIntMath.min112(
-            IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_),
-            earningPrincipal_
-        );
-
-        unchecked {
-            senderInfo_.balance = senderBalance_ - amount_;
-            senderInfo_.earningPrincipal = earningPrincipal_ - principal_;
-
-            recipientInfo_.balance += amount_;
-            recipientInfo_.earningPrincipal = UIntMath.safe112(uint256(recipientInfo_.earningPrincipal) + principal_);
-        }
+        // If sender and recipient are both earners or both non-earners, transfer does not affect total supplies.
+        senderIsEarner_
+            ? _transferBetweenEarners(senderInfo_, recipientInfo_, amount_, currentIndex_)
+            : _transferBetweenNonEarners(senderInfo_, recipientInfo_, amount_);
     }
 
     /**
@@ -622,6 +598,51 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _transfer(address sender_, address recipient_, uint256 amount_) internal override {
         _transfer(sender_, recipient_, UIntMath.safe240(amount_), currentIndex());
+    }
+
+    /**
+     * @dev   Transfers `amount_` tokens from between earners given some current index.
+     * @param sender_       The sender's Account storage pointer.
+     * @param recipient_    The recipient's Account storage pointer.
+     * @param amount_       The amount to be transferred.
+     * @param currentIndex_ The current index.
+     */
+    function _transferBetweenEarners(
+        Account storage sender_,
+        Account storage recipient_,
+        uint240 amount_,
+        uint128 currentIndex_
+    ) internal {
+        uint112 earningPrincipal_ = sender_.earningPrincipal;
+
+        // `min112` prevents `earningPrincipal` underflow.
+        uint112 principal_ = UIntMath.min112(
+            IndexingMath.getPrincipalAmountRoundedUp(amount_, currentIndex_),
+            earningPrincipal_
+        );
+
+        // NOTE: Can be `unchecked` because `_transfer` already checked for insufficient sender balance.
+        unchecked {
+            sender_.balance -= amount_;
+            sender_.earningPrincipal = earningPrincipal_ - principal_;
+
+            recipient_.balance += amount_;
+            recipient_.earningPrincipal = UIntMath.safe112(uint256(recipient_.earningPrincipal) + principal_);
+        }
+    }
+
+    /**
+     * @dev   Transfers `amount_` tokens from between non-earners.
+     * @param sender_    The sender's Account storage pointer.
+     * @param recipient_ The recipient's Account storage pointer.
+     * @param amount_    The amount to be transferred.
+     */
+    function _transferBetweenNonEarners(Account storage sender_, Account storage recipient_, uint240 amount_) internal {
+        // NOTE: Can be `unchecked` because `_transfer` already checked for insufficient sender balance.
+        unchecked {
+            sender_.balance -= amount_;
+            recipient_.balance += amount_;
+        }
     }
 
     /**
@@ -717,11 +738,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (isEarner_) revert IsApprovedEarner(account_);
 
-        _claim(account_, currentIndex_);
-
         Account storage accountInfo_ = _accounts[account_];
 
         if (!accountInfo_.isEarning) return;
+
+        _claim(account_, currentIndex_);
 
         uint240 balance_ = accountInfo_.balance;
         uint112 earningPrincipal_ = accountInfo_.earningPrincipal;
@@ -753,7 +774,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         // NOTE: When this WrappedMToken contract is earning, any amount of M sent from it is converted to a principal
         //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
         //       amount more than `amount_`. In order to capture the real decrease in M, the difference between the
-        //       ending and starting M balance is returned.
+        //       ending and starting M balance is captured.
         uint240 decrease_ = startingBalance_ - _mBalanceOf(address(this));
 
         // If the M lost is more than the wM burned, then the difference is added to `roundingError`.
@@ -773,11 +794,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         // NOTE: When this WrappedMToken contract is earning, any amount of M sent to it is converted to a principal
         //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
-        //       amount less than `amount_`. In order to capture the real increase in M, the difference between the
-        //       starting and ending M balance is minted as WrappedM token.
+        //       amount more/less than `amount_`. In order to capture the real increase in M, the difference between the
+        //       starting and ending M balance is captured.
         uint240 increase_ = _mBalanceOf(address(this)) - startingBalance_;
 
-        // If the M gained is less than the wM minted, then the difference is added to `roundingError`.
+        // If the M gained is more/less than the wM minted, then the difference is subtracted/added to `roundingError`.
         roundingError += int144(int256(uint256(amount_)) - int256(uint256(increase_)));
     }
 
@@ -842,7 +863,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return safeAmount_ The adjusted amount that can safely be transferred out.
      */
     function _getSafeTransferableM(address sender_, uint240 amount_) internal view returns (uint240 safeAmount_) {
-        // If `sender` is not earning, no ned to adjust `amount_`.
+        // If `sender` is not earning, no need to adjust `amount_`.
         if (!IMTokenLike(mToken).isEarning(sender_)) return amount_;
 
         uint128 currentIndex_ = _currentMIndex();
