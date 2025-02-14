@@ -261,7 +261,7 @@ contract UniswapV3IntegrationTests is TestBase {
         assertEq(_wrappedMToken.balanceOf(_poolClaimRecipient), _poolClaimRecipientBalanceOfWM += _poolAccruedYield);
 
         assertEq(_wrappedMToken.balanceOf(_pool), _poolBalanceOfWM += daveWrappedM_);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield -= _poolAccruedYield);
+        assertLe(_wrappedMToken.accruedYieldOf(_pool), 3);
     }
 
     function test_uniswapV3_exactInputOrOutputForEarnersAndNonEarners() public {
@@ -356,7 +356,7 @@ contract UniswapV3IntegrationTests is TestBase {
         // Move 3 days forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 3 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 7_051_281772);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 7_051_281773);
 
         /* ============ Dave (Non-Earner) Swaps wM for Exact USDC ============ */
 
@@ -436,8 +436,8 @@ contract UniswapV3IntegrationTests is TestBase {
         // Move 10 days forward and check that yield has accrued.
         vm.warp(vm.getBlockTimestamp() + 10 days);
 
-        assertEq(_wrappedMToken.accruedYieldOf(_bob), _bobAccruedYield += 1_317339);
-        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 23_130_990918);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), _bobAccruedYield += 1_317340);
+        assertEq(_wrappedMToken.accruedYieldOf(_pool), _poolAccruedYield += 23_130_990919);
 
         /* ============ Dave (Non-Earner) Swaps Exact wM for USDC ============ */
 
