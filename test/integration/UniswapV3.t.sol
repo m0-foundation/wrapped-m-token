@@ -50,7 +50,7 @@ contract UniswapV3IntegrationTests is TestBase {
     uint256 internal _poolAccruedYield;
     uint256 internal _bobAccruedYield;
 
-    uint240 internal _excess;
+    int248 internal _excess;
 
     function setUp() external {
         _deployV2Components();

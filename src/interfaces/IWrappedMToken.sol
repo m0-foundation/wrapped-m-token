@@ -88,6 +88,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     error NotApprovedEarner(address account);
 
+    /// @notice Emitted when there is no excess to claim.
+    error NoExcess();
+
     /// @notice Emitted when the non-governance migrate function is called by a account other than the migration admin.
     error UnauthorizedMigration();
 
@@ -178,9 +181,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /**
      * @notice Claims any excess M of this contract.
-     * @return excess The amount of excess claimed.
+     * @return claimed The amount of excess claimed.
      */
-    function claimExcess() external returns (uint240 excess);
+    function claimExcess() external returns (uint240 claimed);
 
     /// @notice Enables earning of Wrapped M if allowed by the Registrar and if it has never been done.
     function enableEarning() external;
@@ -260,7 +263,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function currentIndex() external view returns (uint128 index);
 
     /// @notice This contract's current excess M that is not earmarked for account balances or accrued yield.
-    function excess() external view returns (uint240 excess);
+    function excess() external view returns (int248 excess);
 
     /**
      * @notice Returns whether `account` is a wM earner.
@@ -281,6 +284,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice The address of the M Token contract.
     function mToken() external view returns (address mToken);
 
+    /// @notice The projected total earning supply if all accrued yield was claimed at this moment.
+    function projectedEarningSupply() external view returns (uint240 supply);
+
     /// @notice The address of the Registrar.
     function registrar() external view returns (address registrar);
 
@@ -298,4 +304,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice The address of the destination where excess is claimed to.
     function excessDestination() external view returns (address excessDestination);
+
+    /// @notice The amount of rounding error the contract has lost due to rounding in favour of users.
+    function roundingError() external view returns (int144 roundingError);
 }
