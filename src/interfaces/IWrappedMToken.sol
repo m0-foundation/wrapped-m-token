@@ -69,7 +69,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     error EarningCannotBeReenabled();
 
     /**
-     * @notice Emitted when calling `stopEarning` for an account approved as an earner by the Registrar.
+     * @notice Emitted when calling `stopEarning` for an account approved as an earner.
      * @param  account The account that is an approved earner.
      */
     error IsApprovedEarner(address account);
@@ -83,7 +83,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     error InsufficientBalance(address account, uint240 balance, uint240 amount);
 
     /**
-     * @notice Emitted when calling `startEarning` for an account not approved as an earner by the Registrar.
+     * @notice Emitted when calling `startEarning` for an account not approved as an earner.
      * @param  account The account that is not an approved earner.
      */
     error NotApprovedEarner(address account);
@@ -91,8 +91,11 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted when there is no excess to claim.
     error NoExcess();
 
-    /// @notice Emitted when the non-governance migrate function is called by a account other than the migration admin.
+    /// @notice Emitted when the non-governance migrate function is called by an account other than the migration admin.
     error UnauthorizedMigration();
+
+    /// @notice Emitted in constructor if Earner Manager is 0x0.
+    error ZeroEarnerManager();
 
     /// @notice Emitted in constructor if Excess Destination is 0x0.
     error ZeroExcessDestination();
@@ -192,16 +195,28 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function disableEarning() external;
 
     /**
-     * @notice Starts earning for `account` if allowed by the Registrar.
+     * @notice Starts earning for `account` if allowed by the Earner Manager.
      * @param  account The account to start earning for.
      */
     function startEarningFor(address account) external;
 
     /**
-     * @notice Stops earning for `account` if disallowed by the Registrar.
+     * @notice Starts earning for multiple accounts if individually allowed by the Earner Manager.
+     * @param  accounts The accounts to start earning for.
+     */
+    function startEarningFor(address[] calldata accounts) external;
+
+    /**
+     * @notice Stops earning for `account` if disallowed by the Earner Manager.
      * @param  account The account to stop earning for.
      */
     function stopEarningFor(address account) external;
+
+    /**
+     * @notice Stops earning for multiple accounts if individually disallowed by the Earner Manager.
+     * @param  accounts The accounts to stop earning for.
+     */
+    function stopEarningFor(address[] calldata accounts) external;
 
     /**
      * @notice Explicitly sets the recipient of any yield claimed for the caller.
@@ -218,6 +233,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function migrate(address migrator) external;
 
     /* ============ View/Pure Functions ============ */
+
+    /// @notice 100% in basis points.
+    function HUNDRED_PERCENT() external pure returns (uint16 hundredPercent);
 
     /// @notice Registrar key holding value of whether the earners list can be ignored or not.
     function EARNERS_LIST_IGNORED_KEY() external pure returns (bytes32 earnersListIgnoredKey);
@@ -289,6 +307,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice The address of the Registrar.
     function registrar() external view returns (address registrar);
+
+    /// @notice The address of the Earner Manager.
+    function earnerManager() external view returns (address earnerManager);
 
     /// @notice The portion of total supply that is not earning yield.
     function totalNonEarningSupply() external view returns (uint240 totalSupply);

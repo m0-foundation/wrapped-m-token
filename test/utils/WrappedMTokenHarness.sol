@@ -8,9 +8,10 @@ contract WrappedMTokenHarness is WrappedMToken {
     constructor(
         address mToken_,
         address registrar_,
+        address earnerManager_,
         address excessDestination_,
         address migrationAdmin_
-    ) WrappedMToken(mToken_, registrar_, excessDestination_, migrationAdmin_) {}
+    ) WrappedMToken(mToken_, registrar_, earnerManager_, excessDestination_, migrationAdmin_) {}
 
     function internalWrap(address account_, address recipient_, uint240 amount_) external returns (uint240 wrapped_) {
         return _wrap(account_, recipient_, amount_);
@@ -36,13 +37,20 @@ contract WrappedMTokenHarness is WrappedMToken {
         address account_,
         uint256 balance_,
         uint256 earningPrincipal_,
-        bool hasClaimRecipient_
+        bool hasClaimRecipient_,
+        bool hasEarnerDetails_
     ) external {
-        _accounts[account_] = Account(true, uint240(balance_), uint112(earningPrincipal_), hasClaimRecipient_);
+        _accounts[account_] = Account(
+            true,
+            uint240(balance_),
+            uint112(earningPrincipal_),
+            hasClaimRecipient_,
+            hasEarnerDetails_
+        );
     }
 
     function setAccountOf(address account_, uint256 balance_) external {
-        _accounts[account_] = Account(false, uint240(balance_), 0, false);
+        _accounts[account_] = Account(false, uint240(balance_), 0, false, false);
     }
 
     function setInternalClaimRecipient(address account_, address claimRecipient_) external {
@@ -69,11 +77,31 @@ contract WrappedMTokenHarness is WrappedMToken {
         roundingError = int144(roundingError_);
     }
 
+    function setHasEarnerDetails(address account_, bool hasEarnerDetails_) external {
+        _accounts[account_].hasEarnerDetails = hasEarnerDetails_;
+    }
+
     function getAccountOf(
         address account_
-    ) external view returns (bool isEarning_, uint240 balance_, uint112 earningPrincipal_, bool hasClaimRecipient_) {
+    )
+        external
+        view
+        returns (
+            bool isEarning_,
+            uint240 balance_,
+            uint112 earningPrincipal_,
+            bool hasClaimRecipient_,
+            bool hasEarnerDetails_
+        )
+    {
         Account storage account = _accounts[account_];
-        return (account.isEarning, account.balance, account.earningPrincipal, account.hasClaimRecipient);
+        return (
+            account.isEarning,
+            account.balance,
+            account.earningPrincipal,
+            account.hasClaimRecipient,
+            account.hasEarnerDetails
+        );
     }
 
     function getInternalClaimRecipientOf(address account_) external view returns (address claimRecipient_) {
