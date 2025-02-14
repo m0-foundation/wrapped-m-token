@@ -38,10 +38,10 @@ invariant:
 	MAINNET_RPC_URL=$(MAINNET_RPC_URL) ./test.sh -d test/invariant -p $(profile)
 
 coverage:
-	MAINNET_RPC_URL=$(MAINNET_RPC_URL) forge coverage --no-match-path 'test/in*/**/*.sol' --report lcov && lcov --extract lcov.info --rc lcov_branch_coverage=1 --rc derive_function_end_line=0 -o lcov.info 'src/*' && genhtml lcov.info --rc branch_coverage=1 --rc derive_function_end_line=0 -o coverage
+	FOUNDRY_PROFILE=production forge coverage --fork-url $(MAINNET_RPC_URL) --report lcov && lcov --extract lcov.info --rc lcov_branch_coverage=1 --rc derive_function_end_line=0 -o lcov.info 'src/*' && genhtml lcov.info --rc branch_coverage=1 --rc derive_function_end_line=0 -o coverage
 
 gas-report:
-	FOUNDRY_PROFILE=production forge test --no-match-path 'test/integration/**/*.sol' --gas-report > gasreport.ansi
+	FOUNDRY_PROFILE=production forge test --fork-url $(MAINNET_RPC_URL) --gas-report > gasreport.ansi
 
 sizes:
 	./build.sh -p production -s

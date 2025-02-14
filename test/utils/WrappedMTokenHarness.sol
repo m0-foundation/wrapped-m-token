@@ -28,12 +28,17 @@ contract WrappedMTokenHarness is WrappedMToken {
         _accounts[account_].isEarning = isEarning_;
     }
 
-    function setLastIndexOf(address account_, uint256 index_) external {
-        _accounts[account_].lastIndex = uint128(index_);
+    function setEarningPrincipalOf(address account_, uint256 earningPrincipal_) external {
+        _accounts[account_].earningPrincipal = uint112(earningPrincipal_);
     }
 
-    function setAccountOf(address account_, uint256 balance_, uint256 index_, bool hasClaimRecipient_) external {
-        _accounts[account_] = Account(true, uint240(balance_), uint128(index_), hasClaimRecipient_);
+    function setAccountOf(
+        address account_,
+        uint256 balance_,
+        uint256 earningPrincipal_,
+        bool hasClaimRecipient_
+    ) external {
+        _accounts[account_] = Account(true, uint240(balance_), uint112(earningPrincipal_), hasClaimRecipient_);
     }
 
     function setAccountOf(address account_, uint256 balance_) external {
@@ -52,15 +57,19 @@ contract WrappedMTokenHarness is WrappedMToken {
         totalEarningSupply = uint240(totalEarningSupply_);
     }
 
-    function setPrincipalOfTotalEarningSupply(uint256 principalOfTotalEarningSupply_) external {
-        principalOfTotalEarningSupply = uint112(principalOfTotalEarningSupply_);
+    function setTotalEarningPrincipal(uint256 totalEarningPrincipal_) external {
+        totalEarningPrincipal = uint112(totalEarningPrincipal_);
+    }
+
+    function pushEnableDisableEarningIndex(uint128 index_) external {
+        _enableDisableEarningIndices.push(index_);
     }
 
     function getAccountOf(
         address account_
-    ) external view returns (bool isEarning_, uint240 balance_, uint128 index_, bool hasClaimRecipient_) {
+    ) external view returns (bool isEarning_, uint240 balance_, uint112 earningPrincipal_, bool hasClaimRecipient_) {
         Account storage account = _accounts[account_];
-        return (account.isEarning, account.balance, account.lastIndex, account.hasClaimRecipient);
+        return (account.isEarning, account.balance, account.earningPrincipal, account.hasClaimRecipient);
     }
 
     function getInternalClaimRecipientOf(address account_) external view returns (address claimRecipient_) {
