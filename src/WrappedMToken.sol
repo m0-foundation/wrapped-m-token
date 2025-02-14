@@ -161,7 +161,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function unwrap(address recipient_) external returns (uint240 unwrapped_) {
-        return _unwrap(msg.sender, recipient_, uint240(balanceWithYieldOf(msg.sender)));
+        return _unwrap(msg.sender, recipient_, uint240(balanceOf(msg.sender)));
     }
 
     /// @inheritdoc IWrappedMToken
@@ -264,7 +264,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IWrappedMToken
-    function balanceWithYieldOf(address account_) public view returns (uint256 balance_) {
+    function balanceWithYieldOf(address account_) external view returns (uint256 balance_) {
         unchecked {
             return balanceOf(account_) + accruedYieldOf(account_);
         }
@@ -356,14 +356,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         _revertIfInsufficientAmount(amount_);
         _revertIfInvalidRecipient(recipient_);
 
-        if (_accounts[recipient_].isEarning) {
-            uint128 currentIndex_ = currentIndex();
-
-            _claim(recipient_, currentIndex_);
-            _addEarningAmount(recipient_, amount_, currentIndex_);
-        } else {
-            _addNonEarningAmount(recipient_, amount_);
-        }
+        _accounts[recipient_].isEarning
+            ? _addEarningAmount(recipient_, amount_, currentIndex())
+            : _addNonEarningAmount(recipient_, amount_);
 
         emit Transfer(address(0), recipient_, amount_);
     }
@@ -376,14 +371,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _burn(address account_, uint240 amount_) internal {
         _revertIfInsufficientAmount(amount_);
 
-        if (_accounts[account_].isEarning) {
-            uint128 currentIndex_ = currentIndex();
-
-            _claim(account_, currentIndex_);
-            _subtractEarningAmount(account_, amount_, currentIndex_);
-        } else {
-            _subtractNonEarningAmount(account_, amount_);
-        }
+        _accounts[account_].isEarning
+            ? _subtractEarningAmount(account_, amount_, currentIndex())
+            : _subtractNonEarningAmount(account_, amount_);
 
         emit Transfer(account_, address(0), amount_);
     }
@@ -494,10 +484,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         emit Claimed(account_, claimRecipient_, yield_);
         emit Transfer(address(0), account_, yield_);
 
-        if (claimRecipient_ != account_) {
-            // NOTE: Watch out for a long chain of earning claim override recipients.
-            _transfer(account_, claimRecipient_, yield_, currentIndex_);
-        }
+        if (claimRecipient_ == account_) return yield_;
+
+        _transfer(account_, claimRecipient_, yield_, currentIndex_);
     }
 
     /**
@@ -509,9 +498,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
         _revertIfInvalidRecipient(recipient_);
-
-        _claim(sender_, currentIndex_);
-        _claim(recipient_, currentIndex_);
 
         emit Transfer(sender_, recipient_, amount_);
 
