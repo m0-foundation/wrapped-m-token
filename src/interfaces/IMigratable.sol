@@ -38,4 +38,7 @@ interface IMigratable {
 
     /// @notice Returns the address of the current implementation contract.
     function implementation() external view returns (address);
+
+    /// @notice Returns the address of the initializer contract.
+    function initializer() external view returns (address initializer_);
 }

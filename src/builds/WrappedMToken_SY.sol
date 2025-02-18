@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 
 import { IWrappedMToken } from "../interfaces/IWrappedMToken.sol";
 
-import { WrappedMToken } from "../WrappedMToken.sol";
+import { Initializer as WrappedMTokenInitializer, WrappedMToken } from "../WrappedMToken.sol";
 
 interface IWrappedMToken_SY is IWrappedMToken {
     error InvalidFeeRate();
@@ -12,6 +12,12 @@ interface IWrappedMToken_SY is IWrappedMToken {
     function HUNDRED_PERCENT() external pure returns (uint16 hundredPercent);
 
     function feeRate() external view returns (uint16 feeRate);
+}
+
+contract Initializer is WrappedMTokenInitializer {
+    function initialize(string memory name_, string memory symbol_, address excessDestination_) external {
+        WrappedMTokenInitializer._initialize(name_, symbol_, excessDestination_);
+    }
 }
 
 /**
@@ -28,9 +34,9 @@ contract WrappedMToken_SY is IWrappedMToken_SY, WrappedMToken {
         string memory symbol_,
         address mToken_,
         address registrar_,
-        address excessDestination_,
+        address initializer_,
         uint16 feeRate_
-    ) WrappedMToken(name_, symbol_, mToken_, registrar_, excessDestination_) {
+    ) WrappedMToken(name_, symbol_, mToken_, registrar_, initializer_) {
         if ((feeRate = feeRate_) > HUNDRED_PERCENT) revert InvalidFeeRate();
     }
 

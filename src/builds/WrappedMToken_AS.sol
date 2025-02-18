@@ -5,10 +5,25 @@ pragma solidity 0.8.26;
 import { IWrappedMToken } from "../interfaces/IWrappedMToken.sol";
 
 import { WrappedMToken } from "../WrappedMToken.sol";
+import { Initializer as WrappedMTokenInitializer, WrappedMToken } from "../WrappedMToken.sol";
 
-import { IAdministered, Administered } from "../components/Administered.sol";
+import { IAdministered, Initializer as AdministeredInitializer, Administered } from "../components/Administered.sol";
 
-interface IWrappedMToken_AS is IAdministered, IWrappedMToken {}
+interface IWrappedMToken_AS is IAdministered, IWrappedMToken {
+    function seize(address account_, address recipient_) external;
+}
+
+contract Initializer is AdministeredInitializer, WrappedMTokenInitializer {
+    function initialize(
+        string memory name_,
+        string memory symbol_,
+        address excessDestination_,
+        address admin_
+    ) external {
+        WrappedMTokenInitializer._initialize(name_, symbol_, excessDestination_);
+        AdministeredInitializer._initialize(admin_);
+    }
+}
 
 /**
  * @title  Admin-controlled seizes.
@@ -20,9 +35,8 @@ contract WrappedMToken_AS is IWrappedMToken_AS, Administered, WrappedMToken {
         string memory symbol_,
         address mToken_,
         address registrar_,
-        address excessDestination_,
-        address admin_
-    ) WrappedMToken(name_, symbol_, mToken_, registrar_, excessDestination_) Administered(admin_) {}
+        address initializer_
+    ) WrappedMToken(name_, symbol_, mToken_, registrar_, initializer_) {}
 
     function seize(address account_, address recipient_) external {
         _revertIfNotAdmin();

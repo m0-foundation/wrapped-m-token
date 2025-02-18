@@ -2,6 +2,7 @@
 
 pragma solidity 0.8.26;
 
+import { Bytes32String } from "../lib/common/src/libs/Bytes32String.sol";
 import { IndexingMath } from "../lib/common/src/libs/IndexingMath.sol";
 import { UIntMath } from "../lib/common/src/libs/UIntMath.sol";
 
@@ -15,11 +16,41 @@ import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
 
 import { Migratable } from "./Migratable.sol";
 
+abstract contract WrappedMTokenStorageLayout {
+    /// @custom:storage-location erc7201:m-zero.storage.WrappedMToken
+    struct WrappedMTokenStorage {
+        bytes32 name;
+        bytes32 symbol;
+        address excessDestination;
+    }
+
+    // keccak256(abi.encode(uint256(keccak256("m-zero.storage.WrappedMToken")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant _WRAPPED_M_TOKEN_STORAGE_LOCATION =
+        0xa42bd00c321004a3a311d89d7de22f9a9bce2736d5fa3ef3cd574d80bf6d9993; // TODO: Update this value.
+
+    function _getWrappedMTokenStorage() internal pure returns (WrappedMTokenStorage storage $) {
+        assembly {
+            $.slot := _WRAPPED_M_TOKEN_STORAGE_LOCATION
+        }
+    }
+}
+
+abstract contract Initializer is WrappedMTokenStorageLayout {
+    function _initialize(string memory name_, string memory symbol_, address excessDestination_) internal {
+        WrappedMTokenStorage storage $ = _getWrappedMTokenStorage();
+
+        $.name = Bytes32String.toBytes32(name_);
+        $.symbol = Bytes32String.toBytes32(symbol_);
+
+        if (($.excessDestination = excessDestination_) == address(0)) revert IWrappedMToken.ZeroExcessDestination();
+    }
+}
+
 /**
  * @title  ERC20 Token contract for wrapping M into a non-rebasing token with claimable yields.
  * @author M^0 Labs
  */
-abstract contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
+abstract contract WrappedMToken is IWrappedMToken, Migratable, WrappedMTokenStorageLayout, ERC20Extended {
     /* ============ Structs ============ */
 
     /**
@@ -54,29 +85,30 @@ abstract contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @inheritdoc IWrappedMToken
     address public immutable registrar;
 
-    /// @inheritdoc IWrappedMToken
-    address public immutable excessDestination;
+    // StatefulERC712.nonces is slot 0
+    // ERC3009.authorizationState is slot 1
+    // ERC20Extended.allowance is slot 2
 
     /// @inheritdoc IWrappedMToken
-    uint112 public totalEarningPrincipal;
+    uint112 public totalEarningPrincipal; // slot 3
 
     /// @inheritdoc IWrappedMToken
-    int144 public roundingError;
+    int144 public roundingError; // slot 3
 
     /// @inheritdoc IWrappedMToken
-    uint240 public totalEarningSupply;
+    uint240 public totalEarningSupply; // slot 4
 
     /// @inheritdoc IWrappedMToken
-    uint240 public totalNonEarningSupply;
+    uint240 public totalNonEarningSupply; // slot 5
 
     /// @dev Mapping of accounts to their respective `AccountInfo` structs.
-    mapping(address account => Account balance) internal _accounts;
+    mapping(address account => Account balance) internal _accounts; // slot 6
 
     /// @inheritdoc IWrappedMToken
-    uint128 public enableMIndex;
+    uint128 public enableMIndex; // slot 7
 
     /// @inheritdoc IWrappedMToken
-    uint128 public disableIndex;
+    uint128 public disableIndex; // slot 7
 
     /* ============ Modifiers ============ */
 
@@ -97,22 +129,21 @@ abstract contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /**
      * @dev   Constructs the contract given an M Token address and other parameters.
      *        Note that a proxy will not need to initialize since there are no mutable storage values affected.
-     * @param name_              The name of the token.
-     * @param symbol_            The symbol of the token.
-     * @param mToken_            The address of an M Token.
-     * @param registrar_         The address of a Registrar.
-     * @param excessDestination_ The address of an excess destination.
+     * @param name_        The name of the token.
+     * @param symbol_      The symbol of the token.
+     * @param mToken_      The address of an M Token.
+     * @param registrar_   The address of a Registrar.
+     * @param initializer_ The address of a proxy Initializer.
      */
     constructor(
         string memory name_,
         string memory symbol_,
         address mToken_,
         address registrar_,
-        address excessDestination_
-    ) ERC20Extended(name_, symbol_, 6) {
+        address initializer_
+    ) Migratable(initializer_) ERC20Extended(name_, symbol_, 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
-        if ((excessDestination = excessDestination_) == address(0)) revert ZeroExcessDestination();
     }
 
     /* ============ Interactive Functions ============ */
@@ -179,7 +210,7 @@ abstract contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         emit ExcessClaimed(claimed_);
 
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
-        IMTokenLike(mToken).transfer(excessDestination, claimed_);
+        IMTokenLike(mToken).transfer(_getWrappedMTokenStorage().excessDestination, claimed_);
     }
 
     /// @inheritdoc IWrappedMToken
@@ -317,6 +348,21 @@ abstract contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
                 IndexingMath.getPresentAmountRoundedUp(totalEarningPrincipal, currentIndex()),
                 totalEarningSupply
             );
+    }
+
+    /// @inheritdoc IERC20
+    function name() external view override(IERC20, ERC20Extended) returns (string memory name_) {
+        return Bytes32String.toString(_getWrappedMTokenStorage().name);
+    }
+
+    /// @inheritdoc IERC20
+    function symbol() external view override(IERC20, ERC20Extended) returns (string memory symbol_) {
+        return Bytes32String.toString(_getWrappedMTokenStorage().symbol);
+    }
+
+    /// @inheritdoc IWrappedMToken
+    function excessDestination() external view returns (address excessDestination_) {
+        return _getWrappedMTokenStorage().excessDestination;
     }
 
     /* ============ Internal Interactive Functions ============ */

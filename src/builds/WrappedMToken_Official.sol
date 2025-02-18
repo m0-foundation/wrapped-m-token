@@ -3,14 +3,11 @@
 pragma solidity 0.8.26;
 
 import { IEarnerManager } from "../interfaces/IEarnerManager.sol";
-import { IMigratable } from "../interfaces/IMigratable.sol";
 import { IWrappedMToken } from "../interfaces/IWrappedMToken.sol";
 
-import { Migratable } from "../Migratable.sol";
+import { Initializer as WrappedMTokenInitializer, WrappedMToken } from "../WrappedMToken.sol";
 
-import { WrappedMToken } from "../WrappedMToken.sol";
-
-interface IWrappedMToken_Official is IMigratable, IWrappedMToken {
+interface IWrappedMToken_Official is IWrappedMToken {
     event ClaimRecipientSet(address indexed account, address indexed claimRecipient);
 
     error IsApprovedEarner(address account);
@@ -42,11 +39,17 @@ interface IWrappedMToken_Official is IMigratable, IWrappedMToken {
     function migrationAdmin() external view returns (address migrationAdmin);
 }
 
+contract Initializer is WrappedMTokenInitializer {
+    function initialize(string memory name_, string memory symbol_, address excessDestination_) external {
+        WrappedMTokenInitializer._initialize(name_, symbol_, excessDestination_);
+    }
+}
+
 /**
  * @title  Official Wrapped M.
  * @author M^0 Labs
  */
-contract WrappedMToken_Official is IWrappedMToken_Official, Migratable, WrappedMToken {
+contract WrappedMToken_Official is IWrappedMToken_Official, WrappedMToken {
     bytes32 public constant CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX = "wm_claim_override_recipient";
 
     bytes32 public constant MIGRATOR_KEY_PREFIX = "wm_migrator_v3";
@@ -64,10 +67,10 @@ contract WrappedMToken_Official is IWrappedMToken_Official, Migratable, WrappedM
         string memory symbol_,
         address mToken_,
         address registrar_,
-        address excessDestination_,
+        address initializer_,
         address earnerManager_,
         address migrationAdmin_
-    ) WrappedMToken(name_, symbol_, mToken_, registrar_, excessDestination_) {
+    ) WrappedMToken(name_, symbol_, mToken_, registrar_, initializer_) {
         if ((earnerManager = earnerManager_) == address(0)) revert ZeroEarnerManager();
         if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
     }

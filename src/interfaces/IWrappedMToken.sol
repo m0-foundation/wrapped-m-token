@@ -6,8 +6,6 @@ import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.s
 
 import { IMigratable } from "./IMigratable.sol";
 
-// TODO: Has implementation.
-
 /**
  * @title  Wrapped M Token interface extending Extended ERC20.
  * @author M^0 Labs

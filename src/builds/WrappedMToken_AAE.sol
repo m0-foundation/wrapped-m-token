@@ -4,12 +4,24 @@ pragma solidity 0.8.26;
 
 import { IWrappedMToken } from "../interfaces/IWrappedMToken.sol";
 
-import { WrappedMToken } from "../WrappedMToken.sol";
+import { Initializer as WrappedMTokenInitializer, WrappedMToken } from "../WrappedMToken.sol";
 
-import { IAdministered, Administered } from "../components/Administered.sol";
+import { IAdministered, Initializer as AdministeredInitializer, Administered } from "../components/Administered.sol";
 import { IApprovedEarners, ApprovedEarners } from "../components/ApprovedEarners.sol";
 
 interface IWrappedMToken_AAE is IApprovedEarners, IAdministered, IWrappedMToken {}
+
+contract Initializer is AdministeredInitializer, WrappedMTokenInitializer {
+    function initialize(
+        string memory name_,
+        string memory symbol_,
+        address excessDestination_,
+        address admin_
+    ) external {
+        WrappedMTokenInitializer._initialize(name_, symbol_, excessDestination_);
+        AdministeredInitializer._initialize(admin_);
+    }
+}
 
 /**
  * @title  Admin-controlled approved earners.
@@ -21,9 +33,8 @@ contract WrappedMToken_AAE is IWrappedMToken_AAE, ApprovedEarners, Administered,
         string memory symbol_,
         address mToken_,
         address registrar_,
-        address excessDestination_,
-        address admin_
-    ) WrappedMToken(name_, symbol_, mToken_, registrar_, excessDestination_) Administered(admin_) {}
+        address initializer_
+    ) WrappedMToken(name_, symbol_, mToken_, registrar_, initializer_) {}
 
     function _beforeSetIsApprovedEarner(address account_, bool isApproved_) internal override {
         _revertIfNotAdmin();

@@ -4,9 +4,15 @@ pragma solidity 0.8.26;
 
 import { IWrappedMToken } from "../interfaces/IWrappedMToken.sol";
 
-import { WrappedMToken } from "../WrappedMToken.sol";
+import { Initializer as WrappedMTokenInitializer, WrappedMToken } from "../WrappedMToken.sol";
 
 interface IWrappedMToken_NY is IWrappedMToken {}
+
+contract Initializer is WrappedMTokenInitializer {
+    function initialize(string memory name_, string memory symbol_, address excessDestination_) external {
+        WrappedMTokenInitializer._initialize(name_, symbol_, excessDestination_);
+    }
+}
 
 /**
  * @title  No earning, all is excess going to some excess destination.
@@ -18,8 +24,8 @@ contract WrappedMToken_NY is IWrappedMToken_NY, WrappedMToken {
         string memory symbol_,
         address mToken_,
         address registrar_,
-        address excessDestination_
-    ) WrappedMToken(name_, symbol_, mToken_, registrar_, excessDestination_) {}
+        address initializer_
+    ) WrappedMToken(name_, symbol_, mToken_, registrar_, initializer_) {}
 
     function enableEarning() external pure override(IWrappedMToken, WrappedMToken) {
         revert EarningIsDisabled();
