@@ -111,6 +111,11 @@ contract UpgradeTests is Test, DeployBase {
         assertEq(wrappedMTokenMigrator_, expectedWrappedMTokenMigrator_);
 
         uint240 totalEarningSupply_ = IWrappedMToken(_WRAPPED_M_TOKEN).totalEarningSupply();
+        uint256[] memory balancesWithYield_ = new uint256[](_earners.length);
+
+        for (uint256 index_; index_ < _earners.length; ++index_) {
+            balancesWithYield_[index_] = IWrappedMToken(_WRAPPED_M_TOKEN).balanceWithYieldOf(_earners[index_]);
+        }
 
         vm.prank(IWrappedMToken(_WRAPPED_M_TOKEN).migrationAdmin());
         IWrappedMToken(_WRAPPED_M_TOKEN).migrate(wrappedMTokenMigrator_);
@@ -126,5 +131,9 @@ contract UpgradeTests is Test, DeployBase {
         // Relevant storage slots.
         assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).totalEarningSupply(), totalEarningSupply_);
         assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).roundingError(), 0);
+
+        for (uint256 index_; index_ < _earners.length; ++index_) {
+            assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).balanceWithYieldOf(_earners[index_]), balancesWithYield_[index_]);
+        }
     }
 }
