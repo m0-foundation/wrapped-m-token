@@ -73,10 +73,6 @@ contract WrappedMTokenHarness is WrappedMToken {
         _enableDisableEarningIndices.push(index_);
     }
 
-    function setRoundingError(uint256 roundingError_) external {
-        roundingError = uint144(roundingError_);
-    }
-
     function setHasEarnerDetails(address account_, bool hasEarnerDetails_) external {
         _accounts[account_].hasEarnerDetails = hasEarnerDetails_;
     }

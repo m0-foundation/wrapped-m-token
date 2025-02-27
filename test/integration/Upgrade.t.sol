@@ -130,7 +130,6 @@ contract UpgradeTests is Test, DeployBase {
 
         // Relevant storage slots.
         assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).totalEarningSupply(), totalEarningSupply_);
-        assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).roundingError(), 0);
 
         for (uint256 index_; index_ < _earners.length; ++index_) {
             assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).balanceWithYieldOf(_earners[index_]), balancesWithYield_[index_]);
