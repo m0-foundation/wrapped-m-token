@@ -608,14 +608,15 @@ contract ProtocolIntegrationTests is TestBase {
 
         uint256 vaultStartingBalance_ = _mToken.balanceOf(_excessDestination);
 
-        assertEq(_wrappedMToken.claimExcess(), uint256(_excess - 1));
-        assertEq(_mToken.balanceOf(_excessDestination), uint256(_excess - 1) + vaultStartingBalance_);
+        assertEq(_wrappedMToken.claimExcess(), uint256(_excess));
+
+        assertEq(_mToken.balanceOf(_excessDestination), uint256(_excess) + vaultStartingBalance_);
 
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply);
         assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield);
-        assertEq(_wrappedMToken.excess(), _excess -= _excess);
+        assertEq(_wrappedMToken.excess(), _excess -= _excess + 1);
 
         assertGe(
             int256(_wrapperBalanceOfM),
@@ -624,17 +625,19 @@ contract ProtocolIntegrationTests is TestBase {
     }
 
     function testFuzz_full(uint256 seed_) external {
-        // TODO: Reinstate to test post-migration for new version.
         vm.skip(true);
+
+        _wrappedMToken.claimExcess();
 
         for (uint256 index_; index_ < _accounts.length; ++index_) {
             _giveM(_accounts[index_], 100_000e6);
         }
 
-        for (uint256 index_; index_ < 1000; ++index_) {
-            assertTrue(Invariants.checkInvariant1(address(_wrappedMToken), _accounts), "Invariant 1 Failed.");
-            assertTrue(Invariants.checkInvariant2(address(_wrappedMToken), _accounts), "Invariant 2 Failed.");
-            assertTrue(Invariants.checkInvariant4(address(_wrappedMToken), _accounts), "Invariant 4 Failed.");
+        for (uint256 index_; index_ < 1_000; ++index_) {
+            // assertTrue(Invariants.checkInvariant1(address(_wrappedMToken), _accounts), "Invariant 1 Failed.");
+            // assertTrue(Invariants.checkInvariant2(address(_wrappedMToken), _accounts), "Invariant 2 Failed.");
+            assertTrue(Invariants.checkInvariant3(address(_wrappedMToken), address(_mToken)), "Invariant 3 Failed.");
+            // assertTrue(Invariants.checkInvariant4(address(_wrappedMToken), _accounts), "Invariant 4 Failed.");
 
             // console2.log("--------");
             // console2.log("");
@@ -648,12 +651,10 @@ contract ProtocolIntegrationTests is TestBase {
             // console2.log("");
             // console2.log("--------");
 
-            assertTrue(Invariants.checkInvariant1(address(_wrappedMToken), _accounts), "Invariant 1 Failed.");
-            assertTrue(Invariants.checkInvariant2(address(_wrappedMToken), _accounts), "Invariant 2 Failed.");
-            assertTrue(Invariants.checkInvariant4(address(_wrappedMToken), _accounts), "Invariant 4 Failed.");
-
-            // NOTE: Skipping this as there is no trivial way to guarantee this invariant while meeting 1 and 2.
-            // assertTrue(Invariants.checkInvariant3(address(_wrappedMToken), address(_mToken)), "Invariant 3 Failed.");
+            // assertTrue(Invariants.checkInvariant1(address(_wrappedMToken), _accounts), "Invariant 1 Failed.");
+            // assertTrue(Invariants.checkInvariant2(address(_wrappedMToken), _accounts), "Invariant 2 Failed.");
+            assertTrue(Invariants.checkInvariant3(address(_wrappedMToken), address(_mToken)), "Invariant 3 Failed.");
+            // assertTrue(Invariants.checkInvariant4(address(_wrappedMToken), _accounts), "Invariant 4 Failed.");
 
             // console2.log("Wrapper has %s M", _mToken.balanceOf(address(_wrappedMToken)));
 

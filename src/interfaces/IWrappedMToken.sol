@@ -326,6 +326,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice The address of the destination where excess is claimed to.
     function excessDestination() external view returns (address excessDestination);
 
-    /// @notice The amount of rounding error the contract has lost due to rounding in favour of users.
-    function roundingError() external view returns (int144 roundingError);
+    /// @notice The amount of M the contract has lost due to rounding in favour of users.
+    function roundingError() external view returns (uint144 roundingError);
 }

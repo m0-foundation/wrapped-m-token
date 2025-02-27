@@ -907,7 +907,7 @@ contract WrappedMTokenTests is Test {
         uint240 totalNonEarningSupply_,
         uint240 totalProjectedEarningSupply_,
         uint112 mPrincipalBalance_,
-        int144 roundingError_
+        uint144 roundingError_
     ) external {
         currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
 
@@ -937,13 +937,15 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setTotalEarningPrincipal(totalEarningPrincipal_);
         _wrappedMToken.setTotalNonEarningSupply(totalNonEarningSupply_);
 
-        roundingError_ = int144(bound(roundingError_, -1_000_000000, 1_000_000000));
+        roundingError_ = uint144(bound(roundingError_, 0, 1_000_000000));
 
         _wrappedMToken.setRoundingError(roundingError_);
 
         uint240 totalProjectedSupply_ = totalNonEarningSupply_ + totalProjectedEarningSupply_;
-        int248 earmarked_ = int248(uint248(totalProjectedSupply_)) + roundingError_;
-        int248 excess_ = earmarked_ <= 0 ? int248(uint248(mBalance_)) : int248(uint248(mBalance_)) - earmarked_;
+        uint240 earmarked_ = totalProjectedSupply_ + roundingError_;
+        int248 excess_ = earmarked_ <= 0
+            ? int248(uint248(mBalance_))
+            : int248(uint248(mBalance_)) - int248(uint248(earmarked_));
 
         if (excess_ <= 0) {
             vm.expectRevert(IWrappedMToken.NoExcess.selector);
@@ -1892,18 +1894,6 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setRoundingError(0);
 
         assertEq(_wrappedMToken.excess(), 892);
-
-        _wrappedMToken.setRoundingError(-1);
-
-        assertEq(_wrappedMToken.excess(), 893);
-
-        _wrappedMToken.setRoundingError(-2_210);
-
-        assertEq(_wrappedMToken.excess(), 3_102);
-
-        _wrappedMToken.setRoundingError(-2_211);
-
-        assertEq(_wrappedMToken.excess(), 3_102);
     }
 
     function testFuzz_excess(
@@ -1912,7 +1902,7 @@ contract WrappedMTokenTests is Test {
         uint240 totalNonEarningSupply_,
         uint240 totalProjectedEarningSupply_,
         uint112 mPrincipalBalance_,
-        int144 roundingError_
+        uint144 roundingError_
     ) external {
         currentMIndex_ = uint128(bound(currentMIndex_, _EXP_SCALED_ONE, 10 * _EXP_SCALED_ONE));
 
@@ -1942,14 +1932,14 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setTotalEarningPrincipal(totalEarningPrincipal_);
         _wrappedMToken.setTotalNonEarningSupply(totalNonEarningSupply_);
 
-        roundingError_ = int144(bound(roundingError_, -1_000_000000, 1_000_000000));
+        roundingError_ = uint144(bound(roundingError_, 0, 1_000_000000));
 
         _wrappedMToken.setRoundingError(roundingError_);
 
         uint240 totalProjectedSupply_ = totalNonEarningSupply_ + totalProjectedEarningSupply_;
-        int248 earmarked_ = int248(uint248(totalProjectedSupply_)) + roundingError_;
+        uint240 earmarked_ = totalProjectedSupply_ + roundingError_;
 
-        assertLe(_wrappedMToken.excess(), int248(uint248(mBalance_)) - earmarked_);
+        assertLe(_wrappedMToken.excess(), int248(uint248(mBalance_)) - int248(uint248(earmarked_)));
     }
 
     /* ============ totalAccruedYield ============ */
