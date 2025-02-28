@@ -9,9 +9,8 @@ contract WrappedMTokenHarness is WrappedMToken {
         address mToken_,
         address registrar_,
         address earnerManager_,
-        address excessDestination_,
-        address migrationAdmin_
-    ) WrappedMToken(mToken_, registrar_, earnerManager_, excessDestination_, migrationAdmin_) {}
+        address excessDestination_
+    ) WrappedMToken(mToken_, registrar_, earnerManager_, excessDestination_) {}
 
     function internalWrap(address account_, address recipient_, uint240 amount_) external returns (uint240 wrapped_) {
         return _wrap(account_, recipient_, amount_);
@@ -75,6 +74,14 @@ contract WrappedMTokenHarness is WrappedMToken {
 
     function setHasEarnerDetails(address account_, bool hasEarnerDetails_) external {
         _accounts[account_].hasEarnerDetails = hasEarnerDetails_;
+    }
+
+    function setMigrationAdmin(address migrationAdmin_) external {
+        migrationAdmin = migrationAdmin_;
+    }
+
+    function setInternalPendingMigrationAdmin(address pendingMigrationAdmin_) external {
+        pendingMigrationAdmin = pendingMigrationAdmin_;
     }
 
     function getAccountOf(

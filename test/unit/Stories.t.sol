@@ -24,7 +24,6 @@ contract StoryTests is Test {
     address internal _dave = makeAddr("dave");
 
     address internal _excessDestination = makeAddr("excessDestination");
-    address internal _migrationAdmin = makeAddr("migrationAdmin");
 
     MockEarnerManager internal _earnerManager;
     MockM internal _mToken;
@@ -44,8 +43,7 @@ contract StoryTests is Test {
             address(_mToken),
             address(_registrar),
             address(_earnerManager),
-            _excessDestination,
-            _migrationAdmin
+            _excessDestination
         );
 
         _wrappedMToken = IWrappedMToken(address(new Proxy(address(_implementation))));

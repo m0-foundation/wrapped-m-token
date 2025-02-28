@@ -20,7 +20,22 @@ interface IEarnerManager is IMigratable {
      */
     event EarnerDetailsSet(address indexed account, bool indexed status, address indexed admin, uint16 feeRate);
 
+    /**
+     * @notice Emitted when the migration admin is set.
+     * @param  migrationAdmin The address of the migration admin.
+     */
+    event MigrationAdminSet(address indexed migrationAdmin);
+
+    /**
+     * @notice Emitted when the pending migration admin is set.
+     * @param  pendingMigrationAdmin The address of the migration admin that can accept the role.
+     */
+    event PendingMigrationAdminSet(address indexed pendingMigrationAdmin);
+
     /* ============ Custom Errors ============ */
+
+    /// @notice Emitted when trying to initialize the contract (proxy) when it is already initialized.
+    error AlreadyInitialized();
 
     /// @notice Emitted when `account` is already in the earners list, so it cannot be added by an admin.
     error AlreadyInRegistrarEarnersList(address account);
@@ -46,8 +61,14 @@ interface IEarnerManager is IMigratable {
     /// @notice Emitted when the caller is not an admin.
     error NotAdmin();
 
-    /// @notice Emitted when the non-governance migrate function is called by an account other than the migration admin.
-    error UnauthorizedMigration();
+    /// @notice Emitted when the execution context is the implementation itself, rather than a proxy.
+    error NotProxy();
+
+    /// @notice Emitted when a restricted function is called by an account other than the migration admin.
+    error NotMigrationAdmin();
+
+    /// @notice Emitted when an account other than the pending migration admin is accepting the migration admin role.
+    error NotPendingMigrationAdmin();
 
     /// @notice Emitted when an account (whose status is being set) is 0x0.
     error ZeroAccount();
@@ -57,6 +78,14 @@ interface IEarnerManager is IMigratable {
 
     /// @notice Emitted in constructor if Registrar is 0x0.
     error ZeroRegistrar();
+
+    /* ============ Initializer ============ */
+
+    /**
+     * @dev   Initializes the contract with a migration admin.
+     * @param migrationAdmin_ The address of a migration admin.
+     */
+    function initialize(address migrationAdmin_) external;
 
     /* ============ Interactive Functions ============ */
 
@@ -91,6 +120,15 @@ interface IEarnerManager is IMigratable {
      * @param  migrator The address of a migrator contract.
      */
     function migrate(address migrator) external;
+
+    /**
+     * @notice Sets the pending migration admin that can then accept the role and become the migration admin.
+     * @param  migrationAdmin The address of an account to become the migration admin.
+     */
+    function setPendingMigrationAdmin(address migrationAdmin) external;
+
+    /// @notice Accepts the role of migration admin if the caller is the pending migration admin.
+    function acceptMigrationAdmin() external;
 
     /* ============ View/Pure Functions ============ */
 
@@ -172,6 +210,9 @@ interface IEarnerManager is IMigratable {
 
     /// @notice The account that can bypass the Registrar and call the `migrate(address migrator)` function.
     function migrationAdmin() external view returns (address migrationAdmin);
+
+    /// @notice The account that can accept the migration admin role.
+    function pendingMigrationAdmin() external view returns (address pendingMigrationAdmin);
 
     /// @notice Returns the address of the Registrar.
     function registrar() external view returns (address);

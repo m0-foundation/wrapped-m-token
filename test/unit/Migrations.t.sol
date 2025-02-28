@@ -57,17 +57,11 @@ contract MigrationTests is Test {
         address mToken_ = makeAddr("mToken");
 
         address implementation_ = address(
-            new WrappedMToken(
-                address(mToken_),
-                address(registrar_),
-                _earnerManager,
-                _excessDestination,
-                _migrationAdmin
-            )
+            new WrappedMToken(address(mToken_), address(registrar_), _earnerManager, _excessDestination)
         );
 
         address proxy_ = address(new Proxy(address(implementation_)));
-        address migrator_ = address(new WrappedMTokenMigrator(address(new Foo()), new address[](0)));
+        address migrator_ = address(new WrappedMTokenMigrator(address(new Foo()), new address[](0), _migrationAdmin));
 
         registrar_.set(keccak256(abi.encode(_WM_MIGRATOR_KEY_PREFIX, proxy_)), bytes32(uint256(uint160(migrator_))));
 
@@ -84,17 +78,14 @@ contract MigrationTests is Test {
         address mToken_ = makeAddr("mToken");
 
         address implementation_ = address(
-            new WrappedMToken(
-                address(mToken_),
-                address(registrar_),
-                _earnerManager,
-                _excessDestination,
-                _migrationAdmin
-            )
+            new WrappedMToken(address(mToken_), address(registrar_), _earnerManager, _excessDestination)
         );
 
         address proxy_ = address(new Proxy(address(implementation_)));
-        address migrator_ = address(new WrappedMTokenMigrator(address(new Foo()), new address[](0)));
+
+        WrappedMToken(proxy_).initialize(_migrationAdmin);
+
+        address migrator_ = address(new WrappedMTokenMigrator(address(new Foo()), new address[](0), _migrationAdmin));
 
         vm.expectRevert();
         Foo(proxy_).bar();
@@ -108,7 +99,7 @@ contract MigrationTests is Test {
     function test_earnerManager_migration() external {
         MockRegistrar registrar_ = new MockRegistrar();
 
-        address implementation_ = address(new EarnerManager(address(registrar_), _migrationAdmin));
+        address implementation_ = address(new EarnerManager(address(registrar_)));
         address proxy_ = address(new Proxy(address(implementation_)));
         address migrator_ = address(new EarnerManagerMigrator(address(new Foo())));
 
@@ -117,7 +108,7 @@ contract MigrationTests is Test {
         vm.expectRevert();
         Foo(proxy_).bar();
 
-        IWrappedMToken(proxy_).migrate();
+        IEarnerManager(proxy_).migrate();
 
         assertEq(Foo(proxy_).bar(), 1);
     }
@@ -125,8 +116,11 @@ contract MigrationTests is Test {
     function test_earnerManager_migration_fromAdmin() external {
         MockRegistrar registrar_ = new MockRegistrar();
 
-        address implementation_ = address(new EarnerManager(address(registrar_), _migrationAdmin));
+        address implementation_ = address(new EarnerManager(address(registrar_)));
         address proxy_ = address(new Proxy(address(implementation_)));
+
+        EarnerManager(proxy_).initialize(_migrationAdmin);
+
         address migrator_ = address(new EarnerManagerMigrator(address(new Foo())));
 
         vm.expectRevert();

@@ -217,10 +217,13 @@ contract TestBase is Test {
     }
 
     function _deployV2Components() internal {
-        _earnerManagerImplementation = address(new EarnerManager(_registrar, _migrationAdmin));
+        _earnerManagerImplementation = address(new EarnerManager(_registrar));
         _earnerManager = address(new Proxy(_earnerManagerImplementation));
+
+        EarnerManager(_earnerManager).initialize(_migrationAdmin);
+
         _wrappedMTokenImplementationV2 = address(
-            new WrappedMToken(address(_mToken), _registrar, _earnerManager, _excessDestination, _migrationAdmin)
+            new WrappedMToken(address(_mToken), _registrar, _earnerManager, _excessDestination)
         );
 
         address[] memory earners_ = new address[](_earners.length);
@@ -229,7 +232,9 @@ contract TestBase is Test {
             earners_[index_] = _earners[index_];
         }
 
-        _wrappedMTokenMigratorV1 = address(new WrappedMTokenMigratorV1(_wrappedMTokenImplementationV2, earners_));
+        _wrappedMTokenMigratorV1 = address(
+            new WrappedMTokenMigratorV1(_wrappedMTokenImplementationV2, earners_, _migrationAdmin)
+        );
     }
 
     function _migrate() internal {

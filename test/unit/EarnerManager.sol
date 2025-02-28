@@ -2,6 +2,7 @@
 
 pragma solidity 0.8.26;
 
+import { Proxy } from "../../lib/common/src/Proxy.sol";
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
 import { IEarnerManager } from "../../src/interfaces/IEarnerManager.sol";
@@ -23,14 +24,14 @@ contract EarnerManagerTests is Test {
     address internal _dave = makeAddr("dave");
     address internal _frank = makeAddr("frank");
 
-    address internal _migrationAdmin = makeAddr("migrationAdmin");
-
     MockRegistrar internal _registrar;
+    EarnerManagerHarness internal _implementation;
     EarnerManagerHarness internal _earnerManager;
 
     function setUp() external {
         _registrar = new MockRegistrar();
-        _earnerManager = new EarnerManagerHarness(address(_registrar), _migrationAdmin);
+        _implementation = new EarnerManagerHarness(address(_registrar));
+        _earnerManager = EarnerManagerHarness(address(new Proxy(address(_implementation))));
 
         _registrar.setListContains(_ADMINS_LIST_NAME, _admin1, true);
         _registrar.setListContains(_ADMINS_LIST_NAME, _admin2, true);
@@ -44,12 +45,32 @@ contract EarnerManagerTests is Test {
     /* ============ constructor ============ */
     function test_constructor_zeroRegistrar() external {
         vm.expectRevert(IEarnerManager.ZeroRegistrar.selector);
-        new EarnerManagerHarness(address(0), address(0));
+        new EarnerManagerHarness(address(0));
     }
 
-    function test_constructor_zeroMigrationAdmin() external {
+    /* ============ initialize ============ */
+    function test_initialize_notProxy() external {
+        vm.expectRevert(IEarnerManager.NotProxy.selector);
+        _implementation.initialize(address(0));
+    }
+
+    function test_initialize_alreadyInitialized() external {
+        _earnerManager.setMigrationAdmin(address(1));
+
+        vm.expectRevert(IEarnerManager.AlreadyInitialized.selector);
+        _earnerManager.initialize(address(0));
+    }
+
+    function test_initialize_zeroMigrationAdmin() external {
         vm.expectRevert(IEarnerManager.ZeroMigrationAdmin.selector);
-        new EarnerManagerHarness(address(_registrar), address(0));
+        _earnerManager.initialize(address(0));
+    }
+
+    function test_initialize() external {
+        vm.expectEmit();
+        emit IEarnerManager.MigrationAdminSet(address(1));
+
+        _earnerManager.initialize(address(1));
     }
 
     /* ============ _setDetails ============ */
@@ -594,5 +615,47 @@ contract EarnerManagerTests is Test {
         assertFalse(_earnerManager.isAdmin(_alice));
         assertTrue(_earnerManager.isAdmin(_admin1));
         assertTrue(_earnerManager.isAdmin(_admin2));
+    }
+
+    /* ============ setPendingMigrationAdmin ============ */
+    function test_setPendingMigrationAdmin_notMigrationAdmin() external {
+        vm.expectRevert(IEarnerManager.NotMigrationAdmin.selector);
+
+        vm.prank(_alice);
+        _earnerManager.setPendingMigrationAdmin(address(0));
+    }
+
+    function test_setPendingMigrationAdmin() external {
+        _earnerManager.setMigrationAdmin(_alice);
+
+        vm.expectEmit();
+        emit IEarnerManager.PendingMigrationAdminSet(_bob);
+
+        vm.prank(_alice);
+        _earnerManager.setPendingMigrationAdmin(_bob);
+
+        assertEq(_earnerManager.pendingMigrationAdmin(), _bob);
+    }
+
+    /* ============ acceptMigrationAdmin ============ */
+    function test_acceptMigrationAdmin_notPendingMigrationAdmin() external {
+        vm.expectRevert(IEarnerManager.NotPendingMigrationAdmin.selector);
+
+        vm.prank(_bob);
+        _earnerManager.acceptMigrationAdmin();
+    }
+
+    function test_acceptMigrationAdmin() external {
+        _earnerManager.setMigrationAdmin(_alice);
+        _earnerManager.setInternalPendingMigrationAdmin(_bob);
+
+        vm.expectEmit();
+        emit IEarnerManager.MigrationAdminSet(_bob);
+
+        vm.prank(_bob);
+        _earnerManager.acceptMigrationAdmin();
+
+        assertEq(_earnerManager.migrationAdmin(), _bob);
+        assertEq(_earnerManager.pendingMigrationAdmin(), address(0));
     }
 }

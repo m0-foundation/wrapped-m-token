@@ -72,9 +72,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     address public immutable earnerManager;
 
     /// @inheritdoc IWrappedMToken
-    address public immutable migrationAdmin;
-
-    /// @inheritdoc IWrappedMToken
     address public immutable mToken;
 
     /// @inheritdoc IWrappedMToken
@@ -82,6 +79,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     address public immutable excessDestination;
+
+    /// @dev Used to check if the contract is the implementation or a proxy.
+    address internal immutable _self = address(this);
 
     /// @inheritdoc IWrappedMToken
     uint112 public totalEarningPrincipal;
@@ -100,29 +100,49 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     mapping(address account => address claimRecipient) internal _claimRecipients;
 
-    /* ============ Constructor ============ */
+    /// @inheritdoc IWrappedMToken
+    address public migrationAdmin;
+
+    /// @inheritdoc IWrappedMToken
+    address public pendingMigrationAdmin;
+
+    /* ============ Modifiers ============ */
+
+    modifier onlyMigrationAdmin() {
+        _revertIfNotMigrationAdmin();
+        _;
+    }
+
+    /* ============ Constructor and Initializer ============ */
 
     /**
      * @dev   Constructs the contract given an M Token address and migration admin.
-     *        Note that a proxy will not need to initialize since there are no mutable storage values affected.
      * @param mToken_            The address of an M Token.
      * @param registrar_         The address of a Registrar.
      * @param earnerManager_     The address of an Earner Manager.
      * @param excessDestination_ The address of an excess destination.
-     * @param migrationAdmin_    The address of a migration admin.
      */
     constructor(
         address mToken_,
         address registrar_,
         address earnerManager_,
-        address excessDestination_,
-        address migrationAdmin_
+        address excessDestination_
     ) ERC20Extended("M (Wrapped) by M^0", "wM", 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
         if ((earnerManager = earnerManager_) == address(0)) revert ZeroEarnerManager();
         if ((excessDestination = excessDestination_) == address(0)) revert ZeroExcessDestination();
-        if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
+    }
+
+    /**
+     * @dev   Used by a proxy of this implementation to initialize its state.
+     * @param migrationAdmin_ The address of a migration admin.
+     */
+    function initialize(address migrationAdmin_) external {
+        if (address(this) == _self) revert NotProxy();
+        if (migrationAdmin != address(0)) revert AlreadyInitialized();
+
+        _setMigrationAdmin(migrationAdmin_);
     }
 
     /* ============ Interactive Functions ============ */
@@ -266,10 +286,22 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ Temporary Admin Migration ============ */
 
     /// @inheritdoc IWrappedMToken
-    function migrate(address migrator_) external {
-        if (msg.sender != migrationAdmin) revert UnauthorizedMigration();
-
+    function migrate(address migrator_) external onlyMigrationAdmin {
         _migrate(migrator_);
+    }
+
+    /// @inheritdoc IWrappedMToken
+    function setPendingMigrationAdmin(address migrationAdmin_) external onlyMigrationAdmin {
+        emit PendingMigrationAdminSet(pendingMigrationAdmin = migrationAdmin_);
+    }
+
+    /// @inheritdoc IWrappedMToken
+    function acceptMigrationAdmin() external {
+        if (msg.sender != pendingMigrationAdmin) revert NotPendingMigrationAdmin();
+
+        _setMigrationAdmin(msg.sender);
+
+        delete pendingMigrationAdmin;
     }
 
     /* ============ View/Pure Functions ============ */
@@ -772,6 +804,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         emit StoppedEarning(account_);
     }
 
+    /**
+     * @dev   Sets the migration admin to `migrationAdmin_`.
+     * @param migrationAdmin_ The address of the account to set as the migration admin.
+     */
+    function _setMigrationAdmin(address migrationAdmin_) internal {
+        if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
+
+        emit MigrationAdminSet(migrationAdmin_);
+    }
+
     /* ============ Internal View/Pure Functions ============ */
 
     /// @dev Returns the current index of the M Token.
@@ -867,6 +909,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _revertIfInvalidRecipient(address account_) internal pure {
         if (account_ == address(0)) revert InvalidRecipient(account_);
+    }
+
+    /// @dev Reverts if the caller is not the migration admin.
+    function _revertIfNotMigrationAdmin() internal view {
+        if (msg.sender != migrationAdmin) revert NotMigrationAdmin();
     }
 
     /**
