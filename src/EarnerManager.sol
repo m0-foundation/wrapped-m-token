@@ -39,29 +39,49 @@ contract EarnerManager is IEarnerManager, Migratable {
     /// @inheritdoc IEarnerManager
     address public immutable registrar;
 
+    /// @dev Used to check if the contract is the implementation or a proxy.
+    address internal immutable _self = address(this);
+
     /// @inheritdoc IEarnerManager
-    address public immutable migrationAdmin;
+    address public migrationAdmin;
+
+    /// @inheritdoc IEarnerManager
+    address public pendingMigrationAdmin;
 
     /// @dev Mapping of account to earner details.
     mapping(address account => EarnerDetails earnerDetails) internal _earnerDetails;
 
     /* ============ Modifiers ============ */
 
+    modifier onlyMigrationAdmin() {
+        _revertIfNotMigrationAdmin();
+        _;
+    }
+
     modifier onlyAdmin() {
         _revertIfNotAdmin();
         _;
     }
 
-    /* ============ Constructor ============ */
+    /* ============ Constructor and Initializer ============ */
 
     /**
      * @dev   Constructs the contract.
-     * @param registrar_      The address of a Registrar contract.
+     * @param registrar_ The address of a Registrar contract.
+     */
+    constructor(address registrar_) {
+        if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
+    }
+
+    /**
+     * @dev   Used by a proxy of this implementation to initialize its state.
      * @param migrationAdmin_ The address of a migration admin.
      */
-    constructor(address registrar_, address migrationAdmin_) {
-        if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
-        if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
+    function initialize(address migrationAdmin_) external {
+        if (address(this) == _self) revert NotProxy();
+        if (migrationAdmin != address(0)) revert AlreadyInitialized();
+
+        _setMigrationAdmin(migrationAdmin_);
     }
 
     /* ============ Interactive Functions ============ */
@@ -95,10 +115,22 @@ contract EarnerManager is IEarnerManager, Migratable {
     /* ============ Temporary Admin Migration ============ */
 
     /// @inheritdoc IEarnerManager
-    function migrate(address migrator_) external {
-        if (msg.sender != migrationAdmin) revert UnauthorizedMigration();
-
+    function migrate(address migrator_) external onlyMigrationAdmin {
         _migrate(migrator_);
+    }
+
+    /// @inheritdoc IEarnerManager
+    function setPendingMigrationAdmin(address migrationAdmin_) external onlyMigrationAdmin {
+        emit PendingMigrationAdminSet(pendingMigrationAdmin = migrationAdmin_);
+    }
+
+    /// @inheritdoc IEarnerManager
+    function acceptMigrationAdmin() external {
+        if (msg.sender != pendingMigrationAdmin) revert NotPendingMigrationAdmin();
+
+        _setMigrationAdmin(msg.sender);
+
+        delete pendingMigrationAdmin;
     }
 
     /* ============ View/Pure Functions ============ */
@@ -228,10 +260,13 @@ contract EarnerManager is IEarnerManager, Migratable {
     }
 
     /**
-     * @dev Reverts if the caller is not an admin.
+     * @dev   Sets the migration admin to `migrationAdmin_`.
+     * @param migrationAdmin_ The address of the account to set as the migration admin.
      */
-    function _revertIfNotAdmin() internal view {
-        if (!isAdmin(msg.sender)) revert NotAdmin();
+    function _setMigrationAdmin(address migrationAdmin_) internal {
+        if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
+
+        emit MigrationAdminSet(migrationAdmin_);
     }
 
     /* ============ Internal View/Pure Functions ============ */
@@ -254,5 +289,17 @@ contract EarnerManager is IEarnerManager, Migratable {
      */
     function _isValidAdmin(address admin_) internal view returns (bool isValidAdmin_) {
         return (admin_ != address(0)) && isAdmin(admin_);
+    }
+
+    /**
+     * @dev Reverts if the caller is not an admin.
+     */
+    function _revertIfNotAdmin() internal view {
+        if (!isAdmin(msg.sender)) revert NotAdmin();
+    }
+
+    /// @dev Reverts if the caller is not the migration admin.
+    function _revertIfNotMigrationAdmin() internal view {
+        if (msg.sender != migrationAdmin) revert NotMigrationAdmin();
     }
 }

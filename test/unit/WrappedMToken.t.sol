@@ -34,7 +34,6 @@ contract WrappedMTokenTests is Test {
     address internal _david = makeAddr("david");
 
     address internal _excessDestination = makeAddr("excessDestination");
-    address internal _migrationAdmin = makeAddr("migrationAdmin");
 
     address[] internal _accounts = [_alice, _bob, _charlie, _david];
 
@@ -55,8 +54,7 @@ contract WrappedMTokenTests is Test {
             address(_mToken),
             address(_registrar),
             address(_earnerManager),
-            _excessDestination,
-            _migrationAdmin
+            _excessDestination
         );
 
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
@@ -72,7 +70,6 @@ contract WrappedMTokenTests is Test {
 
     /* ============ constructor ============ */
     function test_constructor() external view {
-        assertEq(_wrappedMToken.migrationAdmin(), _migrationAdmin);
         assertEq(_wrappedMToken.mToken(), address(_mToken));
         assertEq(_wrappedMToken.registrar(), address(_registrar));
         assertEq(_wrappedMToken.excessDestination(), _excessDestination);
@@ -84,44 +81,52 @@ contract WrappedMTokenTests is Test {
 
     function test_constructor_zeroMToken() external {
         vm.expectRevert(IWrappedMToken.ZeroMToken.selector);
-        new WrappedMTokenHarness(address(0), address(0), address(0), address(0), address(0));
+        new WrappedMTokenHarness(address(0), address(0), address(0), address(0));
     }
 
     function test_constructor_zeroRegistrar() external {
         vm.expectRevert(IWrappedMToken.ZeroRegistrar.selector);
-        new WrappedMTokenHarness(address(_mToken), address(0), address(0), address(0), address(0));
+        new WrappedMTokenHarness(address(_mToken), address(0), address(0), address(0));
     }
 
     function test_constructor_zeroEarnerManager() external {
         vm.expectRevert(IWrappedMToken.ZeroEarnerManager.selector);
-        new WrappedMTokenHarness(address(_mToken), address(_registrar), address(0), address(0), address(0));
+        new WrappedMTokenHarness(address(_mToken), address(_registrar), address(0), address(0));
     }
 
     function test_constructor_zeroExcessDestination() external {
         vm.expectRevert(IWrappedMToken.ZeroExcessDestination.selector);
-        new WrappedMTokenHarness(
-            address(_mToken),
-            address(_registrar),
-            address(_earnerManager),
-            address(0),
-            address(0)
-        );
-    }
-
-    function test_constructor_zeroMigrationAdmin() external {
-        vm.expectRevert(IWrappedMToken.ZeroMigrationAdmin.selector);
-        new WrappedMTokenHarness(
-            address(_mToken),
-            address(_registrar),
-            address(_earnerManager),
-            _excessDestination,
-            address(0)
-        );
+        new WrappedMTokenHarness(address(_mToken), address(_registrar), address(_earnerManager), address(0));
     }
 
     function test_constructor_zeroImplementation() external {
         vm.expectRevert();
         WrappedMTokenHarness(address(new Proxy(address(0))));
+    }
+
+    /* ============ initialize ============ */
+    function test_initialize_notProxy() external {
+        vm.expectRevert(IWrappedMToken.NotProxy.selector);
+        _implementation.initialize(address(0));
+    }
+
+    function test_initialize_alreadyInitialized() external {
+        _wrappedMToken.setMigrationAdmin(address(1));
+
+        vm.expectRevert(IWrappedMToken.AlreadyInitialized.selector);
+        _wrappedMToken.initialize(address(0));
+    }
+
+    function test_initialize_zeroMigrationAdmin() external {
+        vm.expectRevert(IWrappedMToken.ZeroMigrationAdmin.selector);
+        _wrappedMToken.initialize(address(0));
+    }
+
+    function test_initialize() external {
+        vm.expectEmit();
+        emit IWrappedMToken.MigrationAdminSet(address(1));
+
+        _wrappedMToken.initialize(address(1));
     }
 
     /* ============ _wrap ============ */
@@ -1943,6 +1948,48 @@ contract WrappedMTokenTests is Test {
         _mToken.setCurrentIndex(1_210000000000);
 
         assertEq(_wrappedMToken.totalAccruedYield(), 310);
+    }
+
+    /* ============ setPendingMigrationAdmin ============ */
+    function test_setPendingMigrationAdmin_notMigrationAdmin() external {
+        vm.expectRevert(IWrappedMToken.NotMigrationAdmin.selector);
+
+        vm.prank(_alice);
+        _wrappedMToken.setPendingMigrationAdmin(address(0));
+    }
+
+    function test_setPendingMigrationAdmin() external {
+        _wrappedMToken.setMigrationAdmin(_alice);
+
+        vm.expectEmit();
+        emit IWrappedMToken.PendingMigrationAdminSet(_bob);
+
+        vm.prank(_alice);
+        _wrappedMToken.setPendingMigrationAdmin(_bob);
+
+        assertEq(_wrappedMToken.pendingMigrationAdmin(), _bob);
+    }
+
+    /* ============ acceptMigrationAdmin ============ */
+    function test_acceptMigrationAdmin_notPendingMigrationAdmin() external {
+        vm.expectRevert(IWrappedMToken.NotPendingMigrationAdmin.selector);
+
+        vm.prank(_bob);
+        _wrappedMToken.acceptMigrationAdmin();
+    }
+
+    function test_acceptMigrationAdmin() external {
+        _wrappedMToken.setMigrationAdmin(_alice);
+        _wrappedMToken.setInternalPendingMigrationAdmin(_bob);
+
+        vm.expectEmit();
+        emit IWrappedMToken.MigrationAdminSet(_bob);
+
+        vm.prank(_bob);
+        _wrappedMToken.acceptMigrationAdmin();
+
+        assertEq(_wrappedMToken.migrationAdmin(), _bob);
+        assertEq(_wrappedMToken.pendingMigrationAdmin(), address(0));
     }
 
     /* ============ utils ============ */

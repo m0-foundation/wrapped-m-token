@@ -46,6 +46,18 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     event ExcessClaimed(uint240 excess);
 
     /**
+     * @notice Emitted when the migration admin is set.
+     * @param  migrationAdmin The address of the migration admin.
+     */
+    event MigrationAdminSet(address indexed migrationAdmin);
+
+    /**
+     * @notice Emitted when the pending migration admin is set.
+     * @param  pendingMigrationAdmin The address of the migration admin that can accept the role.
+     */
+    event PendingMigrationAdminSet(address indexed pendingMigrationAdmin);
+
+    /**
      * @notice Emitted when `account` starts being an wM earner.
      * @param  account The account that started earning.
      */
@@ -58,6 +70,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     event StoppedEarning(address indexed account);
 
     /* ============ Custom Errors ============ */
+
+    /// @notice Emitted when trying to initialize the contract (proxy) when it is already initialized.
+    error AlreadyInitialized();
 
     /// @notice Emitted when performing an operation that is not allowed when earning is disabled.
     error EarningIsDisabled();
@@ -91,8 +106,14 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted when there is no excess to claim.
     error NoExcess();
 
-    /// @notice Emitted when the non-governance migrate function is called by an account other than the migration admin.
-    error UnauthorizedMigration();
+    /// @notice Emitted when the execution context is the implementation itself, rather than a proxy.
+    error NotProxy();
+
+    /// @notice Emitted when a restricted function is called by an account other than the migration admin.
+    error NotMigrationAdmin();
+
+    /// @notice Emitted when an account other than the pending migration admin is accepting the migration admin role.
+    error NotPendingMigrationAdmin();
 
     /// @notice Emitted in constructor if Earner Manager is 0x0.
     error ZeroEarnerManager();
@@ -108,6 +129,14 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice Emitted in constructor if Registrar is 0x0.
     error ZeroRegistrar();
+
+    /* ============ Initializer ============ */
+
+    /**
+     * @dev   Initializes the contract with a migration admin.
+     * @param migrationAdmin_ The address of a migration admin.
+     */
+    function initialize(address migrationAdmin_) external;
 
     /* ============ Interactive Functions ============ */
 
@@ -232,6 +261,15 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     function migrate(address migrator) external;
 
+    /**
+     * @notice Sets the pending migration admin that can then accept the role and become the migration admin.
+     * @param  migrationAdmin The address of an account to become the migration admin.
+     */
+    function setPendingMigrationAdmin(address migrationAdmin) external;
+
+    /// @notice Accepts the role of migration admin if the caller is the pending migration admin.
+    function acceptMigrationAdmin() external;
+
     /* ============ View/Pure Functions ============ */
 
     /// @notice 100% in basis points.
@@ -301,6 +339,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice The address of the M Token contract.
     function mToken() external view returns (address mToken);
+
+    /// @notice The account that can accept the migration admin role.
+    function pendingMigrationAdmin() external view returns (address pendingMigrationAdmin);
 
     /// @notice The projected total earning supply if all accrued yield was claimed at this moment.
     function projectedEarningSupply() external view returns (uint240 supply);

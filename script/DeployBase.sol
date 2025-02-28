@@ -43,15 +43,18 @@ contract DeployBase {
         // Wrapped M Token Implementation constructor needs `earnerManagerProxy_`.
         // Wrapped M Token Proxy constructor needs `wrappedMTokenImplementation_`.
 
-        earnerManagerImplementation_ = address(new EarnerManager(registrar_, earnerManagerMigrationAdmin_));
+        earnerManagerImplementation_ = address(new EarnerManager(registrar_));
 
         earnerManagerProxy_ = address(new Proxy(earnerManagerImplementation_));
 
         wrappedMTokenImplementation_ = address(
-            new WrappedMToken(mToken_, registrar_, earnerManagerProxy_, excessDestination_, wrappedMMigrationAdmin_)
+            new WrappedMToken(mToken_, registrar_, earnerManagerProxy_, excessDestination_)
         );
 
         wrappedMTokenProxy_ = address(new Proxy(wrappedMTokenImplementation_));
+
+        EarnerManager(earnerManagerProxy_).initialize(earnerManagerMigrationAdmin_);
+        WrappedMToken(wrappedMTokenProxy_).initialize(wrappedMMigrationAdmin_);
     }
 
     /**
@@ -88,15 +91,19 @@ contract DeployBase {
         // Wrapped M Token Implementation constructor needs `earnerManagerProxy_`.
         // Migrator needs `wrappedMTokenImplementation_` addresses.
 
-        earnerManagerImplementation_ = address(new EarnerManager(registrar_, earnerManagerMigrationAdmin_));
+        earnerManagerImplementation_ = address(new EarnerManager(registrar_));
 
         earnerManagerProxy_ = address(new Proxy(earnerManagerImplementation_));
 
         wrappedMTokenImplementation_ = address(
-            new WrappedMToken(mToken_, registrar_, earnerManagerProxy_, excessDestination_, wrappedMMigrationAdmin_)
+            new WrappedMToken(mToken_, registrar_, earnerManagerProxy_, excessDestination_)
         );
 
-        wrappedMTokenMigrator_ = address(new WrappedMTokenMigratorV1(wrappedMTokenImplementation_, earners_));
+        wrappedMTokenMigrator_ = address(
+            new WrappedMTokenMigratorV1(wrappedMTokenImplementation_, earners_, wrappedMMigrationAdmin_)
+        );
+
+        EarnerManager(earnerManagerProxy_).initialize(earnerManagerMigrationAdmin_);
     }
 
     /**

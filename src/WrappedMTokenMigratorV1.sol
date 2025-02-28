@@ -48,14 +48,20 @@ contract WrappedMTokenMigratorV1 {
 
     address public immutable listOfEarnerToMigrate;
 
-    constructor(address newImplementation_, address[] memory earners_) {
-        newImplementation = newImplementation_;
+    address public immutable migrationAdmin;
+
+    constructor(address newImplementation_, address[] memory earners_, address migrationAdmin_) {
+        if ((newImplementation = newImplementation_) == address(0)) revert();
 
         listOfEarnerToMigrate = address(new ListOfEarnersToMigrate(earners_));
+
+        if ((migrationAdmin = migrationAdmin_) == address(0)) revert();
     }
 
     fallback() external virtual {
         _migrateEarners();
+
+        _setMigrationAdmin(migrationAdmin);
 
         address newImplementation_ = newImplementation;
 
@@ -96,6 +102,16 @@ contract WrappedMTokenMigratorV1 {
     function _getAccounts() internal pure returns (mapping(address => Account) storage accounts_) {
         assembly {
             accounts_.slot := 6 // `_accounts` is slot 6 in v1.
+        }
+    }
+
+    /**
+     * @dev   Sets the `migrationAdmin` slot to `migrationAdmin_`.
+     * @param migrationAdmin_ The address of the account to set the `migrationAdmin_` to.
+     */
+    function _setMigrationAdmin(address migrationAdmin_) internal {
+        assembly {
+            sstore(9, migrationAdmin_) // `migrationAdmin` is slot 9 in v2.
         }
     }
 }

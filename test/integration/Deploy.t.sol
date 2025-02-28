@@ -51,12 +51,12 @@ contract DeployTests is Test, DeployBase {
         // Earner Manager Proxy assertions
         assertEq(earnerManagerProxy_, expectedEarnerManagerProxy_);
         assertEq(IEarnerManager(earnerManagerProxy_).registrar(), _REGISTRAR);
+        assertEq(IEarnerManager(earnerManagerProxy_).migrationAdmin(), _EARNER_MANAGER_MIGRATION_ADMIN);
         assertEq(IEarnerManager(earnerManagerProxy_).implementation(), earnerManagerImplementation_);
 
         // Wrapped M Token Implementation assertions
         assertEq(wrappedMTokenImplementation_, expectedWrappedMTokenImplementation_);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).earnerManager(), earnerManagerProxy_);
-        assertEq(IWrappedMToken(wrappedMTokenImplementation_).migrationAdmin(), _WRAPPED_M_MIGRATION_ADMIN);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).mToken(), _M_TOKEN);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).registrar(), _REGISTRAR);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).excessDestination(), _EXCESS_DESTINATION);
