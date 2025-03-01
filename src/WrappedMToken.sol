@@ -87,9 +87,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     uint112 public totalEarningPrincipal;
 
     /// @inheritdoc IWrappedMToken
-    int144 public roundingError;
-
-    /// @inheritdoc IWrappedMToken
     uint240 public totalEarningSupply;
 
     /// @inheritdoc IWrappedMToken
@@ -187,9 +184,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
         if (excess_ <= 0) revert NoExcess();
 
-        claimed_ = _getSafeTransferableM(address(this), uint240(uint248(excess_)));
-
-        emit ExcessClaimed(claimed_);
+        emit ExcessClaimed(claimed_ = uint240(uint248(excess_)));
 
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
         IMTokenLike(mToken).transfer(excessDestination, claimed_);
@@ -342,11 +337,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @inheritdoc IWrappedMToken
     function excess() public view returns (int248 excess_) {
         unchecked {
-            int248 earmarked_ = int248(uint248(totalNonEarningSupply + projectedEarningSupply())) + roundingError;
-            int248 balance_ = int248(uint248(_mBalanceOf(address(this))));
+            uint240 earmarked_ = totalNonEarningSupply + projectedEarningSupply();
+            uint240 balance_ = _mBalanceOf(address(this));
 
-            // The entire M balance is excess if the total projected supply (factoring rounding errors) is less than 0.
-            return earmarked_ <= 0 ? balance_ : balance_ - earmarked_;
+            // The entire M balance is excess if the total projected supply (factoring rounding errors) is 0.
+            return
+                earmarked_ == 0 ? int248(uint248(balance_)) : int248(uint248(balance_)) - int248(uint248(earmarked_));
         }
     }
 
@@ -694,7 +690,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return wrapped_   The amount of wM minted.
      */
     function _wrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 wrapped_) {
-        _transferFromM(account_, amount_);
+        // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
+        IMTokenLike(mToken).transferFrom(account_, address(this), amount_);
+
         _mint(recipient_, wrapped_ = amount_);
     }
 
@@ -706,8 +704,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return unwrapped_ The amount of M withdrawn.
      */
     function _unwrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 unwrapped_) {
-        _burn(account_, amount_);
-        _transferM(recipient_, unwrapped_ = amount_);
+        _burn(account_, unwrapped_ = amount_);
+
+        // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
+        IMTokenLike(mToken).transfer(recipient_, amount_);
     }
 
     /**
@@ -772,48 +772,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         emit StoppedEarning(account_);
     }
 
-    /**
-     * @dev   Transfer `amount_` M to `recipient_`, tracking this contract's M balance rounding errors.
-     * @param recipient_ The account to transfer M to.
-     * @param amount_    The amount of M to transfer.
-     */
-    function _transferM(address recipient_, uint240 amount_) internal {
-        uint240 startingBalance_ = _mBalanceOf(address(this));
-
-        // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
-        IMTokenLike(mToken).transfer(recipient_, amount_);
-
-        // NOTE: When this WrappedMToken contract is earning, any amount of M sent from it is converted to a principal
-        //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
-        //       amount more than `amount_`. In order to capture the real decrease in M, the difference between the
-        //       ending and starting M balance is captured.
-        uint240 decrease_ = startingBalance_ - _mBalanceOf(address(this));
-
-        // If the M lost is more than the wM burned, then the difference is added to `roundingError`.
-        roundingError += int144(int256(uint256(decrease_)) - int256(uint256(amount_)));
-    }
-
-    /**
-     * @dev   Transfer `amount_` M from `sender_`, tracking this contract's M balance rounding errors.
-     * @param sender_ The account to transfer M from.
-     * @param amount_ The amount of M to transfer.
-     */
-    function _transferFromM(address sender_, uint240 amount_) internal {
-        uint240 startingBalance_ = _mBalanceOf(address(this));
-
-        // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
-        IMTokenLike(mToken).transferFrom(sender_, address(this), _getSafeTransferableM(sender_, amount_));
-
-        // NOTE: When this WrappedMToken contract is earning, any amount of M sent to it is converted to a principal
-        //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
-        //       amount more/less than `amount_`. In order to capture the real increase in M, the difference between the
-        //       starting and ending M balance is captured.
-        uint240 increase_ = _mBalanceOf(address(this)) - startingBalance_;
-
-        // If the M gained is more/less than the wM minted, then the difference is subtracted/added to `roundingError`.
-        roundingError += int144(int256(uint256(amount_)) - int256(uint256(increase_)));
-    }
-
     /* ============ Internal View/Pure Functions ============ */
 
     /// @dev Returns the current index of the M Token.
@@ -872,30 +830,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _getFromRegistrar(bytes32 key_) internal view returns (bytes32 value_) {
         return IRegistrarLike(registrar).get(key_);
-    }
-
-    /**
-     * @dev    Compute the adjusted amount of M that can safely be transferred out given the current index.
-     * @param  amount_     Some amount to be transferred out of this contract.
-     * @return safeAmount_ The adjusted amount that can safely be transferred out.
-     */
-    function _getSafeTransferableM(address sender_, uint240 amount_) internal view returns (uint240 safeAmount_) {
-        // If `sender` is not earning, no need to adjust `amount_`.
-        if (!IMTokenLike(mToken).isEarning(sender_)) return amount_;
-
-        uint128 currentIndex_ = _currentMIndex();
-        uint112 startingPrincipal_ = uint112(IMTokenLike(mToken).principalBalanceOf(sender_));
-        uint240 startingBalance_ = IndexingMath.getPresentAmountRoundedDown(startingPrincipal_, currentIndex_);
-
-        // Adjust `amount_` to ensure it's M balance decrement is limited to `amount_`.
-        unchecked {
-            uint112 minEndingPrincipal_ = IndexingMath.getPrincipalAmountRoundedUp(
-                startingBalance_ - amount_,
-                currentIndex_
-            );
-
-            return IndexingMath.getPresentAmountRoundedDown(startingPrincipal_ - minEndingPrincipal_, currentIndex_);
-        }
     }
 
     /// @dev Returns the address of the contract to use as a migrator, if any.
