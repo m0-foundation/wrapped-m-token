@@ -87,9 +87,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     uint112 public totalEarningPrincipal;
 
     /// @inheritdoc IWrappedMToken
-    uint144 public roundingError;
-
-    /// @inheritdoc IWrappedMToken
     uint240 public totalEarningSupply;
 
     /// @inheritdoc IWrappedMToken
@@ -340,7 +337,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @inheritdoc IWrappedMToken
     function excess() public view returns (int248 excess_) {
         unchecked {
-            uint240 earmarked_ = totalNonEarningSupply + projectedEarningSupply() + roundingError;
+            uint240 earmarked_ = totalNonEarningSupply + projectedEarningSupply();
             uint240 balance_ = _mBalanceOf(address(this));
 
             // The entire M balance is excess if the total projected supply (factoring rounding errors) is 0.
@@ -693,22 +690,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return wrapped_   The amount of wM minted.
      */
     function _wrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 wrapped_) {
-        uint240 startingBalance_ = _mBalanceOf(address(this));
-
         // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
         IMTokenLike(mToken).transferFrom(account_, address(this), amount_);
-
-        // NOTE: When this WrappedMToken contract is earning, any amount of M sent to it is converted to a principal
-        //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
-        //       amount more/less than `amount_`. In order to capture the real increase in M, the difference between the
-        //       starting and ending M balance is captured.
-        uint240 increase_ = _mBalanceOf(address(this)) - startingBalance_;
-
-        // `recipient_` gets at least as much wM as `amount_`, or more if `increase_ > amount_`.
-        if (increase_ < amount_) {
-            // If the M gained is less than the wM to be minted, then the difference is added to `roundingError`.
-            roundingError += uint144(amount_ - increase_);
-        }
 
         _mint(recipient_, wrapped_ = amount_);
     }
@@ -723,19 +706,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _unwrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 unwrapped_) {
         _burn(account_, unwrapped_ = amount_);
 
-        uint240 startingBalance_ = _mBalanceOf(address(this));
-
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
         IMTokenLike(mToken).transfer(recipient_, amount_);
-
-        // NOTE: When this WrappedMToken contract is earning, any amount of M sent from it is converted to a principal
-        //       amount at the MToken contract, which when represented as a present amount, may be a rounding error
-        //       amount more than `amount_`. In order to capture the real decrease in M, the difference between the
-        //       ending and starting M balance is captured.
-        uint240 decrease_ = startingBalance_ - _mBalanceOf(address(this));
-
-        // If the M lost is more than the wM burned, then the difference is added to `roundingError`.
-        roundingError += uint144(decrease_ - amount_);
     }
 
     /**
