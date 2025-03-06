@@ -687,11 +687,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
         IMTokenLike(mToken).transferFrom(account_, address(this), amount_);
 
-        // WrappedM default state is earning, for non-earning state no rounding error is added.
-        if (_accounts[recipient_].isEarning) {
-            roundingError += 1;
-        } else {
+        // NOTE: Assume WrappedM default state is earning which it is now and in foreseeable future.
+        if (IMTokenLike(mToken).isEarning(account_)) {
+            // earner --> earner $M transfer: round up --> round up
             roundingError -= 1;
+        } else {
+            // non-earner --> earner $M transfer: exact amount --> round down
+            roundingError += 1;
         }
 
         _mint(recipient_, wrapped_ = amount_);
@@ -705,9 +707,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return unwrapped_ The amount of M withdrawn.
      */
     function _unwrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 unwrapped_) {
+        // earner --> earner $M transfer: round up --> round up
+        // earner --> non-earner $M transfer: round up --> exact amount
+        // NOTE: in both cases rounding is down in favor of user
         roundingError += 1;
 
         // TODO: consider only negative excess vs negative and zero excess
+        // NOTE: Avoid unwraps if protocol is insolvent.
         if (excess() <= 0) revert NoExcess();
 
         _burn(account_, unwrapped_ = amount_);
