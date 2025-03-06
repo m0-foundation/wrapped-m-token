@@ -57,6 +57,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     uint16 public constant HUNDRED_PERCENT = 10_000;
 
     /// @inheritdoc IWrappedMToken
+    uint16 public constant ROUNDING_SAFETY_MULTIPLIER = 2;
+
+    /// @inheritdoc IWrappedMToken
     bytes32 public constant EARNERS_LIST_IGNORED_KEY = "earners_list_ignored";
 
     /// @inheritdoc IWrappedMToken
@@ -100,6 +103,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     uint128 public disableIndex;
+
+    /// @inheritdoc IWrappedMToken
+    // TODO: smaller type
+    int240 public roundingError;
 
     mapping(address account => address claimRecipient) internal _claimRecipients;
 
@@ -323,10 +330,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             uint240 earmarked_ = totalNonEarningSupply + projectedEarningSupply();
             uint240 balance_ = _mBalanceOf(address(this));
+            uint240 roundingSafetyBuffer_ = roundingError > 0 ? ROUNDING_SAFETY_MULTIPLIER * uint240(roundingError) : 0;
 
             // The entire M balance is excess if the total projected supply (factoring rounding errors) is 0.
             return
-                earmarked_ == 0 ? int248(uint248(balance_)) : int248(uint248(balance_)) - int248(uint248(earmarked_));
+                earmarked_ == 0
+                    ? int248(uint248(balance_))
+                    : int248(uint248(balance_)) - int248(uint248(earmarked_)) - int248(uint248(roundingSafetyBuffer_));
         }
     }
 
@@ -677,6 +687,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
         IMTokenLike(mToken).transferFrom(account_, address(this), amount_);
 
+        // WrappedM default state is earning, for non-earning state no rounding error is added.
+        if (_accounts[recipient_].isEarning) {
+            roundingError += 1;
+        } else {
+            roundingError -= 1;
+        }
+
         _mint(recipient_, wrapped_ = amount_);
     }
 
@@ -688,6 +705,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return unwrapped_ The amount of M withdrawn.
      */
     function _unwrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 unwrapped_) {
+        roundingError += 1;
+
+        // TODO: consider only negative excess vs negative and zero excess
+        if (excess() <= 0) revert NoExcess();
+
         _burn(account_, unwrapped_ = amount_);
 
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.

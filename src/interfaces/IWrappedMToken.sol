@@ -234,6 +234,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice 100% in basis points.
     function HUNDRED_PERCENT() external pure returns (uint16 hundredPercent);
 
+    /// @notice Evert rounding in favor of user takes a few wei(s) from the protocol. This multiplier should be used to provide safety buffer on excess claims.
+    function ROUNDING_SAFETY_MULTIPLIER() external pure returns (uint16 roundingSafetyMultiplier);
+
     /// @notice Registrar key holding value of whether the earners list can be ignored or not.
     function EARNERS_LIST_IGNORED_KEY() external pure returns (bytes32 earnersListIgnoredKey);
 
@@ -325,4 +328,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice The address of the destination where excess is claimed to.
     function excessDestination() external view returns (address excessDestination);
+
+    /// @notice The rounding counter that tracks how many rounding were done in favor of user vs protocol.
+    function roundingError() external view returns (int240);
 }
