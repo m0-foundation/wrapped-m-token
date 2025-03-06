@@ -709,7 +709,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function _unwrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 unwrapped_) {
         // earner --> earner $M transfer: round up --> round up
         // earner --> non-earner $M transfer: round up --> exact amount
-        // NOTE: in both cases rounding is down in favor of user
+        // NOTE: in both cases rounding is done in favor of user and adds to rounding error
         roundingError += 1;
 
         // TODO: consider only negative excess vs negative and zero excess
