@@ -82,8 +82,9 @@ library Invariants {
         // );
 
         return
-            int256(IERC20(mToken_).balanceOf(wrappedMToken_)) >=
-            int256(IWrappedMToken(wrappedMToken_).totalSupply() + IWrappedMToken(wrappedMToken_).totalAccruedYield()) +
+            IERC20(mToken_).balanceOf(wrappedMToken_) >=
+            IWrappedMToken(wrappedMToken_).totalSupply() +
+                IWrappedMToken(wrappedMToken_).totalAccruedYield() +
                 IWrappedMToken(wrappedMToken_).excess();
     }
 

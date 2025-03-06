@@ -281,7 +281,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function enableMIndex() external view returns (uint128 enableMIndex);
 
     /// @notice This contract's current excess M that is not earmarked for account balances or accrued yield.
-    function excess() external view returns (int248 excess);
+    function excess() external view returns (uint240 excess);
 
     /// @notice The wrapper's index when earning was most recently disabled.
     function disableIndex() external view returns (uint128 disableIndex);

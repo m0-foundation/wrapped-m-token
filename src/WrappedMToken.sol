@@ -183,11 +183,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function claimExcess() external returns (uint240 claimed_) {
-        int248 excess_ = excess();
+        uint240 excess_ = excess();
 
-        if (excess_ <= 0) revert NoExcess();
+        if (excess_ == 0) revert NoExcess();
 
-        emit ExcessClaimed(claimed_ = uint240(uint248(excess_)));
+        emit ExcessClaimed(claimed_ = excess_);
 
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
         IMTokenLike(mToken).transfer(excessDestination, claimed_);
@@ -217,6 +217,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function startEarningFor(address account_) external {
+        if (!isEarningEnabled()) revert EarningIsDisabled();
+
         _startEarningFor(account_, currentIndex());
     }
 
@@ -305,7 +307,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function currentIndex() public view returns (uint128 index_) {
         uint128 disableIndex_ = disableIndex == 0 ? IndexingMath.EXP_SCALED_ONE : disableIndex;
 
-        return enableMIndex == 0 ? disableIndex_ : (disableIndex_ * _currentMIndex()) / enableMIndex;
+        unchecked {
+            return
+                enableMIndex == 0
+                    ? disableIndex_
+                    : UIntMath.safe128((uint256(disableIndex_) * _currentMIndex()) / enableMIndex);
+        }
     }
 
     /// @inheritdoc IWrappedMToken
@@ -319,24 +326,20 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IWrappedMToken
-    function excess() public view returns (int248 excess_) {
+    function excess() public view returns (uint240 excess_) {
         unchecked {
             uint240 earmarked_ = totalNonEarningSupply + projectedEarningSupply();
             uint240 balance_ = _mBalanceOf(address(this));
 
-            // The entire M balance is excess if the total projected supply (factoring rounding errors) is 0.
-            return
-                earmarked_ == 0 ? int248(uint248(balance_)) : int248(uint248(balance_)) - int248(uint248(earmarked_));
+            // The excess is defined as the difference between the M locked balance with yield and the projected supply of WrappedM.
+            return balance_ > earmarked_ ? balance_ - earmarked_ : 0;
         }
     }
 
     /// @inheritdoc IWrappedMToken
     function totalAccruedYield() external view returns (uint240 yield_) {
-        uint240 projectedEarningSupply_ = projectedEarningSupply();
-        uint240 earningSupply_ = totalEarningSupply;
-
         unchecked {
-            return projectedEarningSupply_ <= earningSupply_ ? 0 : projectedEarningSupply_ - earningSupply_;
+            return projectedEarningSupply() - totalEarningSupply;
         }
     }
 
