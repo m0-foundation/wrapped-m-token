@@ -262,7 +262,7 @@ contract WrappedMTokenTests is Test {
             _getMaxAmount(_wrappedMToken.currentIndex())
         );
 
-        _setupAccount(_alice, accountEarning_, balanceWithYield_, balance_);
+        _setupAccount(_alice, earningEnabled_ && accountEarning_, balanceWithYield_, balance_);
 
         wrapAmount_ = uint240(bound(wrapAmount_, 0, _getMaxAmount(_wrappedMToken.currentIndex()) - balanceWithYield_));
 
@@ -283,7 +283,9 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.balanceOf(_alice), balance_ + wrapAmount_);
 
         assertEq(
-            accountEarning_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply(),
+            earningEnabled_ && accountEarning_
+                ? _wrappedMToken.totalEarningSupply()
+                : _wrappedMToken.totalNonEarningSupply(),
             _wrappedMToken.balanceOf(_alice)
         );
     }
@@ -1320,7 +1322,15 @@ contract WrappedMTokenTests is Test {
 
     /* ============ startEarningFor ============ */
     function test_startEarningFor_notApprovedEarner() external {
+        _mToken.setCurrentIndex(1_100000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.NotApprovedEarner.selector, _alice));
+        _wrappedMToken.startEarningFor(_alice);
+    }
+
+    function test_startEarningFor_earningIsDisabled() external {
+        vm.expectRevert(IWrappedMToken.EarningIsDisabled.selector);
         _wrappedMToken.startEarningFor(_alice);
     }
 
@@ -1365,7 +1375,6 @@ contract WrappedMTokenTests is Test {
     }
 
     function testFuzz_startEarningFor(
-        bool earningEnabled_,
         uint240 balance_,
         uint128 currentMIndex_,
         uint128 enableMIndex_,
@@ -1377,7 +1386,7 @@ contract WrappedMTokenTests is Test {
             disableIndex_
         );
 
-        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
+        _setupIndexes(true, currentMIndex_, enableMIndex_, disableIndex_);
 
         uint128 currentIndex_ = _wrappedMToken.currentIndex();
 

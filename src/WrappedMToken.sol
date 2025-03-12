@@ -149,7 +149,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         bytes32 r_,
         bytes32 s_
     ) external returns (uint240 wrapped_) {
-        IMTokenLike(mToken).permit(msg.sender, address(this), amount_, deadline_, v_, r_, s_);
+        try IMTokenLike(mToken).permit(msg.sender, address(this), amount_, deadline_, v_, r_, s_) {} catch {}
 
         return _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
     }
@@ -161,7 +161,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         uint256 deadline_,
         bytes memory signature_
     ) external returns (uint240 wrapped_) {
-        IMTokenLike(mToken).permit(msg.sender, address(this), amount_, deadline_, signature_);
+        try IMTokenLike(mToken).permit(msg.sender, address(this), amount_, deadline_, signature_) {} catch {}
 
         return _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
     }
@@ -217,6 +217,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function startEarningFor(address account_) external {
+        if (!isEarningEnabled()) revert EarningIsDisabled();
+
         _startEarningFor(account_, currentIndex());
     }
 
