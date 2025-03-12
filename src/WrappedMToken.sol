@@ -131,13 +131,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ Interactive Functions ============ */
 
     /// @inheritdoc IWrappedMToken
-    function wrap(address recipient_, uint256 amount_) external returns (uint240 wrapped_) {
-        return _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+    function wrap(address recipient_, uint256 amount_) external {
+        _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
     }
 
     /// @inheritdoc IWrappedMToken
     function wrap(address recipient_) external returns (uint240 wrapped_) {
-        return _wrap(msg.sender, recipient_, _mBalanceOf(msg.sender));
+        _wrap(msg.sender, recipient_, wrapped_ = _mBalanceOf(msg.sender));
     }
 
     /// @inheritdoc IWrappedMToken
@@ -148,32 +148,27 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         uint8 v_,
         bytes32 r_,
         bytes32 s_
-    ) external returns (uint240 wrapped_) {
+    ) external {
         try IMTokenLike(mToken).permit(msg.sender, address(this), amount_, deadline_, v_, r_, s_) {} catch {}
 
-        return _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+        _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
     }
 
     /// @inheritdoc IWrappedMToken
-    function wrapWithPermit(
-        address recipient_,
-        uint256 amount_,
-        uint256 deadline_,
-        bytes memory signature_
-    ) external returns (uint240 wrapped_) {
+    function wrapWithPermit(address recipient_, uint256 amount_, uint256 deadline_, bytes memory signature_) external {
         try IMTokenLike(mToken).permit(msg.sender, address(this), amount_, deadline_, signature_) {} catch {}
 
-        return _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+        _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
     }
 
     /// @inheritdoc IWrappedMToken
-    function unwrap(address recipient_, uint256 amount_) external returns (uint240 unwrapped_) {
-        return _unwrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+    function unwrap(address recipient_, uint256 amount_) external {
+        _unwrap(msg.sender, recipient_, UIntMath.safe240(amount_));
     }
 
     /// @inheritdoc IWrappedMToken
     function unwrap(address recipient_) external returns (uint240 unwrapped_) {
-        return _unwrap(msg.sender, recipient_, uint240(balanceOf(msg.sender)));
+        _unwrap(msg.sender, recipient_, unwrapped_ = uint240(balanceOf(msg.sender)));
     }
 
     /// @inheritdoc IWrappedMToken
@@ -673,13 +668,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param  account_   The account from which M is deposited.
      * @param  recipient_ The account receiving the minted wM.
      * @param  amount_    The amount of M deposited.
-     * @return wrapped_   The amount of wM minted.
      */
-    function _wrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 wrapped_) {
+    function _wrap(address account_, address recipient_, uint240 amount_) internal {
         // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
         IMTokenLike(mToken).transferFrom(account_, address(this), amount_);
 
-        _mint(recipient_, wrapped_ = amount_);
+        _mint(recipient_, amount_);
     }
 
     /**
@@ -687,10 +681,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param  account_   The account from which WM is burned.
      * @param  recipient_ The account receiving the withdrawn M.
      * @param  amount_    The amount of wM burned.
-     * @return unwrapped_ The amount of M withdrawn.
      */
-    function _unwrap(address account_, address recipient_, uint240 amount_) internal returns (uint240 unwrapped_) {
-        _burn(account_, unwrapped_ = amount_);
+    function _unwrap(address account_, address recipient_, uint240 amount_) internal {
+        _burn(account_, amount_);
 
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
         IMTokenLike(mToken).transfer(recipient_, amount_);

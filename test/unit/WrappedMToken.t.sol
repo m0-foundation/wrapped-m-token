@@ -159,7 +159,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 1_000);
 
-        assertEq(_wrappedMToken.internalWrap(_alice, _alice, 1_000), 1_000);
+        _wrappedMToken.internalWrap(_alice, _alice, 1_000);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 2_000);
@@ -192,7 +192,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 999);
 
-        assertEq(_wrappedMToken.internalWrap(_alice, _alice, 999), 999);
+        _wrappedMToken.internalWrap(_alice, _alice, 999);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 + 908);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 + 999);
@@ -205,7 +205,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 1);
 
-        assertEq(_wrappedMToken.internalWrap(_alice, _alice, 1), 1);
+        _wrappedMToken.internalWrap(_alice, _alice, 1);
 
         // No change due to principal round down on wrap.
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 + 908 + 0);
@@ -219,7 +219,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 2);
 
-        assertEq(_wrappedMToken.internalWrap(_alice, _alice, 2), 2);
+        _wrappedMToken.internalWrap(_alice, _alice, 2);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 + 908 + 0 + 1);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 + 999 + 1 + 2);
@@ -512,7 +512,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 1);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 1), 1);
+        _wrappedMToken.internalUnwrap(_alice, _alice, 1);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 999);
@@ -525,7 +525,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 499);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 499), 499);
+        _wrappedMToken.internalUnwrap(_alice, _alice, 499);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 500);
@@ -538,7 +538,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 500);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 500), 500);
+        _wrappedMToken.internalUnwrap(_alice, _alice, 500);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
@@ -572,7 +572,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 1);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 1), 1);
+        _wrappedMToken.internalUnwrap(_alice, _alice, 1);
 
         // Change due to principal round up on unwrap.
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 - 1);
@@ -586,7 +586,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 499);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 499), 499);
+        _wrappedMToken.internalUnwrap(_alice, _alice, 499);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 - 1 - 454);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 - 1 - 499);
@@ -599,7 +599,7 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 500);
 
-        assertEq(_wrappedMToken.internalUnwrap(_alice, _alice, 500), 500);
+        _wrappedMToken.internalUnwrap(_alice, _alice, 500);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 - 1 - 454 - 455); // 0
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 - 1 - 499 - 500); // 0

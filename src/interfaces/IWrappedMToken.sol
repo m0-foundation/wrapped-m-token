@@ -111,10 +111,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /**
      * @notice Wraps `amount` M from the caller into wM for `recipient`.
      * @param  recipient The account receiving the minted wM.
-     * @param  amount    The amount of M deposited.
-     * @return wrapped   The amount of wM minted.
+     * @param  amount    The amount of wM minted.
      */
-    function wrap(address recipient, uint256 amount) external returns (uint240 wrapped);
+    function wrap(address recipient, uint256 amount) external;
 
     /**
      * @notice Wraps all the M from the caller into wM for `recipient`.
@@ -131,7 +130,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      * @param  v         An ECDSA secp256k1 signature parameter (EIP-2612 via EIP-712).
      * @param  r         An ECDSA secp256k1 signature parameter (EIP-2612 via EIP-712).
      * @param  s         An ECDSA secp256k1 signature parameter (EIP-2612 via EIP-712).
-     * @return wrapped   The amount of wM minted.
      */
     function wrapWithPermit(
         address recipient,
@@ -140,7 +138,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external returns (uint240 wrapped);
+    ) external;
 
     /**
      * @notice Wraps `amount` M from the caller into wM for `recipient`, using a permit.
@@ -148,27 +146,20 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      * @param  amount    The amount of M deposited.
      * @param  deadline  The last timestamp where the signature is still valid.
      * @param  signature An arbitrary signature (EIP-712).
-     * @return wrapped   The amount of wM minted.
      */
-    function wrapWithPermit(
-        address recipient,
-        uint256 amount,
-        uint256 deadline,
-        bytes memory signature
-    ) external returns (uint240 wrapped);
+    function wrapWithPermit(address recipient, uint256 amount, uint256 deadline, bytes memory signature) external;
 
     /**
      * @notice Unwraps `amount` wM from the caller into M for `recipient`.
      * @param  recipient The account receiving the withdrawn M.
      * @param  amount    The amount of wM burned.
-     * @return unwrapped The amount of M withdrawn.
      */
-    function unwrap(address recipient, uint256 amount) external returns (uint240 unwrapped);
+    function unwrap(address recipient, uint256 amount) external;
 
     /**
      * @notice Unwraps all the wM from the caller into M for `recipient`.
      * @param  recipient The account receiving the withdrawn M.
-     * @return unwrapped The amount of M withdrawn.
+     * @return unwrapped The amount of wM burned.
      */
     function unwrap(address recipient) external returns (uint240 unwrapped);
 
