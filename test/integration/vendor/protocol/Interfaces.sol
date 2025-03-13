@@ -24,4 +24,6 @@ interface IMTokenLike {
     function totalEarningSupply() external view returns (uint240 supply);
 
     function totalNonEarningSupply() external view returns (uint240 supply);
+
+    function startEarning() external;
 }

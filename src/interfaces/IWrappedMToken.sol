@@ -302,4 +302,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice The address of the destination where excess is claimed to.
     function excessDestination() external view returns (address excessDestination);
+
+    /// @notice The rounding error that may occur due to imprecise $M transfers in and out of WrappedM contract.
+    function roundingError() external view returns (int240 roundingError);
 }
