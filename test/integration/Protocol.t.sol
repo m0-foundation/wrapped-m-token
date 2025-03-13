@@ -98,8 +98,8 @@ contract ProtocolIntegrationTests is TestBase {
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply += 100_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply);
-        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield -= 1);
-        assertEq(_wrappedMToken.excess(), _excess);
+        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield);
+        assertEq(_wrappedMToken.excess(), _excess -= 1);
 
         assertGe(
             int256(_wrapperBalanceOfM),
@@ -174,8 +174,8 @@ contract ProtocolIntegrationTests is TestBase {
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply += 200_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply);
-        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield -= 1);
-        assertEq(_wrappedMToken.excess(), _excess);
+        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield);
+        assertEq(_wrappedMToken.excess(), _excess -= 1);
 
         assertGe(
             int256(_wrapperBalanceOfM),
@@ -286,8 +286,8 @@ contract ProtocolIntegrationTests is TestBase {
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply += _aliceBalance);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply += 100_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield -= 1);
-        assertEq(_wrappedMToken.excess(), _excess);
+        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield);
+        assertEq(_wrappedMToken.excess(), _excess -= 1);
 
         assertGe(
             int256(_wrapperBalanceOfM),
@@ -336,8 +336,8 @@ contract ProtocolIntegrationTests is TestBase {
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply += _bobBalance - _aliceBalance);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply += _daveBalance + _aliceBalance);
-        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield -= 1);
-        assertEq(_wrappedMToken.excess(), _excess += 1);
+        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield += 1);
+        assertEq(_wrappedMToken.excess(), _excess -= 1);
 
         // Assert Carol (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_carol), _carolBalance += _aliceBalance);
@@ -365,8 +365,8 @@ contract ProtocolIntegrationTests is TestBase {
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply += 50_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply -= 50_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield);
-        assertEq(_wrappedMToken.excess(), _excess);
+        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield += 1);
+        assertEq(_wrappedMToken.excess(), _excess -= 1);
 
         assertGe(
             int256(_wrapperBalanceOfM),
@@ -424,8 +424,8 @@ contract ProtocolIntegrationTests is TestBase {
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply += 100_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply += 100_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield -= 1);
-        assertEq(_wrappedMToken.excess(), _excess);
+        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield);
+        assertEq(_wrappedMToken.excess(), _excess -= 1);
 
         assertGe(
             int256(_wrapperBalanceOfM),
@@ -456,8 +456,8 @@ contract ProtocolIntegrationTests is TestBase {
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply += 100_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply += 100_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield);
-        assertEq(_wrappedMToken.excess(), _excess);
+        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield += 1);
+        assertEq(_wrappedMToken.excess(), _excess -= 1);
 
         assertGe(
             int256(_wrapperBalanceOfM),
@@ -508,8 +508,8 @@ contract ProtocolIntegrationTests is TestBase {
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply += _carolBalance);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply -= _carolBalance);
-        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield);
-        assertEq(_wrappedMToken.excess(), _excess);
+        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield += 1);
+        assertEq(_wrappedMToken.excess(), _excess -= 1);
 
         assertGe(
             int256(_wrapperBalanceOfM),
@@ -556,8 +556,8 @@ contract ProtocolIntegrationTests is TestBase {
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply -= _bobBalance);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply);
-        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield);
-        assertEq(_wrappedMToken.excess(), _excess -= 1);
+        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield += 1);
+        assertEq(_wrappedMToken.excess(), _excess -= 2);
 
         // Assert Bob (Earner)
         assertEq(_mToken.balanceOf(_bob), _bobBalance);
@@ -575,8 +575,8 @@ contract ProtocolIntegrationTests is TestBase {
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply -= _carolBalance);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply);
-        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield -= 1);
-        assertEq(_wrappedMToken.excess(), _excess += 1);
+        assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield += 1);
+        assertEq(_wrappedMToken.excess(), _excess -= 1);
 
         // Assert Carol (Earner)
         assertEq(_mToken.balanceOf(_carol), _carolBalance);
@@ -616,7 +616,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply);
         assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply);
         assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield);
-        assertEq(_wrappedMToken.excess(), _excess -= _excess + 1);
+        assertEq(_wrappedMToken.excess(), _excess -= _excess);
 
         assertGe(
             int256(_wrapperBalanceOfM),
