@@ -300,56 +300,6 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.wrap(_alice, uint256(type(uint240).max) + 1);
     }
 
-    function testFuzz_wrap_entireBalance(
-        bool earningEnabled_,
-        bool accountEarning_,
-        uint240 balanceWithYield_,
-        uint240 balance_,
-        uint240 wrapAmount_,
-        uint128 currentMIndex_,
-        uint128 enableMIndex_,
-        uint128 disableIndex_
-    ) external {
-        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
-            currentMIndex_,
-            enableMIndex_,
-            disableIndex_
-        );
-
-        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
-
-        (balanceWithYield_, balance_) = _getFuzzedBalances(
-            balanceWithYield_,
-            balance_,
-            _getMaxAmount(_wrappedMToken.currentIndex())
-        );
-
-        _setupAccount(_alice, accountEarning_, balanceWithYield_, balance_);
-
-        wrapAmount_ = uint240(bound(wrapAmount_, 0, _getMaxAmount(_wrappedMToken.currentIndex()) - balanceWithYield_));
-
-        _mToken.setBalanceOf(_alice, wrapAmount_);
-
-        if (wrapAmount_ == 0) {
-            vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, (0)));
-        } else {
-            vm.expectEmit();
-            emit IERC20.Transfer(address(0), _alice, wrapAmount_);
-        }
-
-        vm.startPrank(_alice);
-        _wrappedMToken.wrap(_alice);
-
-        if (wrapAmount_ == 0) return;
-
-        assertEq(_wrappedMToken.balanceOf(_alice), balance_ + wrapAmount_);
-
-        assertEq(
-            accountEarning_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply(),
-            _wrappedMToken.balanceOf(_alice)
-        );
-    }
-
     /* ============ wrapWithPermit vrs ============ */
     function test_wrapWithPermit_vrs_invalidAmount() external {
         vm.expectRevert(UIntMath.InvalidUInt240.selector);
@@ -670,51 +620,6 @@ contract WrappedMTokenTests is Test {
             accountEarning_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply(),
             _wrappedMToken.balanceOf(_alice)
         );
-    }
-
-    /* ============ unwrap entire balance ============ */
-    function testFuzz_unwrap_entireBalance(
-        bool earningEnabled_,
-        bool accountEarning_,
-        uint240 balanceWithYield_,
-        uint240 balance_,
-        uint128 currentMIndex_,
-        uint128 enableMIndex_,
-        uint128 disableIndex_
-    ) external {
-        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
-            currentMIndex_,
-            enableMIndex_,
-            disableIndex_
-        );
-
-        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
-
-        (balanceWithYield_, balance_) = _getFuzzedBalances(
-            balanceWithYield_,
-            balance_,
-            _getMaxAmount(_wrappedMToken.currentIndex())
-        );
-
-        _setupAccount(_alice, accountEarning_, balanceWithYield_, balance_);
-
-        _mToken.setBalanceOf(address(_wrappedMToken), balance_);
-
-        if (balance_ == 0) {
-            vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, (0)));
-        } else {
-            vm.expectEmit();
-            emit IERC20.Transfer(_alice, address(0), balance_);
-        }
-
-        vm.startPrank(_alice);
-        _wrappedMToken.unwrap(_alice);
-
-        if (balance_ == 0) return;
-
-        assertEq(_wrappedMToken.balanceOf(_alice), 0);
-
-        assertEq(accountEarning_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply(), 0);
     }
 
     /* ============ claimFor ============ */

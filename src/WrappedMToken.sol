@@ -136,11 +136,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IWrappedMToken
-    function wrap(address recipient_) external returns (uint240 wrapped_) {
-        _wrap(msg.sender, recipient_, wrapped_ = _mBalanceOf(msg.sender));
-    }
-
-    /// @inheritdoc IWrappedMToken
     function wrapWithPermit(
         address recipient_,
         uint256 amount_,
@@ -164,11 +159,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /// @inheritdoc IWrappedMToken
     function unwrap(address recipient_, uint256 amount_) external {
         _unwrap(msg.sender, recipient_, UIntMath.safe240(amount_));
-    }
-
-    /// @inheritdoc IWrappedMToken
-    function unwrap(address recipient_) external returns (uint240 unwrapped_) {
-        _unwrap(msg.sender, recipient_, unwrapped_ = uint240(balanceOf(msg.sender)));
     }
 
     /// @inheritdoc IWrappedMToken

@@ -692,7 +692,7 @@ contract ProtocolIntegrationTests is TestBase {
                 if (amount_ >= account1BalanceOfM_) {
                     // console2.log("%s wrapping all their M to %s", account1_, account2_);
 
-                    _wrap(account1_, account2_);
+                    _wrap(account1_, account2_, account1BalanceOfM_ - 1); // -1 to account for rounding up for earners.
                 } else {
                     // console2.log("%s wrapping %s to %s", account1_, amount_, account2_);
 
@@ -719,7 +719,7 @@ contract ProtocolIntegrationTests is TestBase {
                 if (amount_ >= account1Balance_) {
                     // console2.log("%s unwrapping all their wM to %s", account1_, account2_);
 
-                    _unwrap(account1_, account2_);
+                    _unwrap(account1_, account2_, account1Balance_ - 1); // -1 to account for rounding up for earners.
                 } else {
                     // console2.log("%s unwrapping %s to %s", account1_, amount_, account2_);
 

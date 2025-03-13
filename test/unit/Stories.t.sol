@@ -397,8 +397,9 @@ contract StoryTests is Test {
             int256(_mToken.balanceOf(address(_wrappedMToken)))
         );
 
+        uint256 bobBalance_ = _wrappedMToken.balanceOf(_bob);
         vm.prank(_bob);
-        _wrappedMToken.unwrap(_bob);
+        _wrappedMToken.unwrap(_bob, bobBalance_);
     }
 
     function test_dustWrapping() external {
