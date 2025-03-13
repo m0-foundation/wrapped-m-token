@@ -292,7 +292,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function currentIndex() public view returns (uint128 index_) {
         uint128 disableIndex_ = disableIndex == 0 ? IndexingMath.EXP_SCALED_ONE : disableIndex;
 
-        return enableMIndex == 0 ? disableIndex_ : (disableIndex_ * _currentMIndex()) / enableMIndex;
+        unchecked {
+            return
+                enableMIndex == 0
+                    ? disableIndex_
+                    : UIntMath.safe128((uint256(disableIndex_) * _currentMIndex()) / enableMIndex);
+        }
     }
 
     /// @inheritdoc IWrappedMToken
@@ -312,18 +317,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
             uint240 balance_ = _mBalanceOf(address(this));
 
             // The entire M balance is excess if the total projected supply (factoring rounding errors) is 0.
-            return
-                earmarked_ == 0 ? int248(uint248(balance_)) : int248(uint248(balance_)) - int248(uint248(earmarked_));
+            return int248(uint248(balance_)) - int248(uint248(earmarked_));
         }
     }
 
     /// @inheritdoc IWrappedMToken
     function totalAccruedYield() external view returns (uint240 yield_) {
-        uint240 projectedEarningSupply_ = projectedEarningSupply();
-        uint240 earningSupply_ = totalEarningSupply;
-
         unchecked {
-            return projectedEarningSupply_ <= earningSupply_ ? 0 : projectedEarningSupply_ - earningSupply_;
+            return projectedEarningSupply() - totalEarningSupply;
         }
     }
 
