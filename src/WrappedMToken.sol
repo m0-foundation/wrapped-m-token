@@ -102,7 +102,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     uint128 public disableIndex;
 
     /// @inheritdoc IWrappedMToken
-    int240 public roundingError;
+    int256 public roundingError;
 
     mapping(address account => address claimRecipient) internal _claimRecipients;
 
@@ -171,11 +171,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function claimExcess() external returns (uint240 claimed_) {
-        int240 excess_ = excess();
+        int256 excess_ = excess();
 
         if (excess_ <= 0) revert NoExcess();
 
-        emit ExcessClaimed(claimed_ = uint240(excess_));
+        emit ExcessClaimed(claimed_ = uint240(uint256(excess_)));
 
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
         IMTokenLike(mToken).transfer(excessDestination, claimed_);
@@ -314,13 +314,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /// @inheritdoc IWrappedMToken
-    function excess() public view returns (int240 excess_) {
+    function excess() public view returns (int256 excess_) {
         unchecked {
-            uint240 earmarked_ = totalNonEarningSupply + projectedEarningSupply();
-            uint240 balance_ = _mBalanceOf(address(this));
+            uint256 earmarked_ = totalNonEarningSupply + projectedEarningSupply();
+            uint256 balance_ = _mBalanceOf(address(this));
 
             // Decreases claimable excess by the `roundingError` for extra level of safety and solvency.
-            return int240(balance_) - int240(earmarked_) - roundingError;
+            return int256(balance_) - int256(earmarked_) - roundingError;
         }
     }
 
