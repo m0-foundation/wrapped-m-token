@@ -258,7 +258,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function enableMIndex() external view returns (uint128 enableMIndex);
 
     /// @notice This contract's current excess M that is not earmarked for account balances or accrued yield.
-    function excess() external view returns (int248 excess);
+    function excess() external view returns (int240 excess);
 
     /// @notice The wrapper's index when earning was most recently disabled.
     function disableIndex() external view returns (uint128 disableIndex);
@@ -302,4 +302,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice The address of the destination where excess is claimed to.
     function excessDestination() external view returns (address excessDestination);
+
+    /// @notice The rounding error that may occur due to imprecise $M transfers in and out of WrappedM contract.
+    function roundingError() external view returns (int240 roundingError);
 }
