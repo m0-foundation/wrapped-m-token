@@ -151,14 +151,6 @@ contract TestBase is Test {
         _wrappedMToken.wrap(recipient_, amount_);
     }
 
-    function _wrap(address account_, address recipient_) internal {
-        vm.prank(account_);
-        _mToken.approve(address(_wrappedMToken), type(uint256).max);
-
-        vm.prank(account_);
-        _wrappedMToken.wrap(recipient_);
-    }
-
     function _wrapWithPermitVRS(
         address account_,
         uint256 signerPrivateKey_,
@@ -190,11 +182,6 @@ contract TestBase is Test {
     function _unwrap(address account_, address recipient_, uint256 amount_) internal {
         vm.prank(account_);
         _wrappedMToken.unwrap(recipient_, amount_);
-    }
-
-    function _unwrap(address account_, address recipient_) internal {
-        vm.prank(account_);
-        _wrappedMToken.unwrap(recipient_);
     }
 
     function _transferWM(address sender_, address recipient_, uint256 amount_) internal {

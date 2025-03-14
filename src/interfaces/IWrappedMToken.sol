@@ -111,17 +111,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /**
      * @notice Wraps `amount` M from the caller into wM for `recipient`.
      * @param  recipient The account receiving the minted wM.
-     * @param  amount    The amount of M deposited.
-     * @return wrapped   The amount of wM minted.
+     * @param  amount    The amount of wM minted.
      */
-    function wrap(address recipient, uint256 amount) external returns (uint240 wrapped);
-
-    /**
-     * @notice Wraps all the M from the caller into wM for `recipient`.
-     * @param  recipient The account receiving the minted wM.
-     * @return wrapped   The amount of wM minted.
-     */
-    function wrap(address recipient) external returns (uint240 wrapped);
+    function wrap(address recipient, uint256 amount) external;
 
     /**
      * @notice Wraps `amount` M from the caller into wM for `recipient`, using a permit.
@@ -131,7 +123,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      * @param  v         An ECDSA secp256k1 signature parameter (EIP-2612 via EIP-712).
      * @param  r         An ECDSA secp256k1 signature parameter (EIP-2612 via EIP-712).
      * @param  s         An ECDSA secp256k1 signature parameter (EIP-2612 via EIP-712).
-     * @return wrapped   The amount of wM minted.
      */
     function wrapWithPermit(
         address recipient,
@@ -140,7 +131,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external returns (uint240 wrapped);
+    ) external;
 
     /**
      * @notice Wraps `amount` M from the caller into wM for `recipient`, using a permit.
@@ -148,29 +139,15 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      * @param  amount    The amount of M deposited.
      * @param  deadline  The last timestamp where the signature is still valid.
      * @param  signature An arbitrary signature (EIP-712).
-     * @return wrapped   The amount of wM minted.
      */
-    function wrapWithPermit(
-        address recipient,
-        uint256 amount,
-        uint256 deadline,
-        bytes memory signature
-    ) external returns (uint240 wrapped);
+    function wrapWithPermit(address recipient, uint256 amount, uint256 deadline, bytes memory signature) external;
 
     /**
      * @notice Unwraps `amount` wM from the caller into M for `recipient`.
      * @param  recipient The account receiving the withdrawn M.
      * @param  amount    The amount of wM burned.
-     * @return unwrapped The amount of M withdrawn.
      */
-    function unwrap(address recipient, uint256 amount) external returns (uint240 unwrapped);
-
-    /**
-     * @notice Unwraps all the wM from the caller into M for `recipient`.
-     * @param  recipient The account receiving the withdrawn M.
-     * @return unwrapped The amount of M withdrawn.
-     */
-    function unwrap(address recipient) external returns (uint240 unwrapped);
+    function unwrap(address recipient, uint256 amount) external;
 
     /**
      * @notice Claims any claimable yield for `account`.
@@ -281,7 +258,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function enableMIndex() external view returns (uint128 enableMIndex);
 
     /// @notice This contract's current excess M that is not earmarked for account balances or accrued yield.
-    function excess() external view returns (int248 excess);
+    function excess() external view returns (int240 excess);
 
     /// @notice The wrapper's index when earning was most recently disabled.
     function disableIndex() external view returns (uint128 disableIndex);
@@ -325,4 +302,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice The address of the destination where excess is claimed to.
     function excessDestination() external view returns (address excessDestination);
+
+    /// @notice The rounding error that may occur due to imprecise $M transfers in and out of WrappedM contract.
+    function roundingError() external view returns (int240 roundingError);
 }
