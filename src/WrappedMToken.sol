@@ -318,9 +318,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         unchecked {
             uint256 earmarked_ = totalNonEarningSupply + projectedEarningSupply();
             uint256 balance_ = _mBalanceOf(address(this));
+            int256 roundingError_ = roundingError > 0 ? roundingError : int256(0);
 
-            // Decreases claimable excess by the `roundingError` for extra level of safety and solvency.
-            return int256(balance_) - int256(earmarked_) - roundingError;
+            // Reduces claimable excess if roundingError is positive, adding an extra layer of safety and solvency.
+            return int256(balance_) - int256(earmarked_) - roundingError_;
         }
     }
 
