@@ -267,6 +267,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /// @inheritdoc IWrappedMToken
     function balanceWithYieldOf(address account_) external view returns (uint256 balance_) {
+        // NOTE: The returned amount includes the total accrued yield, regardless of whether it is split between the claim recipient and the earner manager.
+        //       Claiming yield does not necessarily result in the account's new balance equaling the value returned by `balanceWithYieldOf`,
+        //       as the yield may be directed to a claim recipient different from the `account_` and may be split between the earner manager and the `account_`.
         unchecked {
             return balanceOf(account_) + accruedYieldOf(account_);
         }
