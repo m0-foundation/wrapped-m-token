@@ -150,7 +150,7 @@ contract EarnerManager is IEarnerManager, Migratable {
     function getEarnerDetails(address account_) external view returns (bool status_, uint16 feeRate_, address admin_) {
         if (earnersListsIgnored() || isInRegistrarEarnersList(account_)) return (true, 0, address(0));
 
-        EarnerDetails storage details_ = _earnerDetails[account_];
+        EarnerDetails memory details_ = _earnerDetails[account_];
 
         // NOTE: Not using `isInAdministratedEarnersList(account_)` here to avoid redundant storage reads.
         return _isValidAdmin(details_.admin) ? (true, details_.feeRate, details_.admin) : (false, 0, address(0));
@@ -179,7 +179,7 @@ contract EarnerManager is IEarnerManager, Migratable {
                 continue;
             }
 
-            EarnerDetails storage details_ = _earnerDetails[account_];
+            EarnerDetails memory details_ = _earnerDetails[account_];
 
             // NOTE: Not using `isInAdministratedEarnersList(account_)` here to avoid redundant storage reads.
             if (!_isValidAdmin(details_.admin)) continue;
@@ -192,7 +192,6 @@ contract EarnerManager is IEarnerManager, Migratable {
 
     /// @inheritdoc IEarnerManager
     function isAdmin(address account_) public view returns (bool isAdmin_) {
-        // TODO: Consider transient storage for memoizing this check.
         return IRegistrarLike(registrar).listContains(ADMINS_LIST_NAME, account_);
     }
 
