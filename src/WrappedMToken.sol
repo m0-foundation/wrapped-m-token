@@ -170,7 +170,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     function claimExcess() external returns (uint240 claimed_) {
         int256 excess_ = excess();
 
-        if (excess_ <= 0) revert NoExcess();
+        if (excess_ <= 0) return 0;
 
         emit ExcessClaimed(claimed_ = uint240(uint256(excess_)));
 

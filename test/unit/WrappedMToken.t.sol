@@ -898,18 +898,18 @@ contract WrappedMTokenTests is Test {
         uint240 earmarked_ = totalNonEarningSupply_ + _wrappedMToken.projectedEarningSupply();
         int240 excess_ = int240(mBalance_) - int240(earmarked_);
 
-        if (excess_ <= 0) {
-            vm.expectRevert(IWrappedMToken.NoExcess.selector);
-        } else {
+        if (excess_ > 0) {
             vm.expectEmit(false, false, false, false);
             emit IWrappedMToken.ExcessClaimed(uint240(excess_));
         }
 
         uint240 claimed_ = _wrappedMToken.claimExcess();
 
-        if (excess_ <= 0) return;
-
-        assertLe(claimed_, uint240(excess_));
+        if (excess_ <= 0) {
+            assertEq(claimed_, 0);
+        } else {
+            assertLe(claimed_, uint240(excess_));
+        }
     }
 
     /* ============ transfer ============ */
