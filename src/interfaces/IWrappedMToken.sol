@@ -85,9 +85,6 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     error NotApprovedEarner(address account);
 
-    /// @notice Emitted when there is no excess to claim.
-    error NoExcess();
-
     /// @notice Emitted when the non-governance migrate function is called by an account other than the migration admin.
     error UnauthorizedMigration();
 
