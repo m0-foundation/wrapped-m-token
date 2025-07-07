@@ -64,22 +64,6 @@ contract ProtocolIntegrationTests is TestBase {
         assertTrue(_mToken.isEarning(address(_wrappedMToken)));
     }
 
-    function test_wrapWithPermits() external {
-        _giveM(_alice, 200_000000);
-
-        assertEq(_mToken.balanceOf(_alice), 200_000000);
-
-        _wrapWithPermitVRS(_alice, _aliceKey, _alice, 100_000000, 0, block.timestamp);
-
-        assertEq(_mToken.balanceOf(_alice), 100_000000);
-        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
-
-        _wrapWithPermitSignature(_alice, _aliceKey, _alice, 100_000000, 1, block.timestamp);
-
-        assertEq(_mToken.balanceOf(_alice), 0);
-        assertEq(_wrappedMToken.balanceOf(_alice), 200_000000);
-    }
-
     function test_integration_yieldAccumulation() external {
         _giveM(_alice, 100_000000);
 

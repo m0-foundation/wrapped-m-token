@@ -10,12 +10,15 @@ import { Test } from "../../lib/forge-std/src/Test.sol";
 import { Proxy } from "../../lib/common/src/Proxy.sol";
 
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
+import { ISwapFacilityLike } from "../../src/interfaces/ISwapFacilityLike.sol";
 
 import { EarnerManager } from "../../src/EarnerManager.sol";
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 import { WrappedMTokenMigratorV1 } from "../../src/WrappedMTokenMigratorV1.sol";
 
 import { IMTokenLike, IRegistrarLike } from "./vendor/protocol/Interfaces.sol";
+
+import { MockSwapFacility } from "../utils/Mocks.sol";
 
 contract TestBase is Test {
     IMTokenLike internal constant _mToken = IMTokenLike(0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b);
@@ -67,6 +70,9 @@ contract TestBase is Test {
     address internal _earnerManager;
     address internal _wrappedMTokenImplementationV2;
     address internal _wrappedMTokenMigratorV1;
+
+    // TODO: Replace with the actual Swap Facility address after deployment.
+    address internal _swapFacility;
 
     address[] internal _earners = [
         0x437cc33344a0B27A429f795ff6B469C72698B291,
@@ -145,43 +151,18 @@ contract TestBase is Test {
 
     function _wrap(address account_, address recipient_, uint256 amount_) internal {
         vm.prank(account_);
-        _mToken.approve(address(_wrappedMToken), amount_);
+        _mToken.approve(_swapFacility, amount_);
 
         vm.prank(account_);
-        _wrappedMToken.wrap(recipient_, amount_);
-    }
-
-    function _wrapWithPermitVRS(
-        address account_,
-        uint256 signerPrivateKey_,
-        address recipient_,
-        uint256 amount_,
-        uint256 nonce_,
-        uint256 deadline_
-    ) internal {
-        (uint8 v_, bytes32 r_, bytes32 s_) = _getPermit(account_, signerPrivateKey_, amount_, nonce_, deadline_);
-
-        vm.prank(account_);
-        _wrappedMToken.wrapWithPermit(recipient_, amount_, deadline_, v_, r_, s_);
-    }
-
-    function _wrapWithPermitSignature(
-        address account_,
-        uint256 signerPrivateKey_,
-        address recipient_,
-        uint256 amount_,
-        uint256 nonce_,
-        uint256 deadline_
-    ) internal {
-        (uint8 v_, bytes32 r_, bytes32 s_) = _getPermit(account_, signerPrivateKey_, amount_, nonce_, deadline_);
-
-        vm.prank(account_);
-        _wrappedMToken.wrapWithPermit(recipient_, amount_, deadline_, abi.encodePacked(r_, s_, v_));
+        ISwapFacilityLike(_swapFacility).swapInM(address(_wrappedMToken), amount_, recipient_);
     }
 
     function _unwrap(address account_, address recipient_, uint256 amount_) internal {
         vm.prank(account_);
-        _wrappedMToken.unwrap(recipient_, amount_);
+        _wrappedMToken.approve(_swapFacility, amount_);
+
+        vm.prank(account_);
+        ISwapFacilityLike(_swapFacility).swapOutM(address(_wrappedMToken), amount_, recipient_);
     }
 
     function _transferWM(address sender_, address recipient_, uint256 amount_) internal {
@@ -206,8 +187,17 @@ contract TestBase is Test {
     function _deployV2Components() internal {
         _earnerManagerImplementation = address(new EarnerManager(_registrar, _migrationAdmin));
         _earnerManager = address(new Proxy(_earnerManagerImplementation));
+        // TODO: Replace with the actual Swap Facility address after deployment.
+        _swapFacility = address(new MockSwapFacility(address(_mToken)));
         _wrappedMTokenImplementationV2 = address(
-            new WrappedMToken(address(_mToken), _registrar, _earnerManager, _excessDestination, _migrationAdmin)
+            new WrappedMToken(
+                address(_mToken),
+                _registrar,
+                _earnerManager,
+                _excessDestination,
+                _swapFacility,
+                _migrationAdmin
+            )
         );
 
         address[] memory earners_ = new address[](_earners.length);

@@ -15,6 +15,8 @@ contract DeployTests is Test, DeployBase {
     address internal constant _WRAPPED_M_MIGRATION_ADMIN = 0x431169728D75bd02f4053435b87D15c8d1FB2C72;
     address internal constant _EARNER_MANAGER_MIGRATION_ADMIN = 0x431169728D75bd02f4053435b87D15c8d1FB2C72;
     address internal constant _EXCESS_DESTINATION = 0xd7298f620B0F752Cf41BD818a16C756d9dCAA34f; // Vault
+    // TODO: Replace with the actual Swap Facility address after deployment.
+    address internal constant _SWAP_FACILITY = 0x0000000000000000000000000000000000000001;
     address internal constant _DEPLOYER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
     uint64 internal constant _DEPLOYER_NONCE = 50;
@@ -39,6 +41,7 @@ contract DeployTests is Test, DeployBase {
                 _M_TOKEN,
                 _REGISTRAR,
                 _EXCESS_DESTINATION,
+                _SWAP_FACILITY,
                 _WRAPPED_M_MIGRATION_ADMIN,
                 _EARNER_MANAGER_MIGRATION_ADMIN
             );
@@ -60,6 +63,7 @@ contract DeployTests is Test, DeployBase {
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).mToken(), _M_TOKEN);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).registrar(), _REGISTRAR);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).excessDestination(), _EXCESS_DESTINATION);
+        assertEq(IWrappedMToken(wrappedMTokenImplementation_).swapFacility(), _SWAP_FACILITY);
 
         // Wrapped M Token Proxy assertions
         assertEq(wrappedMTokenProxy_, expectedWrappedMTokenProxy_);
@@ -68,6 +72,7 @@ contract DeployTests is Test, DeployBase {
         assertEq(IWrappedMToken(wrappedMTokenProxy_).mToken(), _M_TOKEN);
         assertEq(IWrappedMToken(wrappedMTokenProxy_).registrar(), _REGISTRAR);
         assertEq(IWrappedMToken(wrappedMTokenProxy_).excessDestination(), _EXCESS_DESTINATION);
+        assertEq(IWrappedMToken(wrappedMTokenProxy_).swapFacility(), _SWAP_FACILITY);
         assertEq(IWrappedMToken(wrappedMTokenProxy_).implementation(), wrappedMTokenImplementation_);
     }
 }

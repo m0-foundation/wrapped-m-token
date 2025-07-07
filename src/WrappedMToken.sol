@@ -84,6 +84,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     address public immutable excessDestination;
 
     /// @inheritdoc IWrappedMToken
+    address public immutable swapFacility;
+
+    /// @inheritdoc IWrappedMToken
     uint112 public totalEarningPrincipal;
 
     /// @inheritdoc IWrappedMToken
@@ -103,6 +106,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     mapping(address account => address claimRecipient) internal _claimRecipients;
 
+    /* ============ Modifiers ============ */
+
+    /// @dev Modifier to check if caller is SwapFacility.
+    modifier onlySwapFacility() {
+        if (msg.sender != swapFacility) revert NotSwapFacility();
+        _;
+    }
+
     /* ============ Constructor ============ */
 
     /**
@@ -112,6 +123,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @param registrar_         The address of a Registrar.
      * @param earnerManager_     The address of an Earner Manager.
      * @param excessDestination_ The address of an excess destination.
+     * @param swapFacility_      The address of a Swap Facility.
      * @param migrationAdmin_    The address of a migration admin.
      */
     constructor(
@@ -119,46 +131,27 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         address registrar_,
         address earnerManager_,
         address excessDestination_,
+        address swapFacility_,
         address migrationAdmin_
     ) ERC20Extended("M (Wrapped) by M^0", "wM", 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
         if ((earnerManager = earnerManager_) == address(0)) revert ZeroEarnerManager();
         if ((excessDestination = excessDestination_) == address(0)) revert ZeroExcessDestination();
+        if ((swapFacility = swapFacility_) == address(0)) revert ZeroSwapFacility();
         if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
     }
 
     /* ============ Interactive Functions ============ */
 
     /// @inheritdoc IWrappedMToken
-    function wrap(address recipient_, uint256 amount_) external {
-        _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+    function wrap(address recipient_, uint256 amount_) external onlySwapFacility {
+        _wrap(recipient_, UIntMath.safe240(amount_));
     }
 
     /// @inheritdoc IWrappedMToken
-    function wrapWithPermit(
-        address recipient_,
-        uint256 amount_,
-        uint256 deadline_,
-        uint8 v_,
-        bytes32 r_,
-        bytes32 s_
-    ) external {
-        try IMTokenLike(mToken).permit(msg.sender, address(this), amount_, deadline_, v_, r_, s_) {} catch {}
-
-        _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
-    }
-
-    /// @inheritdoc IWrappedMToken
-    function wrapWithPermit(address recipient_, uint256 amount_, uint256 deadline_, bytes memory signature_) external {
-        try IMTokenLike(mToken).permit(msg.sender, address(this), amount_, deadline_, signature_) {} catch {}
-
-        _wrap(msg.sender, recipient_, UIntMath.safe240(amount_));
-    }
-
-    /// @inheritdoc IWrappedMToken
-    function unwrap(address recipient_, uint256 amount_) external {
-        _unwrap(msg.sender, recipient_, UIntMath.safe240(amount_));
+    function unwrap(address /* recipient_ */, uint256 amount_) external onlySwapFacility {
+        _unwrap(UIntMath.safe240(amount_));
     }
 
     /// @inheritdoc IWrappedMToken
@@ -662,13 +655,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /**
      * @dev    Wraps `amount` M from `account_` into wM for `recipient`.
-     * @param  account_   The account from which M is deposited.
      * @param  recipient_ The account receiving the minted wM.
      * @param  amount_    The amount of M deposited.
      */
-    function _wrap(address account_, address recipient_, uint240 amount_) internal {
+    function _wrap(address recipient_, uint240 amount_) internal {
+        // NOTE: Always transfer from SwapFacility as it is the only contract that can call this function.
         // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
-        IMTokenLike(mToken).transferFrom(account_, address(this), amount_);
+        IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
 
         // NOTE: Mints precise amount of Wrapped $M to `recipient_`.
         //       Option 1: $M transfer from an $M earner to another $M earner (`WrappedM` in earning state): rounds up → rounds up,
@@ -679,20 +672,19 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     }
 
     /**
-     * @dev    Unwraps `amount` wM from `account_` into M for `recipient`.
-     * @param  account_   The account from which WM is burned.
-     * @param  recipient_ The account receiving the withdrawn M.
+     * @dev    Unwraps `amount` wM from `account_` into M.
      * @param  amount_    The amount of wM burned.
      */
-    function _unwrap(address account_, address recipient_, uint240 amount_) internal {
-        _burn(account_, amount_);
+    function _unwrap(uint240 amount_) internal {
+        // NOTE: Always burn from SwapFacility as it is the only contract that can call this function.
+        _burn(msg.sender, amount_);
 
         // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
         // NOTE: Computes the actual decrease in the $M balance of the `WrappedM` contract.
         //       Option 1: $M transfer from an $M earner (`WrappedM` in earning state) to another $M earner: round up → rounds up.
         //       Option 2: $M transfer from an $M earner (`WrappedM` in earning state) to an $M non-earner: round up → precise $M transfer.
         //       In both cases, 0, 1, or XX extra wei may be deducted from the `WrappedM` contract's $M balance compared to the burned amount of Wrapped $M.
-        IMTokenLike(mToken).transfer(recipient_, amount_);
+        IMTokenLike(mToken).transfer(msg.sender, amount_);
     }
 
     /**

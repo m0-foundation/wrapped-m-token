@@ -11,7 +11,7 @@ import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 
-import { MockEarnerManager, MockM, MockRegistrar } from "../utils/Mocks.sol";
+import { MockEarnerManager, MockM, MockRegistrar, MockSwapFacility } from "../utils/Mocks.sol";
 
 contract StoryTests is Test {
     uint56 internal constant _EXP_SCALED_ONE = IndexingMath.EXP_SCALED_ONE;
@@ -29,6 +29,7 @@ contract StoryTests is Test {
     MockEarnerManager internal _earnerManager;
     MockM internal _mToken;
     MockRegistrar internal _registrar;
+    MockSwapFacility internal _swapFacility;
     WrappedMToken internal _implementation;
     IWrappedMToken internal _wrappedMToken;
 
@@ -37,6 +38,7 @@ contract StoryTests is Test {
 
         _mToken = new MockM();
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
+        _swapFacility = new MockSwapFacility(address(_mToken));
 
         _earnerManager = new MockEarnerManager();
 
@@ -45,6 +47,7 @@ contract StoryTests is Test {
             address(_registrar),
             address(_earnerManager),
             _excessDestination,
+            address(_swapFacility),
             _migrationAdmin
         );
 
@@ -65,7 +68,7 @@ contract StoryTests is Test {
         _mToken.setBalanceOf(_alice, 100_000000);
 
         vm.prank(_alice);
-        _wrappedMToken.wrap(_alice, 100_000000);
+        _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _alice);
 
         // Assert Alice (Earner)
         assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
@@ -81,7 +84,7 @@ contract StoryTests is Test {
         _mToken.setBalanceOf(_carol, 100_000000);
 
         vm.prank(_carol);
-        _wrappedMToken.wrap(_carol, 100_000000);
+        _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _carol);
 
         // Assert Carol (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_carol), 100_000000);
@@ -115,7 +118,7 @@ contract StoryTests is Test {
         _mToken.setBalanceOf(_bob, 100_000000);
 
         vm.prank(_bob);
-        _wrappedMToken.wrap(_bob, 100_000000);
+        _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _bob);
 
         // Assert Bob (Earner)
         assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
@@ -132,7 +135,7 @@ contract StoryTests is Test {
         _mToken.setBalanceOf(_dave, 100_000000);
 
         vm.prank(_dave);
-        _wrappedMToken.wrap(_dave, 100_000000);
+        _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _dave);
 
         // Assert Dave (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_dave), 100_000000);
@@ -307,7 +310,10 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.excess(), 599_999996);
 
         vm.prank(_alice);
-        _wrappedMToken.unwrap(_alice, 266_666664);
+        _wrappedMToken.approve(address(_swapFacility), 266_666664);
+
+        vm.prank(_alice);
+        _swapFacility.swapOutM(address(_wrappedMToken), 266_666664, _alice);
 
         // Assert Alice (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
@@ -321,7 +327,10 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.excess(), 599_999996);
 
         vm.prank(_bob);
-        _wrappedMToken.unwrap(_bob, 150_000000);
+        _wrappedMToken.approve(address(_swapFacility), 150_000000);
+
+        vm.prank(_bob);
+        _swapFacility.swapOutM(address(_wrappedMToken), 150_000000, _bob);
 
         // Assert Bob (Earner)
         assertEq(_wrappedMToken.balanceOf(_bob), 0);
@@ -335,7 +344,10 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.excess(), 599_999996);
 
         vm.prank(_carol);
-        _wrappedMToken.unwrap(_carol, 200_000000);
+        _wrappedMToken.approve(address(_swapFacility), 200_000000);
+
+        vm.prank(_carol);
+        _swapFacility.swapOutM(address(_wrappedMToken), 200_000000, _carol);
 
         // Assert Carol (Earner)
         assertEq(_wrappedMToken.balanceOf(_carol), 0);
@@ -349,7 +361,10 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.excess(), 599_999996);
 
         vm.prank(_dave);
-        _wrappedMToken.unwrap(_dave, 50_000000);
+        _wrappedMToken.approve(address(_swapFacility), 50_000000);
+
+        vm.prank(_dave);
+        _swapFacility.swapOutM(address(_wrappedMToken), 50_000000, _dave);
 
         // Assert Dave (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_dave), 0);
@@ -377,7 +392,7 @@ contract StoryTests is Test {
 
         for (uint256 i_; i_ < 100; ++i_) {
             vm.prank(_alice);
-            _wrappedMToken.wrap(_alice, 9);
+            _swapFacility.swapInM(address(_wrappedMToken), 9, _alice);
 
             assertLe(
                 int256(_wrappedMToken.balanceOf(_alice)) + int256(_wrappedMToken.excess()),
@@ -398,8 +413,12 @@ contract StoryTests is Test {
         );
 
         uint256 bobBalance_ = _wrappedMToken.balanceOf(_bob);
+
         vm.prank(_bob);
-        _wrappedMToken.unwrap(_bob, bobBalance_);
+        _wrappedMToken.approve(address(_swapFacility), bobBalance_);
+
+        vm.prank(_bob);
+        _swapFacility.swapOutM(address(_wrappedMToken), bobBalance_, _bob);
     }
 
     function test_dustWrapping() external {
@@ -416,7 +435,7 @@ contract StoryTests is Test {
 
         for (uint256 i_; i_ < 100; ++i_) {
             vm.prank(_alice);
-            _wrappedMToken.wrap(_alice, 1);
+            _swapFacility.swapInM(address(_wrappedMToken), 1, _alice);
 
             assertLe(
                 int256(_wrappedMToken.balanceOf(_alice)) + int256(_wrappedMToken.excess()),

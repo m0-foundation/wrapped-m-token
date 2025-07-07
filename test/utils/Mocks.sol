@@ -2,6 +2,8 @@
 
 pragma solidity 0.8.26;
 
+import { IERC20 } from "../../lib/common/src/interfaces/IERC20.sol";
+
 contract MockM {
     uint128 public currentIndex;
 
@@ -64,6 +66,10 @@ contract MockM {
     function stopEarning() external {
         isEarning[msg.sender] = false;
     }
+
+    function approve(address spender_, uint256 amount_) external returns (bool success_) {
+        return true;
+    }
 }
 
 contract MockRegistrar {
@@ -97,5 +103,34 @@ contract MockEarnerManager {
         EarnerDetails storage earnerDetails_ = _earnerDetails[account_];
 
         return (earnerDetails_.status, earnerDetails_.feeRate, earnerDetails_.admin);
+    }
+}
+
+interface IMExtension {
+    function wrap(address recipient, uint256 amount) external;
+    function unwrap(address recipient, uint256 amount) external;
+}
+
+contract MockSwapFacility {
+    address public immutable mToken;
+
+    constructor(address mToken_) {
+        mToken = mToken_;
+    }
+
+    function swapInM(address extensionOut, uint256 amount, address recipient) external {
+        IERC20(mToken).transferFrom(msg.sender, address(this), amount);
+        IERC20(mToken).approve(extensionOut, amount);
+        IMExtension(extensionOut).wrap(recipient, amount);
+    }
+
+    function swapOutM(address extensionIn, uint256 amount, address recipient) external {
+        IERC20(extensionIn).transferFrom(msg.sender, address(this), amount);
+
+        uint256 balanceBefore = IERC20(mToken).balanceOf(address(this));
+        IMExtension(extensionIn).unwrap(address(this), amount);
+
+        amount = IERC20(mToken).balanceOf(address(this)) - balanceBefore;
+        IERC20(mToken).transfer(recipient, amount);
     }
 }

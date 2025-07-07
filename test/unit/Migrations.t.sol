@@ -50,6 +50,7 @@ contract MigrationTests is Test {
     address internal _mToken = makeAddr("mToken");
     address internal _earnerManager = makeAddr("earnerManager");
     address internal _excessDestination = makeAddr("excessDestination");
+    address internal _swapFacility = makeAddr("swapFacility");
     address internal _migrationAdmin = makeAddr("migrationAdmin");
 
     function test_wrappedMToken_migration() external {
@@ -62,6 +63,7 @@ contract MigrationTests is Test {
                 address(registrar_),
                 _earnerManager,
                 _excessDestination,
+                _swapFacility,
                 _migrationAdmin
             )
         );
@@ -89,6 +91,7 @@ contract MigrationTests is Test {
                 address(registrar_),
                 _earnerManager,
                 _excessDestination,
+                _swapFacility,
                 _migrationAdmin
             )
         );

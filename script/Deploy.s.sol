@@ -70,6 +70,7 @@ contract DeployProduction is Script, DeployBase {
             vm.envAddress("M_TOKEN"),
             vm.envAddress("REGISTRAR"),
             vm.envAddress("EXCESS_DESTINATION"),
+            vm.envAddress("SWAP_FACILITY"),
             vm.envAddress("WRAPPED_M_MIGRATION_ADMIN"),
             vm.envAddress("EARNER_MANAGER_MIGRATION_ADMIN")
         );
