@@ -28,7 +28,7 @@ import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
 
 /**
  * @title  ERC20 Token contract for wrapping M into a non-rebasing token with claimable yields.
- * @author M^0 Labs
+ * @author M0 Labs
  */
 contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ Structs ============ */
@@ -133,7 +133,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         address excessDestination_,
         address swapFacility_,
         address migrationAdmin_
-    ) ERC20Extended("M (Wrapped) by M^0", "wM", 6) {
+    ) ERC20Extended("M (Wrapped) by M0", "wM", 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
         if ((earnerManager = earnerManager_) == address(0)) revert ZeroEarnerManager();
