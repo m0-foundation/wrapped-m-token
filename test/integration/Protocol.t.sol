@@ -54,7 +54,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.EARNERS_LIST_NAME(), "earners");
         assertEq(_wrappedMToken.CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX(), "wm_claim_override_recipient");
         assertEq(_wrappedMToken.MIGRATOR_KEY_PREFIX(), "wm_migrator_v2");
-        assertEq(_wrappedMToken.name(), "M (Wrapped) by M^0");
+        assertEq(_wrappedMToken.name(), "M (Wrapped) by M0");
         assertEq(_wrappedMToken.symbol(), "wM");
         assertEq(_wrappedMToken.decimals(), 6);
     }

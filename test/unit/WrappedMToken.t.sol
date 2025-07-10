@@ -83,7 +83,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.registrar(), address(_registrar));
         assertEq(_wrappedMToken.excessDestination(), _excessDestination);
         assertEq(_wrappedMToken.swapFacility(), address(_swapFacility));
-        assertEq(_wrappedMToken.name(), "M (Wrapped) by M^0");
+        assertEq(_wrappedMToken.name(), "M (Wrapped) by M0");
         assertEq(_wrappedMToken.symbol(), "wM");
         assertEq(_wrappedMToken.decimals(), 6);
         assertEq(_wrappedMToken.implementation(), address(_implementation));
