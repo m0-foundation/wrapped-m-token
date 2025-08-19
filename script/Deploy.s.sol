@@ -34,20 +34,13 @@ contract DeployProduction is Script, DeployBase {
         uint64 currentNonce_ = vm.getNonce(deployer_);
 
         uint64 startNonce_ = currentNonce_;
-        address earnerManagerImplementation_;
-        address earnerManagerProxy_;
         address wrappedMTokenImplementation_;
         address wrappedMTokenProxy_;
 
         while (true) {
             if (startNonce_ > deployerWrappedMProxyNonce_) revert DeployerNonceTooHigh();
 
-            (
-                earnerManagerImplementation_,
-                earnerManagerProxy_,
-                wrappedMTokenImplementation_,
-                wrappedMTokenProxy_
-            ) = mockDeploy(deployer_, startNonce_);
+            (wrappedMTokenImplementation_, wrappedMTokenProxy_) = mockDeploy(deployer_, startNonce_);
 
             if (wrappedMTokenProxy_ == expectedWrappedMProxy_) break;
 
@@ -66,21 +59,18 @@ contract DeployProduction is Script, DeployBase {
 
         if (currentNonce_ != startNonce_) revert UnexpectedDeployerNonce();
 
-        (earnerManagerImplementation_, earnerManagerProxy_, wrappedMTokenImplementation_, wrappedMTokenProxy_) = deploy(
+        (wrappedMTokenImplementation_, wrappedMTokenProxy_) = deploy(
             vm.envAddress("M_TOKEN"),
             vm.envAddress("REGISTRAR"),
             vm.envAddress("EXCESS_DESTINATION"),
             vm.envAddress("SWAP_FACILITY"),
-            vm.envAddress("WRAPPED_M_MIGRATION_ADMIN"),
-            vm.envAddress("EARNER_MANAGER_MIGRATION_ADMIN")
+            vm.envAddress("WRAPPED_M_MIGRATION_ADMIN")
         );
 
         vm.stopBroadcast();
 
         console2.log("Wrapped M Implementation address:", wrappedMTokenImplementation_);
         console2.log("Wrapped M Proxy address:", wrappedMTokenProxy_);
-        console2.log("Earner Manager Implementation address:", earnerManagerImplementation_);
-        console2.log("Earner Manager Proxy address:", earnerManagerProxy_);
 
         if (wrappedMTokenProxy_ != expectedWrappedMProxy_)
             revert ResultingProxyMismatch(expectedWrappedMProxy_, wrappedMTokenProxy_);

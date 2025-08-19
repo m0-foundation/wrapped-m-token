@@ -22,8 +22,7 @@ contract DeployUpgradeMainnet is Script, DeployBase {
     // NOTE: Ensure this is the correct Excess Destination mainnet address.
     address internal constant _EXCESS_DESTINATION = 0xd7298f620B0F752Cf41BD818a16C756d9dCAA34f; // Vault
 
-    // TODO: Replace with the correct Swap Facility mainnet address after deployment.
-    address internal constant _SWAP_FACILITY = address(0);
+    address internal constant _SWAP_FACILITY = 0xB6807116b3B1B321a390594e31ECD6e0076f6278;
 
     address internal constant _M_TOKEN = 0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b;
 
@@ -93,20 +92,13 @@ contract DeployUpgradeMainnet is Script, DeployBase {
         uint64 currentNonce_ = vm.getNonce(deployer_);
 
         uint64 startNonce_ = currentNonce_;
-        address earnerManagerImplementation_;
-        address earnerManagerProxy_;
         address wrappedMTokenImplementation_;
         address wrappedMTokenMigrator_;
 
         while (true) {
             if (startNonce_ > _DEPLOYER_MIGRATOR_NONCE) revert DeployerNonceTooHigh();
 
-            (
-                earnerManagerImplementation_,
-                earnerManagerProxy_,
-                wrappedMTokenImplementation_,
-                wrappedMTokenMigrator_
-            ) = mockDeployUpgrade(deployer_, startNonce_);
+            (wrappedMTokenImplementation_, wrappedMTokenMigrator_) = mockDeployUpgrade(deployer_, startNonce_);
 
             if (wrappedMTokenMigrator_ == _EXPECTED_WRAPPED_M_MIGRATOR) break;
 
@@ -131,25 +123,17 @@ contract DeployUpgradeMainnet is Script, DeployBase {
             earners_[index_] = _earners[index_];
         }
 
-        (
-            earnerManagerImplementation_,
-            earnerManagerProxy_,
-            wrappedMTokenImplementation_,
-            wrappedMTokenMigrator_
-        ) = deployUpgrade(
+        (wrappedMTokenImplementation_, wrappedMTokenMigrator_) = deployUpgrade(
             _M_TOKEN,
             _REGISTRAR,
             _EXCESS_DESTINATION,
             _SWAP_FACILITY,
             _WRAPPED_M_MIGRATION_ADMIN,
-            _EARNER_MANAGER_MIGRATION_ADMIN,
             earners_
         );
 
         vm.stopBroadcast();
 
-        console2.log("Earner Manager Implementation address:", earnerManagerImplementation_);
-        console2.log("Earner Manager Proxy address:", earnerManagerProxy_);
         console2.log("Wrapped M Implementation address:", wrappedMTokenImplementation_);
         console2.log("Migrator address:", wrappedMTokenMigrator_);
 

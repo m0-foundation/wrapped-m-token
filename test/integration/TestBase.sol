@@ -10,25 +10,25 @@ import { Test } from "../../lib/forge-std/src/Test.sol";
 import { Proxy } from "../../lib/common/src/Proxy.sol";
 
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
-import { ISwapFacilityLike } from "../../src/interfaces/ISwapFacilityLike.sol";
 
-import { EarnerManager } from "../../src/EarnerManager.sol";
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 import { WrappedMTokenMigratorV1 } from "../../src/WrappedMTokenMigratorV1.sol";
 
-import { IMTokenLike, IRegistrarLike } from "./vendor/protocol/Interfaces.sol";
+import { IMTokenLike, IRegistrarLike, ISwapFacilityLike } from "./vendor/protocol/Interfaces.sol";
 
 import { MockSwapFacility } from "../utils/Mocks.sol";
 
 contract TestBase is Test {
+    uint256 public mainnetFork;
+
     IMTokenLike internal constant _mToken = IMTokenLike(0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b);
 
     address internal constant _minterGateway = 0xf7f9638cb444D65e5A40bF5ff98ebE4ff319F04E;
     address internal constant _registrar = 0x119FbeeDD4F4f4298Fb59B720d5654442b81ae2c;
     address internal constant _excessDestination = 0xd7298f620B0F752Cf41BD818a16C756d9dCAA34f; // vault
     address internal constant _standardGovernor = 0xB024aC5a7c6bC92fbACc8C3387E628a07e1Da016;
-    address internal constant _mSource = 0x563AA56D0B627d1A734e04dF5762F5Eea1D56C2f;
-    address internal constant _wmSource = 0xa969cFCd9e583edb8c8B270Dc8CaFB33d6Cf662D;
+    address internal constant _mSource = 0x3f0376da3Ae4313E7a5F1dA184BAFC716252d759;
+    address internal constant _wmSource = 0xfF95c5f35F4ffB9d5f596F898ac1ae38D62749c2;
 
     IWrappedMToken internal constant _wrappedMToken = IWrappedMToken(0x437cc33344a0B27A429f795ff6B469C72698B291);
 
@@ -36,12 +36,13 @@ contract TestBase is Test {
     bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
     bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_PREFIX = "wm_claim_override_recipient";
     bytes32 internal constant _EARNER_STATUS_ADMIN_LIST = "wm_earner_status_admins";
+    bytes32 internal constant _M_SWAPPER_ROLE = keccak256("M_SWAPPER_ROLE");
 
     // USDC on Ethereum Mainnet
     address internal constant _USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     // Large USDC holder on Ethereum Mainnet
-    address internal constant _USDC_SOURCE = 0x4B16c5dE96EB2117bBE5fd171E4d203624B014aa;
+    address internal constant _USDC_SOURCE = 0x01b8697695EAb322A339c4bf75740Db75dc9375E;
 
     // DAI on Ethereum Mainnet
     address internal constant _DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
@@ -50,6 +51,7 @@ contract TestBase is Test {
     address internal constant _DAI_SOURCE = 0xD1668fB5F690C59Ab4B0CAbAd0f8C1617895052B;
 
     address internal _migrationAdmin = 0x431169728D75bd02f4053435b87D15c8d1FB2C72;
+    address internal _m0Deployer = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
@@ -66,13 +68,10 @@ contract TestBase is Test {
 
     address[] internal _accounts = [_alice, _bob, _carol, _dave, _eric, _frank, _grace, _henry, _ivan, _judy];
 
-    address internal _earnerManagerImplementation;
-    address internal _earnerManager;
     address internal _wrappedMTokenImplementationV2;
     address internal _wrappedMTokenMigratorV1;
 
-    // TODO: Replace with the actual Swap Facility address after deployment.
-    address internal _swapFacility;
+    address internal _swapFacility = 0xB6807116b3B1B321a390594e31ECD6e0076f6278;
 
     address[] internal _earners = [
         0x437cc33344a0B27A429f795ff6B469C72698B291,
@@ -111,6 +110,10 @@ contract TestBase is Test {
         0xD925C84b55E4e44a53749fF5F2a5A13F63D128fd,
         0x20b3a4119eAB75ffA534aC8fC5e9160BdcaF442b
     ];
+
+    function setUp() public virtual {
+        mainnetFork = vm.createFork(vm.envString("MAINNET_RPC_URL"), 23_170_985);
+    }
 
     function _getSource(address token_) internal pure returns (address source_) {
         if (token_ == _USDC) return _USDC_SOURCE;
@@ -185,19 +188,8 @@ contract TestBase is Test {
     }
 
     function _deployV2Components() internal {
-        _earnerManagerImplementation = address(new EarnerManager(_registrar, _migrationAdmin));
-        _earnerManager = address(new Proxy(_earnerManagerImplementation));
-        // TODO: Replace with the actual Swap Facility address after deployment.
-        _swapFacility = address(new MockSwapFacility(address(_mToken)));
         _wrappedMTokenImplementationV2 = address(
-            new WrappedMToken(
-                address(_mToken),
-                _registrar,
-                _earnerManager,
-                _excessDestination,
-                _swapFacility,
-                _migrationAdmin
-            )
+            new WrappedMToken(address(_mToken), _registrar, _excessDestination, _swapFacility, _migrationAdmin)
         );
 
         address[] memory earners_ = new address[](_earners.length);

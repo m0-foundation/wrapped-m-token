@@ -11,7 +11,7 @@ import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
 
-import { MockEarnerManager, MockM, MockRegistrar, MockSwapFacility } from "../utils/Mocks.sol";
+import { MockM, MockRegistrar, MockSwapFacility } from "../utils/Mocks.sol";
 
 contract StoryTests is Test {
     uint56 internal constant _EXP_SCALED_ONE = IndexingMath.EXP_SCALED_ONE;
@@ -26,7 +26,6 @@ contract StoryTests is Test {
     address internal _excessDestination = makeAddr("excessDestination");
     address internal _migrationAdmin = makeAddr("migrationAdmin");
 
-    MockEarnerManager internal _earnerManager;
     MockM internal _mToken;
     MockRegistrar internal _registrar;
     MockSwapFacility internal _swapFacility;
@@ -40,12 +39,9 @@ contract StoryTests is Test {
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
         _swapFacility = new MockSwapFacility(address(_mToken));
 
-        _earnerManager = new MockEarnerManager();
-
         _implementation = new WrappedMToken(
             address(_mToken),
             address(_registrar),
-            address(_earnerManager),
             _excessDestination,
             address(_swapFacility),
             _migrationAdmin
@@ -55,8 +51,8 @@ contract StoryTests is Test {
     }
 
     function test_story() external {
-        _earnerManager.setEarnerDetails(_alice, true, 0, address(0));
-        _earnerManager.setEarnerDetails(_bob, true, 0, address(0));
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _bob, true);
         _registrar.setListContains(_EARNERS_LIST_NAME, address(_wrappedMToken), true);
 
         _wrappedMToken.enableEarning();
@@ -253,7 +249,7 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.totalAccruedYield(), 283_333336);
         assertEq(_wrappedMToken.excess(), 416_666664);
 
-        _earnerManager.setEarnerDetails(_alice, false, 0, address(0));
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, false);
 
         _wrappedMToken.stopEarningFor(_alice);
 
@@ -268,7 +264,7 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.totalAccruedYield(), 116_666672);
         assertEq(_wrappedMToken.excess(), 416_666664);
 
-        _earnerManager.setEarnerDetails(_carol, true, 0, address(0));
+        _registrar.setListContains(_EARNERS_LIST_NAME, _carol, true);
 
         _wrappedMToken.startEarningFor(_carol);
 
@@ -379,8 +375,8 @@ contract StoryTests is Test {
     }
 
     function test_noExcessCreep() external {
-        _earnerManager.setEarnerDetails(_alice, true, 0, address(0));
-        _earnerManager.setEarnerDetails(_bob, true, 0, address(0));
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _bob, true);
         _registrar.setListContains(_EARNERS_LIST_NAME, address(_wrappedMToken), true);
 
         _mToken.setCurrentIndex(_EXP_SCALED_ONE + 3e11 - 1);
@@ -422,8 +418,8 @@ contract StoryTests is Test {
     }
 
     function test_dustWrapping() external {
-        _earnerManager.setEarnerDetails(_alice, true, 0, address(0));
-        _earnerManager.setEarnerDetails(_bob, true, 0, address(0));
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _bob, true);
         _registrar.setListContains(_EARNERS_LIST_NAME, address(_wrappedMToken), true);
 
         _mToken.setCurrentIndex(_EXP_SCALED_ONE + 1);
