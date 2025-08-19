@@ -6,7 +6,7 @@ import { IMigratable } from "../../lib/common/src/interfaces/IMigratable.sol";
 
 /**
  * @title  Earner Status Manager interface for setting and returning earner status for Wrapped M Token accounts.
- * @author M^0 Labs
+ * @author M0 Labs
  */
 interface IEarnerManager is IMigratable {
     /* ============ Events ============ */

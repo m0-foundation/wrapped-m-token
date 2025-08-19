@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 
 /**
  * @title  Helper contract to retrieve earners for migrating a WrappedMToken contract from V1 to V2.
- * @author M^0 Labs
+ * @author M0 Labs
  */
 contract ListOfEarnersToMigrate {
     address[] public earners;

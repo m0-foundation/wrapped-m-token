@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 
 /**
  * @title  Subset of Registrar interface required for source contracts.
- * @author M^0 Labs
+ * @author M0 Labs
  */
 interface IRegistrarLike {
     /* ============ View/Pure Functions ============ */

@@ -8,7 +8,7 @@ import { ListOfEarnersToMigrate } from "./ListOfEarnersToMigrate.sol";
 
 /**
  * @title  Migrator contract for migrating a WrappedMToken contract from V1 to V2.
- * @author M^0 Labs
+ * @author M0 Labs
  */
 contract WrappedMTokenMigratorV1 {
     /// @notice Emitted when the `enableDisableEarningIndices` array has an invalid length.

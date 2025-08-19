@@ -7,7 +7,7 @@ import { IMigratable } from "../../lib/common/src/interfaces/IMigratable.sol";
 
 /**
  * @title  Wrapped M Token interface extending Extended ERC20.
- * @author M^0 Labs
+ * @author M0 Labs
  */
 interface IWrappedMToken is IMigratable, IERC20Extended {
     /* ============ Events ============ */
