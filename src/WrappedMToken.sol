@@ -93,7 +93,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         address registrar_,
         address excessDestination_,
         address migrationAdmin_
-    ) ERC20Extended("WrappedM by M^0", "wM", 6) {
+    ) ERC20Extended("WrappedM by M0", "wM", 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
         if ((excessDestination = excessDestination_) == address(0)) revert ZeroExcessDestination();
