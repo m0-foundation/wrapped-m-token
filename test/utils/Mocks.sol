@@ -67,7 +67,7 @@ contract MockM {
         isEarning[msg.sender] = false;
     }
 
-    function approve(address spender_, uint256 amount_) external returns (bool success_) {
+    function approve(address /* spender_ */, uint256 /* amount_ */) external pure returns (bool success_) {
         return true;
     }
 }

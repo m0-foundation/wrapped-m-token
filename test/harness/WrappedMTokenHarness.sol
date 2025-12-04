@@ -13,12 +13,12 @@ contract WrappedMTokenHarness is WrappedMToken {
         address migrationAdmin_
     ) WrappedMToken(mToken_, registrar_, excessDestination_, swapFacility_, migrationAdmin_) {}
 
-    function internalWrap(address recipient_, uint240 amount_) external {
-        _wrap(recipient_, amount_);
+    function internalWrap(address account_, address recipient_, uint240 amount_) external {
+        _wrap(account_, recipient_, amount_);
     }
 
-    function internalUnwrap(uint240 amount_) external {
-        _unwrap(amount_);
+    function internalUnwrap(address account_, uint240 amount_) external {
+        _unwrap(account_, amount_);
     }
 
     function setIsEarningOf(address account_, bool isEarning_) external {

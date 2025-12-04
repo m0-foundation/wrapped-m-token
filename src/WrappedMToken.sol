@@ -12,7 +12,10 @@ import { Migratable } from "../lib/common/src/Migratable.sol";
 
 import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
+import { ISwapFacilityLike } from "./interfaces/ISwapFacilityLike.sol";
 import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
+
+import { Freezable } from "./components/freezable/Freezable.sol";
 
 /*
 
@@ -29,7 +32,7 @@ import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
  * @title  ERC20 Token contract for wrapping M into a non-rebasing token with claimable yields.
  * @author M0 Labs
  */
-contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
+contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable {
     /* ============ Structs ============ */
 
     /**
@@ -133,16 +136,31 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
         if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
     }
 
+    /* ============ Initializer ============ */
+
+    /**
+     * @dev   Initializes the WrappedM token.
+     * @param freezeManager The address of a freeze manager.
+     */
+    function initialize(address freezeManager) public initializer {
+        __Freezable_init(freezeManager);
+    }
+
     /* ============ Interactive Functions ============ */
 
     /// @inheritdoc IWrappedMToken
     function wrap(address recipient_, uint256 amount_) external onlySwapFacility {
-        _wrap(recipient_, UIntMath.safe240(amount_));
+        // NOTE: `msg.sender` is always SwapFacility contract.
+        //       `ISwapFacilityLike.msgSender()` is used to ensure that the original caller is passed to `_wrap`.
+        _wrap(ISwapFacilityLike(msg.sender).msgSender(), recipient_, UIntMath.safe240(amount_));
     }
 
     /// @inheritdoc IWrappedMToken
     function unwrap(address /* recipient_ */, uint256 amount_) external onlySwapFacility {
-        _unwrap(UIntMath.safe240(amount_));
+        // NOTE: `msg.sender` is always SwapFacility contract.
+        //       `ISwapFacilityLike.msgSender()` is used to ensure that the original caller is passed to `_unwrap`.
+        // NOTE: `recipient` is not used in this function as the $M is always sent to SwapFacility contract.
+        _unwrap(ISwapFacilityLike(msg.sender).msgSender(), UIntMath.safe240(amount_));
     }
 
     /// @inheritdoc IWrappedMToken
@@ -332,6 +350,21 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
     /* ============ Internal Interactive Functions ============ */
 
     /**
+     * @dev Approve `spender_` to spend `amount_` of tokens from `account_`.
+     * @param  account_ The address approving the allowance.
+     * @param  spender_ The address approved to spend the tokens.
+     * @param  amount_  The amount of tokens being approved for spending.
+     */
+    function _approve(address account_, address spender_, uint256 amount_) internal override {
+        FreezableStorageStruct storage $ = _getFreezableStorageLocation();
+
+        _revertIfFrozen($, account_);
+        _revertIfFrozen($, spender_);
+
+        super._approve(account_, spender_, amount_);
+    }
+
+    /**
      * @dev   Mints `amount_` tokens to `recipient_`.
      * @param recipient_ The address whose account balance will be incremented.
      * @param amount_    The present amount of tokens to mint.
@@ -450,6 +483,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      * @return yield_        The accrued yield that was claimed.
      */
     function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
+        _requireNotPaused();
+        _revertIfFrozen(account_);
+
         Account storage accountInfo_ = _accounts[account_];
 
         if (!accountInfo_.isEarning) return 0;
@@ -486,6 +522,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
      */
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
         _revertIfInvalidRecipient(recipient_);
+
+        FreezableStorageStruct storage $ = _getFreezableStorageLocation();
+
+        _revertIfFrozen($, msg.sender);
+        _revertIfFrozen($, sender_);
+        _revertIfFrozen($, recipient_);
 
         emit Transfer(sender_, recipient_, amount_);
 
@@ -604,10 +646,18 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /**
      * @dev    Wraps `amount` M from `account_` into wM for `recipient`.
+     * @param  account_   The account depositing  M.
      * @param  recipient_ The account receiving the minted wM.
      * @param  amount_    The amount of M deposited.
      */
-    function _wrap(address recipient_, uint240 amount_) internal {
+    function _wrap(address account_, address recipient_, uint240 amount_) internal {
+        _requireNotPaused();
+
+        FreezableStorageStruct storage $ = _getFreezableStorageLocation();
+
+        _revertIfFrozen($, account_);
+        _revertIfFrozen($, recipient_);
+
         // NOTE: Always transfer from SwapFacility as it is the only contract that can call this function.
         // NOTE: The behavior of `IMTokenLike.transferFrom` is known, so its return can be ignored.
         IMTokenLike(mToken).transferFrom(msg.sender, address(this), amount_);
@@ -622,9 +672,13 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended {
 
     /**
      * @dev    Unwraps `amount` wM from `account_` into M.
-     * @param  amount_    The amount of wM burned.
+     * @param  account_ The account whose wM is being burned.
+     * @param  amount_  The amount of wM burned.
      */
-    function _unwrap(uint240 amount_) internal {
+    function _unwrap(address account_, uint240 amount_) internal {
+        _requireNotPaused();
+        _revertIfFrozen(account_);
+
         // NOTE: Always burn from SwapFacility as it is the only contract that can call this function.
         _burn(msg.sender, amount_);
 

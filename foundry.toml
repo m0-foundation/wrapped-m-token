@@ -10,6 +10,9 @@ fork_block_number = 23_170_985
 rpc_storage_caching = { chains = ["mainnet"], endpoints = "all" }
 evm_version = "cancun"
 
+[lint]
+lint_on_build = false
+
 [profile.production]
 build_info = true
 sizes = true

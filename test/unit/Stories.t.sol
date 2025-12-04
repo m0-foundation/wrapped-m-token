@@ -7,6 +7,7 @@ import { IndexingMath } from "../../lib/common/src/libs/IndexingMath.sol";
 import { Proxy } from "../../lib/common/src/Proxy.sol";
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
+import { ISwapFacilityLike } from "../../src/interfaces/ISwapFacilityLike.sol";
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
@@ -63,6 +64,12 @@ contract StoryTests is Test {
 
         _mToken.setBalanceOf(_alice, 100_000000);
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_alice)
+        );
+
         vm.prank(_alice);
         _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _alice);
 
@@ -78,6 +85,12 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.excess(), 0);
 
         _mToken.setBalanceOf(_carol, 100_000000);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_carol)
+        );
 
         vm.prank(_carol);
         _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _carol);
@@ -113,6 +126,12 @@ contract StoryTests is Test {
 
         _mToken.setBalanceOf(_bob, 100_000000);
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_bob)
+        );
+
         vm.prank(_bob);
         _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _bob);
 
@@ -129,6 +148,12 @@ contract StoryTests is Test {
         assertEq(_wrappedMToken.excess(), 100_000000);
 
         _mToken.setBalanceOf(_dave, 100_000000);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_dave)
+        );
 
         vm.prank(_dave);
         _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _dave);
@@ -308,6 +333,12 @@ contract StoryTests is Test {
         vm.prank(_alice);
         _wrappedMToken.approve(address(_swapFacility), 266_666664);
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_alice)
+        );
+
         vm.prank(_alice);
         _swapFacility.swapOutM(address(_wrappedMToken), 266_666664, _alice);
 
@@ -324,6 +355,12 @@ contract StoryTests is Test {
 
         vm.prank(_bob);
         _wrappedMToken.approve(address(_swapFacility), 150_000000);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_bob)
+        );
 
         vm.prank(_bob);
         _swapFacility.swapOutM(address(_wrappedMToken), 150_000000, _bob);
@@ -342,6 +379,12 @@ contract StoryTests is Test {
         vm.prank(_carol);
         _wrappedMToken.approve(address(_swapFacility), 200_000000);
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_carol)
+        );
+
         vm.prank(_carol);
         _swapFacility.swapOutM(address(_wrappedMToken), 200_000000, _carol);
 
@@ -358,6 +401,12 @@ contract StoryTests is Test {
 
         vm.prank(_dave);
         _wrappedMToken.approve(address(_swapFacility), 50_000000);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_dave)
+        );
 
         vm.prank(_dave);
         _swapFacility.swapOutM(address(_wrappedMToken), 50_000000, _dave);
@@ -387,6 +436,12 @@ contract StoryTests is Test {
         _mToken.setBalanceOf(_alice, 1_000000);
 
         for (uint256 i_; i_ < 100; ++i_) {
+            vm.mockCall(
+                address(_swapFacility),
+                abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+                abi.encode(_alice)
+            );
+
             vm.prank(_alice);
             _swapFacility.swapInM(address(_wrappedMToken), 9, _alice);
 
@@ -413,6 +468,12 @@ contract StoryTests is Test {
         vm.prank(_bob);
         _wrappedMToken.approve(address(_swapFacility), bobBalance_);
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_bob)
+        );
+
         vm.prank(_bob);
         _swapFacility.swapOutM(address(_wrappedMToken), bobBalance_, _bob);
     }
@@ -430,6 +491,12 @@ contract StoryTests is Test {
         _mToken.setBalanceOf(_alice, 1_000000);
 
         for (uint256 i_; i_ < 100; ++i_) {
+            vm.mockCall(
+                address(_swapFacility),
+                abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+                abi.encode(_alice)
+            );
+
             vm.prank(_alice);
             _swapFacility.swapInM(address(_wrappedMToken), 1, _alice);
 

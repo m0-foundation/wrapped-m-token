@@ -2,6 +2,10 @@
 
 pragma solidity 0.8.26;
 
+import {
+    IAccessControl
+} from "../../../lib/common/lib/openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/access/IAccessControl.sol";
+
 import { IndexingMath } from "../../lib/common/src/libs/IndexingMath.sol";
 import { UIntMath } from "../../lib/common/src/libs/UIntMath.sol";
 
@@ -9,40 +13,21 @@ import { IERC20 } from "../../lib/common/src/interfaces/IERC20.sol";
 import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.sol";
 
 import { Proxy } from "../../lib/common/src/Proxy.sol";
-import { Test } from "../../lib/forge-std/src/Test.sol";
 
+import { IFreezable } from "../../src/components/freezable/IFreezable.sol";
+
+import { ISwapFacilityLike } from "../../src/interfaces/ISwapFacilityLike.sol";
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
+import { WrappedMTokenHarness } from "../harness/WrappedMTokenHarness.sol";
+
+import { BaseUnitTest } from "../utils/BaseUnitTest.sol";
 import { MockM, MockRegistrar, MockSwapFacility } from "../utils/Mocks.sol";
-import { WrappedMTokenHarness } from "../utils/WrappedMTokenHarness.sol";
 
 // TODO: All operations involving earners should include demonstration of accrued yield being added to their balance.
 // TODO: Add relevant unit tests while earning enabled/disabled.
-
-contract WrappedMTokenTests is Test {
-    uint56 internal constant _EXP_SCALED_ONE = IndexingMath.EXP_SCALED_ONE;
-
-    uint56 internal constant _ONE_HUNDRED_PERCENT = 10_000;
-
-    bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX = "wm_claim_override_recipient";
-
-    bytes32 internal constant _EARNERS_LIST_NAME = "earners";
-
-    address internal _alice = makeAddr("alice");
-    address internal _bob = makeAddr("bob");
-    address internal _charlie = makeAddr("charlie");
-    address internal _david = makeAddr("david");
-
-    address internal _excessDestination = makeAddr("excessDestination");
-    address internal _migrationAdmin = makeAddr("migrationAdmin");
-
-    address[] internal _accounts = [_alice, _bob, _charlie, _david];
-
-    MockM internal _mToken;
-    MockRegistrar internal _registrar;
-    MockSwapFacility internal _swapFacility;
+contract WrappedMTokenTests is BaseUnitTest {
     WrappedMTokenHarness internal _implementation;
-    WrappedMTokenHarness internal _wrappedMToken;
 
     function setUp() external {
         _registrar = new MockRegistrar();
@@ -60,6 +45,7 @@ contract WrappedMTokenTests is Test {
         );
 
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
+        _wrappedMToken.initialize(_freezeManager);
     }
 
     /* ============ constants ============ */
@@ -121,12 +107,77 @@ contract WrappedMTokenTests is Test {
         WrappedMTokenHarness(address(new Proxy(address(0))));
     }
 
+    /* ============ initialize ============ */
+
+    function test_initialize() external view {
+        assertTrue(IAccessControl(address(_wrappedMToken)).hasRole(_FREEZE_MANAGER_ROLE, _freezeManager));
+    }
+
+    function test_initialize_zeroFreezeManager() external {
+        WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
+
+        vm.expectRevert(IFreezable.ZeroFreezeManager.selector);
+        wrappedMToken_.initialize(address(0));
+    }
+
+    /* ============ _approve ============ */
+
+    function test_approve_frozenAccount() public {
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _alice));
+
+        vm.prank(_alice);
+        _wrappedMToken.approve(_bob, 1_000);
+    }
+
+    function test_approve_frozenSpender() public {
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_bob);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _bob));
+
+        vm.prank(_alice);
+        _wrappedMToken.approve(_bob, 1_000);
+    }
+
     /* ============ _wrap ============ */
+    function test_internalWrap_enforcedPause() external {
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+
+        vm.prank(_alice);
+        _wrappedMToken.internalWrap(_alice, _alice, 1_000);
+    }
+
+    function test_internalWrap_frozenAccount() external {
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _alice));
+
+        vm.prank(_alice);
+        _wrappedMToken.internalWrap(_alice, _bob, 1_000);
+    }
+
+    function test_internalWrap_frozenRecipient() external {
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_bob);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _bob));
+
+        vm.prank(_alice);
+        _wrappedMToken.internalWrap(_alice, _bob, 1_000);
+    }
+
     function test_internalWrap_insufficientAmount() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
 
         vm.prank(_alice);
-        _wrappedMToken.internalWrap(_alice, 0);
+        _wrappedMToken.internalWrap(_alice, _alice, 0);
     }
 
     function test_internalWrap_invalidRecipient() external {
@@ -135,7 +186,7 @@ contract WrappedMTokenTests is Test {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InvalidRecipient.selector, address(0)));
 
         vm.prank(_alice);
-        _wrappedMToken.internalWrap(address(0), 1_000);
+        _wrappedMToken.internalWrap(_alice, address(0), 1_000);
     }
 
     function test_internalWrap_toNonEarner() external {
@@ -157,7 +208,7 @@ contract WrappedMTokenTests is Test {
         emit IERC20.Transfer(address(0), _alice, 1_000);
 
         vm.prank(_alice);
-        _wrappedMToken.internalWrap(_alice, 1_000);
+        _wrappedMToken.internalWrap(_alice, _alice, 1_000);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 2_000);
@@ -168,7 +219,7 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.totalAccruedYield(), 0);
     }
 
-    function test_wrap_toEarner() external {
+    function test_internalWrap_toEarner() external {
         _mToken.setCurrentIndex(1_210000000000);
         _wrappedMToken.setEnableMIndex(1_100000000000);
 
@@ -191,7 +242,7 @@ contract WrappedMTokenTests is Test {
         emit IERC20.Transfer(address(0), _alice, 999);
 
         vm.prank(_alice);
-        _wrappedMToken.internalWrap(_alice, 999);
+        _wrappedMToken.internalWrap(_alice, _alice, 999);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 + 908);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 + 999);
@@ -205,7 +256,7 @@ contract WrappedMTokenTests is Test {
         emit IERC20.Transfer(address(0), _alice, 1);
 
         vm.prank(_alice);
-        _wrappedMToken.internalWrap(_alice, 1);
+        _wrappedMToken.internalWrap(_alice, _alice, 1);
 
         // No change due to principal round down on wrap.
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 + 908 + 0);
@@ -220,7 +271,7 @@ contract WrappedMTokenTests is Test {
         emit IERC20.Transfer(address(0), _alice, 2);
 
         vm.prank(_alice);
-        _wrappedMToken.internalWrap(_alice, 2);
+        _wrappedMToken.internalWrap(_alice, _alice, 2);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 + 908 + 0 + 1);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 + 999 + 1 + 2);
@@ -239,8 +290,51 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.wrap(_alice, 1_000);
     }
 
+    function test_wrap_frozenAccount() external {
+        _mToken.setBalanceOf(_alice, 1_000);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_alice)
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _alice));
+
+        vm.prank(_alice);
+        _swapFacility.swapInM(address(_wrappedMToken), 1_000, _alice);
+    }
+
+    function test_wrap_frozenRecipient() external {
+        _mToken.setBalanceOf(_alice, 1_000);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_bob);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_alice)
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _bob));
+
+        vm.prank(_alice);
+        _swapFacility.swapInM(address(_wrappedMToken), 1_000, _bob);
+    }
+
     function test_wrap_invalidAmount() external {
         _mToken.setBalanceOf(_alice, uint256(type(uint240).max) + 1);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_alice)
+        );
+
         vm.expectRevert(UIntMath.InvalidUInt240.selector);
 
         vm.prank(_alice);
@@ -284,6 +378,12 @@ contract WrappedMTokenTests is Test {
             emit IERC20.Transfer(address(0), _alice, wrapAmount_);
         }
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_alice)
+        );
+
         vm.startPrank(_alice);
         _swapFacility.swapInM(address(_wrappedMToken), wrapAmount_, _alice);
 
@@ -303,6 +403,12 @@ contract WrappedMTokenTests is Test {
     function test_wrap_entireBalance_invalidAmount() external {
         _mToken.setBalanceOf(_alice, uint256(type(uint240).max) + 1);
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_alice)
+        );
+
         vm.expectRevert(UIntMath.InvalidUInt240.selector);
 
         vm.prank(_alice);
@@ -310,11 +416,31 @@ contract WrappedMTokenTests is Test {
     }
 
     /* ============ _unwrap ============ */
+    function test_internalUnwrap_enforcedPause() external {
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+
+        vm.prank(_alice);
+        _wrappedMToken.internalUnwrap(_alice, 1_000);
+    }
+
+    function test_internal_unwrap_frozenAccount() external {
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _alice));
+
+        vm.prank(_alice);
+        _wrappedMToken.internalUnwrap(_alice, 1_000);
+    }
+
     function test_internalUnwrap_insufficientAmount() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
 
         vm.prank(_alice);
-        _wrappedMToken.internalUnwrap(0);
+        _wrappedMToken.internalUnwrap(_alice, 0);
     }
 
     function test_internalUnwrap_insufficientBalance_fromNonEarner() external {
@@ -322,7 +448,7 @@ contract WrappedMTokenTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
         vm.prank(_alice);
-        _wrappedMToken.internalUnwrap(1_000);
+        _wrappedMToken.internalUnwrap(_alice, 1_000);
     }
 
     function test_internalUnwrap_insufficientBalance_fromEarner() external {
@@ -333,7 +459,7 @@ contract WrappedMTokenTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
         vm.prank(_alice);
-        _wrappedMToken.internalUnwrap(1_000);
+        _wrappedMToken.internalUnwrap(_alice, 1_000);
     }
 
     function test_internalUnwrap_fromNonEarner() external {
@@ -359,7 +485,7 @@ contract WrappedMTokenTests is Test {
         emit IERC20.Transfer(_alice, address(0), 1);
 
         vm.prank(_alice);
-        _wrappedMToken.internalUnwrap(1);
+        _wrappedMToken.internalUnwrap(_alice, 1);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 999);
@@ -373,7 +499,7 @@ contract WrappedMTokenTests is Test {
         emit IERC20.Transfer(_alice, address(0), 499);
 
         vm.prank(_alice);
-        _wrappedMToken.internalUnwrap(499);
+        _wrappedMToken.internalUnwrap(_alice, 499);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 500);
@@ -387,7 +513,7 @@ contract WrappedMTokenTests is Test {
         emit IERC20.Transfer(_alice, address(0), 500);
 
         vm.prank(_alice);
-        _wrappedMToken.internalUnwrap(500);
+        _wrappedMToken.internalUnwrap(_alice, 500);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
@@ -422,7 +548,7 @@ contract WrappedMTokenTests is Test {
         emit IERC20.Transfer(_alice, address(0), 1);
 
         vm.prank(_alice);
-        _wrappedMToken.internalUnwrap(1);
+        _wrappedMToken.internalUnwrap(_alice, 1);
 
         // Change due to principal round up on unwrap.
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 - 1);
@@ -437,7 +563,7 @@ contract WrappedMTokenTests is Test {
         emit IERC20.Transfer(_alice, address(0), 499);
 
         vm.prank(_alice);
-        _wrappedMToken.internalUnwrap(499);
+        _wrappedMToken.internalUnwrap(_alice, 499);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 - 1 - 454);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 - 1 - 499);
@@ -451,7 +577,7 @@ contract WrappedMTokenTests is Test {
         emit IERC20.Transfer(_alice, address(0), 500);
 
         vm.prank(_alice);
-        _wrappedMToken.internalUnwrap(500);
+        _wrappedMToken.internalUnwrap(_alice, 500);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 - 1 - 454 - 455); // 0
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 - 1 - 499 - 500); // 0
@@ -468,6 +594,28 @@ contract WrappedMTokenTests is Test {
 
         vm.prank(_alice);
         _wrappedMToken.unwrap(_alice, 1_000);
+    }
+
+    function test_unwrap_frozenAccount() external {
+        uint256 amount_ = 1_000;
+        _wrappedMToken.setAccountOf(_alice, amount_);
+
+        vm.prank(_alice);
+        _wrappedMToken.approve(address(_swapFacility), amount_);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_alice)
+        );
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _alice));
+
+        vm.prank(_alice);
+        _swapFacility.swapOutM(address(_wrappedMToken), amount_, _alice);
     }
 
     function test_unwrap_invalidAmount() external {
@@ -524,6 +672,12 @@ contract WrappedMTokenTests is Test {
             emit IERC20.Transfer(address(_swapFacility), address(0), unwrapAmount_);
         }
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_alice)
+        );
+
         vm.startPrank(_alice);
         _swapFacility.swapOutM(address(_wrappedMToken), unwrapAmount_, _alice);
 
@@ -538,6 +692,43 @@ contract WrappedMTokenTests is Test {
     }
 
     /* ============ claimFor ============ */
+    function test_claimFor_enforcedPause() external {
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        _wrappedMToken.claimFor(_alice);
+    }
+
+    function test_claimFor_frozenAccount() external {
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _alice));
+
+        vm.prank(_alice);
+        _wrappedMToken.claimFor(_alice);
+    }
+
+    function test_claimFor_frozenClaimRecipient() external {
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _wrappedMToken.setTotalEarningPrincipal(1_000);
+        _wrappedMToken.setTotalEarningSupply(1_000);
+
+        _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, true); // 1_100 balance with yield.
+        _wrappedMToken.setInternalClaimRecipient(_alice, _bob);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_bob);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _bob));
+
+        vm.prank(_alice);
+        _wrappedMToken.claimFor(_alice);
+    }
+
     function test_claimFor_nonEarner() external {
         _wrappedMToken.setAccountOf(_alice, 1_000);
 
@@ -740,6 +931,48 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.transfer(address(0), 1_000);
     }
 
+    function test_transfer_frozenSender() external {
+        uint256 amount = 1_000;
+        _wrappedMToken.setAccountOf(_alice, amount);
+
+        // Alice allows Charlie to transfer tokens on her behalf
+        vm.prank(_alice);
+        _wrappedMToken.approve(_charlie, amount);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_charlie);
+
+        // Reverts cause Charlie is frozen and cannot transfer tokens on Alice's behalf
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _charlie));
+
+        vm.prank(_charlie);
+        _wrappedMToken.transferFrom(_alice, _bob, amount);
+    }
+
+    function test_transfer_frozenAccount() external {
+        _wrappedMToken.setAccountOf(_alice, 1_000);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _alice));
+
+        vm.prank(_alice);
+        _wrappedMToken.transfer(_bob, 500);
+    }
+
+    function test_transfer_frozenRecipient() external {
+        _wrappedMToken.setAccountOf(_alice, 1_000);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_bob);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _bob));
+
+        vm.prank(_alice);
+        _wrappedMToken.transfer(_bob, 500);
+    }
+
     function test_transfer_insufficientBalance_toSelf() external {
         _wrappedMToken.setAccountOf(_alice, 999);
 
@@ -754,17 +987,6 @@ contract WrappedMTokenTests is Test {
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
         vm.prank(_alice);
         _wrappedMToken.transfer(_bob, 1_000);
-    }
-
-    function test_transfer_insufficientBalance_fromEarner_toNonEarner() external {
-        _mToken.setCurrentIndex(1_210000000000);
-        _wrappedMToken.setEnableMIndex(1_100000000000);
-
-        _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, false); // 1_100 balance with yield.
-
-        vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 1_000, 1_001));
-        vm.prank(_alice);
-        _wrappedMToken.transfer(_bob, 1_001);
     }
 
     function test_transfer_fromNonEarner_toNonEarner() external {
@@ -1181,6 +1403,48 @@ contract WrappedMTokenTests is Test {
         _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.IsApprovedEarner.selector, _alice));
+        _wrappedMToken.stopEarningFor(_alice);
+    }
+
+    function test_stopEarningFor_enforcedPause() external {
+        _wrappedMToken.setIsEarningOf(_alice, true);
+
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+
+        _wrappedMToken.stopEarningFor(_alice);
+    }
+
+    function test_stopEarningFor_frozenAccount() external {
+        _wrappedMToken.setIsEarningOf(_alice, true);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _alice));
+
+        _wrappedMToken.stopEarningFor(_alice);
+    }
+
+    function test_stopEarningFor_frozenClaimRecipient() external {
+        _wrappedMToken.setIsEarningOf(_alice, true);
+
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _wrappedMToken.setTotalEarningPrincipal(1_000);
+        _wrappedMToken.setTotalEarningSupply(1_000);
+
+        _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, true); // 1_100 balance with yield.
+        _wrappedMToken.setInternalClaimRecipient(_alice, _bob);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_bob);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _bob));
+
         _wrappedMToken.stopEarningFor(_alice);
     }
 
