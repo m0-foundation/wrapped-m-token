@@ -6,6 +6,10 @@ import {
     IAccessControl
 } from "../../../lib/common/lib/openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/access/IAccessControl.sol";
 
+import {
+    PausableUpgradeable
+} from "../../../lib/common/lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+
 import { IndexingMath } from "../../lib/common/src/libs/IndexingMath.sol";
 import { UIntMath } from "../../lib/common/src/libs/UIntMath.sol";
 
@@ -15,6 +19,7 @@ import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.s
 import { Proxy } from "../../lib/common/src/Proxy.sol";
 
 import { IFreezable } from "../../src/components/freezable/IFreezable.sol";
+import { IPausable } from "../../src/components/pausable/IPausable.sol";
 
 import { ISwapFacilityLike } from "../../src/interfaces/ISwapFacilityLike.sol";
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
@@ -45,7 +50,7 @@ contract WrappedMTokenTests is BaseUnitTest {
         );
 
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
-        _wrappedMToken.initialize(_freezeManager);
+        _wrappedMToken.initialize(_freezeManager, _pauser);
     }
 
     /* ============ constants ============ */
@@ -111,13 +116,21 @@ contract WrappedMTokenTests is BaseUnitTest {
 
     function test_initialize() external view {
         assertTrue(IAccessControl(address(_wrappedMToken)).hasRole(_FREEZE_MANAGER_ROLE, _freezeManager));
+        assertTrue(IAccessControl(address(_wrappedMToken)).hasRole(_PAUSER_ROLE, _pauser));
     }
 
     function test_initialize_zeroFreezeManager() external {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IFreezable.ZeroFreezeManager.selector);
-        wrappedMToken_.initialize(address(0));
+        wrappedMToken_.initialize(address(0), _pauser);
+    }
+
+    function test_initialize_zeroPauser() external {
+        WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
+
+        vm.expectRevert(IPausable.ZeroPauser.selector);
+        wrappedMToken_.initialize(_freezeManager, address(0));
     }
 
     /* ============ _approve ============ */
@@ -863,6 +876,14 @@ contract WrappedMTokenTests is BaseUnitTest {
     }
 
     /* ============ claimExcess ============ */
+    function test_claimExcess_enforcedPause() external {
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        _wrappedMToken.claimExcess();
+    }
+
     function testFuzz_claimExcess(
         bool earningEnabled_,
         uint128 currentMIndex_,
@@ -922,6 +943,16 @@ contract WrappedMTokenTests is BaseUnitTest {
     }
 
     /* ============ transfer ============ */
+    function test_transfer_enforcedPause() external {
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+
+        vm.prank(_alice);
+        _wrappedMToken.transfer(_bob, 100);
+    }
+
     function test_transfer_invalidRecipient() external {
         _wrappedMToken.setAccountOf(_alice, 1_000);
 
@@ -1266,6 +1297,16 @@ contract WrappedMTokenTests is BaseUnitTest {
     }
 
     /* ============ startEarningFor ============ */
+    function test_startEarningFor_enforcedPause() external {
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        _wrappedMToken.startEarningFor(_alice);
+    }
+
     function test_startEarningFor_notApprovedEarner() external {
         _mToken.setCurrentIndex(1_100000000000);
         _wrappedMToken.setEnableMIndex(1_100000000000);
@@ -1359,6 +1400,20 @@ contract WrappedMTokenTests is BaseUnitTest {
     }
 
     /* ============ startEarningFor batch ============ */
+    function test_startEarningFor_batch_enforcedPause() external {
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        address[] memory accounts_ = new address[](2);
+        accounts_[0] = _alice;
+        accounts_[1] = _bob;
+
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        _wrappedMToken.startEarningFor(accounts_);
+    }
+
     function test_startEarningFor_batch_earningIsDisabled() external {
         vm.expectRevert(IWrappedMToken.EarningIsDisabled.selector);
         _wrappedMToken.startEarningFor(new address[](2));

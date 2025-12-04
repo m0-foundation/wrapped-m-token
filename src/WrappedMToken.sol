@@ -16,6 +16,7 @@ import { ISwapFacilityLike } from "./interfaces/ISwapFacilityLike.sol";
 import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
 
 import { Freezable } from "./components/freezable/Freezable.sol";
+import { Pausable } from "./components/pausable/Pausable.sol";
 
 /*
 
@@ -32,7 +33,7 @@ import { Freezable } from "./components/freezable/Freezable.sol";
  * @title  ERC20 Token contract for wrapping M into a non-rebasing token with claimable yields.
  * @author M0 Labs
  */
-contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable {
+contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, Pausable {
     /* ============ Structs ============ */
 
     /**
@@ -141,9 +142,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable {
     /**
      * @dev   Initializes the WrappedM token.
      * @param freezeManager The address of a freeze manager.
+     * @param pauser The address of a pauser.
      */
-    function initialize(address freezeManager) public initializer {
+    function initialize(address freezeManager, address pauser) public initializer {
         __Freezable_init(freezeManager);
+        __Pausable_init(pauser);
     }
 
     /* ============ Interactive Functions ============ */
@@ -170,6 +173,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable {
 
     /// @inheritdoc IWrappedMToken
     function claimExcess() external returns (uint240 claimed_) {
+        _requireNotPaused();
+
         int256 excess_ = excess();
 
         if (excess_ <= 0) return 0;
@@ -521,6 +526,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable {
      * @param currentIndex_ The current index.
      */
     function _transfer(address sender_, address recipient_, uint240 amount_, uint128 currentIndex_) internal {
+        _requireNotPaused();
         _revertIfInvalidRecipient(recipient_);
 
         FreezableStorageStruct storage $ = _getFreezableStorageLocation();
@@ -696,6 +702,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable {
      * @param currentIndex_ The current index.
      */
     function _startEarningFor(address account_, uint128 currentIndex_) internal {
+        _requireNotPaused();
         _revertIfNotApprovedEarner(account_);
 
         Account storage accountInfo_ = _accounts[account_];

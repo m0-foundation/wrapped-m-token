@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: UNLICENSED
+
+pragma solidity 0.8.26;
+
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
 import { IndexingMath } from "../../lib/common/src/libs/IndexingMath.sol";
@@ -13,6 +17,7 @@ contract BaseUnitTest is Test {
 
     bytes32 internal constant _CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX = "wm_claim_override_recipient";
     bytes32 internal constant _FREEZE_MANAGER_ROLE = keccak256("FREEZE_MANAGER_ROLE");
+    bytes32 internal constant _PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     bytes32 internal constant _EARNERS_LIST_NAME = "earners";
 
@@ -25,6 +30,7 @@ contract BaseUnitTest is Test {
     address internal _excessDestination = makeAddr("excessDestination");
     address internal _freezeManager = makeAddr("freezeManager");
     address internal _migrationAdmin = makeAddr("migrationAdmin");
+    address internal _pauser = makeAddr("pauser");
 
     address[] internal _accounts = [_alice, _bob, _charlie, _david];
 
