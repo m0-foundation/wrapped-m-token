@@ -1,0 +1,17 @@
+{
+  "lib/common": {
+    "branch": {
+      "name": "release-v1.4.0",
+      "rev": "613d2d95a476612270324ecbe92317eb5e9bc98f"
+    }
+  },
+  "lib/evm-m-extensions": {
+    "rev": "f85daca886802be8e170f84dbb45cede6f460a20"
+  },
+  "lib/forge-std": {
+    "branch": {
+      "name": "v1",
+      "rev": "7117c90c8cf6c68e5acce4f09a6b24715cea4de6"
+    }
+  }
+}
