@@ -40,6 +40,10 @@ contract DeployBase {
      * @param  excessDestination_           The address of the excess destination.
      * @param  swapFacility_                The address of the SwapFacility contract.
      * @param  wrappedMMigrationAdmin_      The address of the Wrapped M Migration Admin.
+     * @param  earners_                     The addresses of the earners to migrate.
+     * @param  admin_                       The address of the Wrapped M admin.
+     * @param  freezeManager_               The address of the Wrapped M freeze manager.
+     * @param  pauser_                      The address of the Wrapped M pauser.
      * @return wrappedMTokenImplementation_ The address of the deployed Wrapped M Token implementation.
      * @return wrappedMTokenMigrator_       The address of the deployed Wrapped M Token Migrator.
      */
@@ -49,13 +53,18 @@ contract DeployBase {
         address excessDestination_,
         address swapFacility_,
         address wrappedMMigrationAdmin_,
-        address[] memory earners_
+        address[] memory earners_,
+        address admin_,
+        address freezeManager_,
+        address pauser_
     ) public virtual returns (address wrappedMTokenImplementation_, address wrappedMTokenMigrator_) {
         wrappedMTokenImplementation_ = address(
             new WrappedMToken(mToken_, registrar_, excessDestination_, swapFacility_, wrappedMMigrationAdmin_)
         );
 
-        wrappedMTokenMigrator_ = address(new WrappedMTokenMigratorV1(wrappedMTokenImplementation_, earners_));
+        wrappedMTokenMigrator_ = address(
+            new WrappedMTokenMigratorV1(wrappedMTokenImplementation_, earners_, admin_, freezeManager_, pauser_)
+        );
     }
 
     /**

@@ -50,7 +50,7 @@ contract WrappedMTokenTests is BaseUnitTest {
         );
 
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
-        _wrappedMToken.initialize(_freezeManager, _pauser);
+        _wrappedMToken.initialize(_admin, _freezeManager, _pauser);
     }
 
     /* ============ constants ============ */
@@ -115,22 +115,30 @@ contract WrappedMTokenTests is BaseUnitTest {
     /* ============ initialize ============ */
 
     function test_initialize() external view {
+        assertTrue(IAccessControl(address(_wrappedMToken)).hasRole(bytes32(0x00), _admin));
         assertTrue(IAccessControl(address(_wrappedMToken)).hasRole(_FREEZE_MANAGER_ROLE, _freezeManager));
         assertTrue(IAccessControl(address(_wrappedMToken)).hasRole(_PAUSER_ROLE, _pauser));
+    }
+
+    function test_initialize_zeroAdmin() external {
+        WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
+
+        vm.expectRevert(IWrappedMToken.ZeroAdmin.selector);
+        wrappedMToken_.initialize(address(0), _freezeManager, _pauser);
     }
 
     function test_initialize_zeroFreezeManager() external {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IFreezable.ZeroFreezeManager.selector);
-        wrappedMToken_.initialize(address(0), _pauser);
+        wrappedMToken_.initialize(_admin, address(0), _pauser);
     }
 
     function test_initialize_zeroPauser() external {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IPausable.ZeroPauser.selector);
-        wrappedMToken_.initialize(_freezeManager, address(0));
+        wrappedMToken_.initialize(_admin, _freezeManager, address(0));
     }
 
     /* ============ _approve ============ */

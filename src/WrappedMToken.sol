@@ -141,12 +141,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
 
     /**
      * @dev   Initializes the WrappedM token.
-     * @param freezeManager The address of a freeze manager.
-     * @param pauser The address of a pauser.
+     * @param admin_         The address of an admin.
+     * @param freezeManager_ The address of a freeze manager.
+     * @param pauser_        The address of a pauser.
      */
-    function initialize(address freezeManager, address pauser) public initializer {
-        __Freezable_init(freezeManager);
-        __Pausable_init(pauser);
+    function initialize(address admin_, address freezeManager_, address pauser_) public initializer {
+        if (admin_ == address(0)) revert ZeroAdmin();
+        _grantRole(DEFAULT_ADMIN_ROLE, admin_);
+
+        __Freezable_init(freezeManager_);
+        __Pausable_init(pauser_);
     }
 
     /* ============ Interactive Functions ============ */

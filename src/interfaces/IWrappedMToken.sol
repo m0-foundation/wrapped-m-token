@@ -88,6 +88,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted when the non-governance migrate function is called by an account other than the migration admin.
     error UnauthorizedMigration();
 
+    /// @notice Emitted in constructor if default admin is 0x0.
+    error ZeroAdmin();
+
     /// @notice Emitted in constructor if Excess Destination is 0x0.
     error ZeroExcessDestination();
 
