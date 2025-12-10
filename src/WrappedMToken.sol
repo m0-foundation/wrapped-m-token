@@ -5,6 +5,9 @@ pragma solidity 0.8.26;
 import { IndexingMath } from "../lib/common/src/libs/IndexingMath.sol";
 import { UIntMath } from "../lib/common/src/libs/UIntMath.sol";
 
+import { Freezable } from "../lib/evm-m-extensions/src/components/freezable/Freezable.sol";
+import { Pausable } from "../lib/evm-m-extensions/src/components/pausable/Pausable.sol";
+
 import { IERC20 } from "../lib/common/src/interfaces/IERC20.sol";
 
 import { ERC20Extended } from "../lib/common/src/ERC20Extended.sol";
@@ -14,9 +17,6 @@ import { IMTokenLike } from "./interfaces/IMTokenLike.sol";
 import { IRegistrarLike } from "./interfaces/IRegistrarLike.sol";
 import { ISwapFacilityLike } from "./interfaces/ISwapFacilityLike.sol";
 import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
-
-import { Freezable } from "./components/freezable/Freezable.sol";
-import { Pausable } from "./components/pausable/Pausable.sol";
 
 /*
 

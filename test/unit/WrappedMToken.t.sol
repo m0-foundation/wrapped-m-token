@@ -18,8 +18,8 @@ import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.s
 
 import { Proxy } from "../../lib/common/src/Proxy.sol";
 
-import { IFreezable } from "../../src/components/freezable/IFreezable.sol";
-import { IPausable } from "../../src/components/pausable/IPausable.sol";
+import { IFreezable } from "../../lib/evm-m-extensions/src/components/freezable/IFreezable.sol";
+import { IPausable } from "../../lib/evm-m-extensions/src/components/pausable/IPausable.sol";
 
 import { ISwapFacilityLike } from "../../src/interfaces/ISwapFacilityLike.sol";
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
