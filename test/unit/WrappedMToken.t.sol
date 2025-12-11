@@ -948,6 +948,8 @@ contract WrappedMTokenTests is BaseUnitTest {
         } else {
             assertLe(claimed_, uint240(excess_));
         }
+
+        assertEq(_wrappedMToken.balanceOf(_excessDestination), claimed_);
     }
 
     /* ============ transfer ============ */

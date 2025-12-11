@@ -185,8 +185,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
 
         emit ExcessClaimed(claimed_ = uint240(uint256(excess_)));
 
-        // NOTE: The behavior of `IMTokenLike.transfer` is known, so its return can be ignored.
-        IMTokenLike(mToken).transfer(excessDestination, claimed_);
+        _mint(excessDestination, claimed_);
     }
 
     /// @inheritdoc IWrappedMToken

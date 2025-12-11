@@ -620,22 +620,18 @@ contract ProtocolIntegrationTests is TestBase {
             int256(_totalEarningSupply + _totalNonEarningSupply + _totalAccruedYield) + _excess
         );
 
-        uint256 vaultStartingBalance_ = _mToken.balanceOf(_excessDestination);
+        uint256 vaultStartingBalance_ = _wrappedMToken.balanceOf(_excessDestination);
 
         assertEq(_wrappedMToken.claimExcess(), uint256(_excess));
-
-        assertEq(_mToken.balanceOf(_excessDestination), uint256(_excess) + vaultStartingBalance_);
+        assertEq(_wrappedMToken.balanceOf(_excessDestination), uint256(_excess) + vaultStartingBalance_);
 
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), _totalEarningSupply);
-        assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), _totalNonEarningSupply += uint256(_excess));
         assertEq(_wrappedMToken.totalAccruedYield(), _totalAccruedYield);
-        assertEq(_wrappedMToken.excess(), _excess -= (_excess + 1)); // Rounding error
+        assertEq(_wrappedMToken.excess(), 0);
 
-        assertGe(
-            int256(_wrapperBalanceOfM),
-            int256(_totalEarningSupply + _totalNonEarningSupply + _totalAccruedYield) + _excess
-        );
+        assertGe(int256(_wrapperBalanceOfM), int256(_totalEarningSupply + _totalNonEarningSupply + _totalAccruedYield));
     }
 
     function testFuzz_full(uint256 seed_) external {
