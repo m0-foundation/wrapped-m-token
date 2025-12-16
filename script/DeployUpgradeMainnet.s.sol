@@ -34,6 +34,15 @@ contract DeployUpgradeMainnet is Script, DeployBase {
 
     address internal constant _WRAPPED_M_PROXY = 0x437cc33344a0B27A429f795ff6B469C72698B291; // Mainnet address for the Proxy.
 
+    // NOTE: Ensure this is the correct admin to use.
+    address internal constant _ADMIN = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+
+    // NOTE: Ensure this is the correct freeze manager to use.
+    address internal constant _FREEZE_MANAGER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+
+    // NOTE: Ensure this is the correct pauser to use.
+    address internal constant _PAUSER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+
     // NOTE: Ensure this is the correct mainnet deployer to use.
     address internal constant _EXPECTED_DEPLOYER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
@@ -129,7 +138,10 @@ contract DeployUpgradeMainnet is Script, DeployBase {
             _EXCESS_DESTINATION,
             _SWAP_FACILITY,
             _WRAPPED_M_MIGRATION_ADMIN,
-            earners_
+            earners_,
+            _ADMIN,
+            _FREEZE_MANAGER,
+            _PAUSER
         );
 
         vm.stopBroadcast();

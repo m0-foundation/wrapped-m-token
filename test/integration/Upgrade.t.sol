@@ -4,20 +4,34 @@ pragma solidity 0.8.26;
 
 import { Test } from "../../lib/forge-std/src/Test.sol";
 
+import {
+    IAccessControl
+} from "../../lib/common/lib/openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/access/IAccessControl.sol";
+
+import {
+    Initializable
+} from "../../lib/common/lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
 import { DeployBase } from "../../script/DeployBase.sol";
 
+import { WrappedMToken } from "../../src/WrappedMToken.sol";
+
 contract UpgradeTests is Test, DeployBase {
-    address internal constant _WRAPPED_M_TOKEN = 0x437cc33344a0B27A429f795ff6B469C72698B291;
+    WrappedMToken internal constant _WRAPPED_M_TOKEN = WrappedMToken(0x437cc33344a0B27A429f795ff6B469C72698B291);
     address internal constant _REGISTRAR = 0x119FbeeDD4F4f4298Fb59B720d5654442b81ae2c;
     address internal constant _M_TOKEN = 0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b;
     address internal constant _WRAPPED_M_MIGRATION_ADMIN = 0x431169728D75bd02f4053435b87D15c8d1FB2C72;
     address internal constant _EXCESS_DESTINATION = 0xd7298f620B0F752Cf41BD818a16C756d9dCAA34f; // Vault
     address internal constant _SWAP_FACILITY = 0xB6807116b3B1B321a390594e31ECD6e0076f6278;
-    address internal constant _DEPLOYER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
+    address internal constant _DEPLOYER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
     uint64 internal constant _DEPLOYER_NONCE = 195;
+
+    address internal constant _ADMIN = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+    address internal constant _FREEZE_MANAGER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+    address internal constant _PAUSER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
     address[] internal _earners = [
         0x437cc33344a0B27A429f795ff6B469C72698B291,
@@ -82,7 +96,10 @@ contract UpgradeTests is Test, DeployBase {
             _EXCESS_DESTINATION,
             _SWAP_FACILITY,
             _WRAPPED_M_MIGRATION_ADMIN,
-            earners_
+            earners_,
+            _ADMIN,
+            _FREEZE_MANAGER,
+            _PAUSER
         );
         vm.stopPrank();
 
@@ -104,22 +121,32 @@ contract UpgradeTests is Test, DeployBase {
             balancesWithYield_[index_] = IWrappedMToken(_WRAPPED_M_TOKEN).balanceWithYieldOf(_earners[index_]);
         }
 
-        vm.prank(IWrappedMToken(_WRAPPED_M_TOKEN).migrationAdmin());
-        IWrappedMToken(_WRAPPED_M_TOKEN).migrate(wrappedMTokenMigrator_);
+        vm.prank(_WRAPPED_M_TOKEN.migrationAdmin());
+        _WRAPPED_M_TOKEN.migrate(wrappedMTokenMigrator_);
 
         // Wrapped M Token Proxy assertions
-        assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).migrationAdmin(), _WRAPPED_M_MIGRATION_ADMIN);
-        assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).mToken(), _M_TOKEN);
-        assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).registrar(), _REGISTRAR);
-        assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).excessDestination(), _EXCESS_DESTINATION);
-        assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).swapFacility(), _SWAP_FACILITY);
-        assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).implementation(), wrappedMTokenImplementation_);
+        assertEq(_WRAPPED_M_TOKEN.migrationAdmin(), _WRAPPED_M_MIGRATION_ADMIN);
+        assertEq(_WRAPPED_M_TOKEN.mToken(), _M_TOKEN);
+        assertEq(_WRAPPED_M_TOKEN.registrar(), _REGISTRAR);
+        assertEq(_WRAPPED_M_TOKEN.excessDestination(), _EXCESS_DESTINATION);
+        assertEq(_WRAPPED_M_TOKEN.swapFacility(), _SWAP_FACILITY);
+        assertEq(_WRAPPED_M_TOKEN.implementation(), wrappedMTokenImplementation_);
+
+        assertTrue(IAccessControl(address(_WRAPPED_M_TOKEN)).hasRole(bytes32(0x00), _ADMIN));
+        assertTrue(IAccessControl(address(_WRAPPED_M_TOKEN)).hasRole(keccak256("PAUSER_ROLE"), _PAUSER));
+        assertTrue(
+            IAccessControl(address(_WRAPPED_M_TOKEN)).hasRole(keccak256("FREEZE_MANAGER_ROLE"), _FREEZE_MANAGER)
+        );
+
+        // Should not be able to call initialize again.
+        vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
+        _WRAPPED_M_TOKEN.initialize(_ADMIN, _FREEZE_MANAGER, _PAUSER);
 
         // Relevant storage slots.
-        assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).totalEarningSupply(), totalEarningSupply_);
+        assertEq(_WRAPPED_M_TOKEN.totalEarningSupply(), totalEarningSupply_);
 
         for (uint256 index_; index_ < _earners.length; ++index_) {
-            assertEq(IWrappedMToken(_WRAPPED_M_TOKEN).balanceWithYieldOf(_earners[index_]), balancesWithYield_[index_]);
+            assertEq(_WRAPPED_M_TOKEN.balanceWithYieldOf(_earners[index_]), balancesWithYield_[index_]);
         }
     }
 }

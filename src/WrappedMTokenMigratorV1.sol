@@ -51,10 +51,24 @@ contract WrappedMTokenMigratorV1 {
 
     address public immutable listOfEarnerToMigrate;
 
-    constructor(address newImplementation_, address[] memory earners_) {
+    address public immutable admin;
+    address public immutable freezeManager;
+    address public immutable pauser;
+
+    constructor(
+        address newImplementation_,
+        address[] memory earners_,
+        address admin_,
+        address freezeManager_,
+        address pauser_
+    ) {
         newImplementation = newImplementation_;
 
         listOfEarnerToMigrate = address(new ListOfEarnersToMigrate(earners_));
+
+        admin = admin_;
+        freezeManager = freezeManager_;
+        pauser = pauser_;
     }
 
     fallback() external virtual {
@@ -73,6 +87,17 @@ contract WrappedMTokenMigratorV1 {
         assembly {
             sstore(_IMPLEMENTATION_SLOT, newImplementation_)
         }
+
+        (bool success_, ) = address(this).call(
+            abi.encodeWithSelector(
+                bytes4(keccak256("initialize(address,address,address)")),
+                admin,
+                freezeManager,
+                pauser
+            )
+        );
+
+        require(success_, "Initialize call failed");
     }
 
     function _migrateEarners() internal {

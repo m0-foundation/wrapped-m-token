@@ -52,6 +52,9 @@ contract TestBase is Test {
 
     address internal _migrationAdmin = 0x431169728D75bd02f4053435b87D15c8d1FB2C72;
     address internal _m0Deployer = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+    address internal _admin = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+    address internal _freezeManager = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+    address internal _pauser = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
@@ -198,7 +201,9 @@ contract TestBase is Test {
             earners_[index_] = _earners[index_];
         }
 
-        _wrappedMTokenMigratorV1 = address(new WrappedMTokenMigratorV1(_wrappedMTokenImplementationV2, earners_));
+        _wrappedMTokenMigratorV1 = address(
+            new WrappedMTokenMigratorV1(_wrappedMTokenImplementationV2, earners_, _admin, _freezeManager, _pauser)
+        );
     }
 
     function _migrate() internal {
