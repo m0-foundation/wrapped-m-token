@@ -14,6 +14,7 @@ contract DeployBase {
      * @dev    Deploys Wrapped M Token.
      * @param  mToken_                      The address of the M Token contract.
      * @param  registrar_                   The address of the Registrar contract.
+     * @param  swapFacility_                The address of the SwapFacility contract.
      * @param  excessDestination_           The address of the excess destination.
      * @param  wrappedMMigrationAdmin_      The address of the Wrapped M Migration Admin.
      * @param  earnerManagerMigrationAdmin_ The address of the Earner Manager Migration Admin.
@@ -26,6 +27,7 @@ contract DeployBase {
         address mToken_,
         address registrar_,
         address excessDestination_,
+        address swapFacility_,
         address wrappedMMigrationAdmin_,
         address earnerManagerMigrationAdmin_
     )
@@ -48,7 +50,7 @@ contract DeployBase {
         earnerManagerProxy_ = address(new Proxy(earnerManagerImplementation_));
 
         wrappedMTokenImplementation_ = address(
-            new WrappedMToken(mToken_, registrar_, earnerManagerProxy_, excessDestination_, wrappedMMigrationAdmin_)
+            new WrappedMToken(mToken_, registrar_, earnerManagerProxy_, excessDestination_, swapFacility_, wrappedMMigrationAdmin_)
         );
 
         wrappedMTokenProxy_ = address(new Proxy(wrappedMTokenImplementation_));
@@ -59,6 +61,7 @@ contract DeployBase {
      * @param  mToken_                      The address of the M Token contract.
      * @param  registrar_                   The address of the Registrar contract.
      * @param  excessDestination_           The address of the excess destination.
+     * @param  swapFacility_                The address of the SwapFacility contract.
      * @param  wrappedMMigrationAdmin_      The address of the Wrapped M Migration Admin.
      * @param  earnerManagerMigrationAdmin_ The address of the Earner Manager Migration Admin.
      * @return earnerManagerImplementation_ The address of the deployed Earner Manager implementation.
@@ -70,6 +73,7 @@ contract DeployBase {
         address mToken_,
         address registrar_,
         address excessDestination_,
+        address swapFacility_,
         address wrappedMMigrationAdmin_,
         address earnerManagerMigrationAdmin_,
         address[] memory earners_
@@ -93,7 +97,7 @@ contract DeployBase {
         earnerManagerProxy_ = address(new Proxy(earnerManagerImplementation_));
 
         wrappedMTokenImplementation_ = address(
-            new WrappedMToken(mToken_, registrar_, earnerManagerProxy_, excessDestination_, wrappedMMigrationAdmin_)
+            new WrappedMToken(mToken_, registrar_, earnerManagerProxy_, excessDestination_, swapFacility_, wrappedMMigrationAdmin_)
         );
 
         wrappedMTokenMigrator_ = address(new WrappedMTokenMigratorV1(wrappedMTokenImplementation_, earners_));

@@ -15,7 +15,7 @@ import { Test } from "../../lib/forge-std/src/Test.sol";
 
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
-import { MockEarnerManager, MockM, MockRegistrar } from "../utils/Mocks.sol";
+import { MockEarnerManager, MockM, MockRegistrar, MockSwapFacility } from "../utils/Mocks.sol";
 import { WrappedMTokenHarness } from "../utils/WrappedMTokenHarness.sol";
 
 // TODO: All operations involving earners should include demonstration of accrued yield being added to their balance.
@@ -43,6 +43,7 @@ contract WrappedMTokenTests is Test {
     MockEarnerManager internal _earnerManager;
     MockM internal _mToken;
     MockRegistrar internal _registrar;
+    MockSwapFacility internal _swapFacility;
     WrappedMTokenHarness internal _implementation;
     WrappedMTokenHarness internal _wrappedMToken;
 
@@ -53,11 +54,14 @@ contract WrappedMTokenTests is Test {
 
         _earnerManager = new MockEarnerManager();
 
+        _swapFacility = new MockSwapFacility(address(_mToken));
+
         _implementation = new WrappedMTokenHarness(
             address(_mToken),
             address(_registrar),
             address(_earnerManager),
             _excessDestination,
+            address(_swapFacility),
             _migrationAdmin
         );
 
@@ -78,7 +82,8 @@ contract WrappedMTokenTests is Test {
         assertEq(_wrappedMToken.mToken(), address(_mToken));
         assertEq(_wrappedMToken.registrar(), address(_registrar));
         assertEq(_wrappedMToken.excessDestination(), _excessDestination);
-        assertEq(_wrappedMToken.name(), "M (Wrapped) by M^0");
+        assertEq(_wrappedMToken.swapFacility(), address(_swapFacility));
+        assertEq(_wrappedMToken.name(), "M (Wrapped) by M0");
         assertEq(_wrappedMToken.symbol(), "wM");
         assertEq(_wrappedMToken.decimals(), 6);
         assertEq(_wrappedMToken.implementation(), address(_implementation));
@@ -88,17 +93,17 @@ contract WrappedMTokenTests is Test {
 
     function test_constructor_zeroMToken() external {
         vm.expectRevert(IWrappedMToken.ZeroMToken.selector);
-        new WrappedMTokenHarness(address(0), address(0), address(0), address(0), address(0));
+        new WrappedMTokenHarness(address(0), address(0), address(0), address(0), address(0), address(0));
     }
 
     function test_constructor_zeroRegistrar() external {
         vm.expectRevert(IWrappedMToken.ZeroRegistrar.selector);
-        new WrappedMTokenHarness(address(_mToken), address(0), address(0), address(0), address(0));
+        new WrappedMTokenHarness(address(_mToken), address(0), address(0), address(0), address(0), address(0));
     }
 
     function test_constructor_zeroEarnerManager() external {
         vm.expectRevert(IWrappedMToken.ZeroEarnerManager.selector);
-        new WrappedMTokenHarness(address(_mToken), address(_registrar), address(0), address(0), address(0));
+        new WrappedMTokenHarness(address(_mToken), address(_registrar), address(0), address(0), address(0), address(0));
     }
 
     function test_constructor_zeroExcessDestination() external {
@@ -107,6 +112,19 @@ contract WrappedMTokenTests is Test {
             address(_mToken),
             address(_registrar),
             address(_earnerManager),
+            address(0),
+            address(0),
+            address(0)
+        );
+    }
+
+    function test_constructor_zeroSwapFacility() external {
+        vm.expectRevert(IWrappedMToken.ZeroSwapFacility.selector);
+        new WrappedMTokenHarness(
+            address(_mToken),
+            address(_registrar),
+            address(_earnerManager),
+            _excessDestination,
             address(0),
             address(0)
         );
@@ -119,6 +137,7 @@ contract WrappedMTokenTests is Test {
             address(_registrar),
             address(_earnerManager),
             _excessDestination,
+            address(_swapFacility),
             address(0)
         );
     }
@@ -132,7 +151,8 @@ contract WrappedMTokenTests is Test {
     function test_internalWrap_insufficientAmount() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
 
-        _wrappedMToken.internalWrap(_alice, _alice, 0);
+        vm.prank(_alice);
+        _wrappedMToken.internalWrap(_alice, 0);
     }
 
     function test_internalWrap_invalidRecipient() external {
@@ -140,7 +160,8 @@ contract WrappedMTokenTests is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InvalidRecipient.selector, address(0)));
 
-        _wrappedMToken.internalWrap(_alice, address(0), 1_000);
+        vm.prank(_alice);
+        _wrappedMToken.internalWrap(address(0), 1_000);
     }
 
     function test_internalWrap_toNonEarner() external {
@@ -161,7 +182,8 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 1_000);
 
-        _wrappedMToken.internalWrap(_alice, _alice, 1_000);
+        vm.prank(_alice);
+        _wrappedMToken.internalWrap(_alice, 1_000);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 2_000);
@@ -194,7 +216,8 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 999);
 
-        _wrappedMToken.internalWrap(_alice, _alice, 999);
+        vm.prank(_alice);
+        _wrappedMToken.internalWrap(_alice, 999);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 + 908);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 + 999);
@@ -207,7 +230,8 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 1);
 
-        _wrappedMToken.internalWrap(_alice, _alice, 1);
+        vm.prank(_alice);
+        _wrappedMToken.internalWrap(_alice, 1);
 
         // No change due to principal round down on wrap.
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 + 908 + 0);
@@ -221,7 +245,8 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 2);
 
-        _wrappedMToken.internalWrap(_alice, _alice, 2);
+        vm.prank(_alice);
+        _wrappedMToken.internalWrap(_alice, 2);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 + 908 + 0 + 1);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 + 999 + 1 + 2);
@@ -233,11 +258,19 @@ contract WrappedMTokenTests is Test {
     }
 
     /* ============ wrap ============ */
+    function test_wrap_notSwapFacility() external {
+        vm.expectRevert(IWrappedMToken.NotSwapFacility.selector);
+
+        vm.prank(_alice);
+        _wrappedMToken.wrap(_alice, 1_000);
+    }
+
     function test_wrap_invalidAmount() external {
+        _mToken.setBalanceOf(_alice, uint256(type(uint240).max) + 1);
         vm.expectRevert(UIntMath.InvalidUInt240.selector);
 
         vm.prank(_alice);
-        _wrappedMToken.wrap(_alice, uint256(type(uint240).max) + 1);
+        _swapFacility.swapInM(address(_wrappedMToken), uint256(type(uint240).max) + 1, _alice);
     }
 
     function testFuzz_wrap(
@@ -278,7 +311,7 @@ contract WrappedMTokenTests is Test {
         }
 
         vm.startPrank(_alice);
-        _wrappedMToken.wrap(_alice, wrapAmount_);
+        _swapFacility.swapInM(address(_wrappedMToken), wrapAmount_, _alice);
 
         if (wrapAmount_ == 0) return;
 
@@ -299,137 +332,23 @@ contract WrappedMTokenTests is Test {
         vm.expectRevert(UIntMath.InvalidUInt240.selector);
 
         vm.prank(_alice);
-        _wrappedMToken.wrap(_alice, uint256(type(uint240).max) + 1);
-    }
-
-    /* ============ wrapWithPermit vrs ============ */
-    function test_wrapWithPermit_vrs_invalidAmount() external {
-        vm.expectRevert(UIntMath.InvalidUInt240.selector);
-
-        vm.prank(_alice);
-        _wrappedMToken.wrapWithPermit(_alice, uint256(type(uint240).max) + 1, 0, 0, bytes32(0), bytes32(0));
-    }
-
-    function testFuzz_wrapWithPermit_vrs(
-        bool earningEnabled_,
-        bool accountEarning_,
-        uint240 balanceWithYield_,
-        uint240 balance_,
-        uint240 wrapAmount_,
-        uint128 currentMIndex_,
-        uint128 enableMIndex_,
-        uint128 disableIndex_
-    ) external {
-        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
-            currentMIndex_,
-            enableMIndex_,
-            disableIndex_
-        );
-
-        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
-
-        (balanceWithYield_, balance_) = _getFuzzedBalances(
-            balanceWithYield_,
-            balance_,
-            _getMaxAmount(_wrappedMToken.currentIndex())
-        );
-
-        _setupAccount(_alice, accountEarning_, balanceWithYield_, balance_);
-
-        wrapAmount_ = uint240(bound(wrapAmount_, 0, _getMaxAmount(_wrappedMToken.currentIndex()) - balanceWithYield_));
-
-        _mToken.setBalanceOf(_alice, wrapAmount_);
-
-        if (wrapAmount_ == 0) {
-            vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, (0)));
-        } else {
-            vm.expectEmit();
-            emit IERC20.Transfer(address(0), _alice, wrapAmount_);
-        }
-
-        vm.startPrank(_alice);
-        _wrappedMToken.wrapWithPermit(_alice, wrapAmount_, 0, 0, bytes32(0), bytes32(0));
-
-        if (wrapAmount_ == 0) return;
-
-        assertEq(_wrappedMToken.balanceOf(_alice), balance_ + wrapAmount_);
-
-        assertEq(
-            accountEarning_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply(),
-            _wrappedMToken.balanceOf(_alice)
-        );
-    }
-
-    /* ============ wrapWithPermit signature ============ */
-    function test_wrapWithPermit_signature_invalidAmount() external {
-        vm.expectRevert(UIntMath.InvalidUInt240.selector);
-
-        vm.prank(_alice);
-        _wrappedMToken.wrapWithPermit(_alice, uint256(type(uint240).max) + 1, 0, hex"");
-    }
-
-    function testFuzz_wrapWithPermit_signature(
-        bool earningEnabled_,
-        bool accountEarning_,
-        uint240 balanceWithYield_,
-        uint240 balance_,
-        uint240 wrapAmount_,
-        uint128 currentMIndex_,
-        uint128 enableMIndex_,
-        uint128 disableIndex_
-    ) external {
-        (currentMIndex_, enableMIndex_, disableIndex_) = _getFuzzedIndices(
-            currentMIndex_,
-            enableMIndex_,
-            disableIndex_
-        );
-
-        _setupIndexes(earningEnabled_, currentMIndex_, enableMIndex_, disableIndex_);
-
-        (balanceWithYield_, balance_) = _getFuzzedBalances(
-            balanceWithYield_,
-            balance_,
-            _getMaxAmount(_wrappedMToken.currentIndex())
-        );
-
-        _setupAccount(_alice, accountEarning_, balanceWithYield_, balance_);
-
-        wrapAmount_ = uint240(bound(wrapAmount_, 0, _getMaxAmount(_wrappedMToken.currentIndex()) - balanceWithYield_));
-
-        _mToken.setBalanceOf(_alice, wrapAmount_);
-
-        if (wrapAmount_ == 0) {
-            vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, (0)));
-        } else {
-            vm.expectEmit();
-            emit IERC20.Transfer(address(0), _alice, wrapAmount_);
-        }
-
-        vm.startPrank(_alice);
-        _wrappedMToken.wrapWithPermit(_alice, wrapAmount_, 0, hex"");
-
-        if (wrapAmount_ == 0) return;
-
-        assertEq(_wrappedMToken.balanceOf(_alice), balance_ + wrapAmount_);
-
-        assertEq(
-            accountEarning_ ? _wrappedMToken.totalEarningSupply() : _wrappedMToken.totalNonEarningSupply(),
-            _wrappedMToken.balanceOf(_alice)
-        );
+        _swapFacility.swapInM(address(_wrappedMToken), uint256(type(uint240).max) + 1, _alice);
     }
 
     /* ============ _unwrap ============ */
     function test_internalUnwrap_insufficientAmount() external {
         vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, 0));
 
-        _wrappedMToken.internalUnwrap(_alice, _alice, 0);
+        vm.prank(_alice);
+        _wrappedMToken.internalUnwrap(0);
     }
 
     function test_internalUnwrap_insufficientBalance_fromNonEarner() external {
         _wrappedMToken.setAccountOf(_alice, 999);
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
-        _wrappedMToken.internalUnwrap(_alice, _alice, 1_000);
+        vm.prank(_alice);
+        _wrappedMToken.internalUnwrap(1_000);
     }
 
     function test_internalUnwrap_insufficientBalance_fromEarner() external {
@@ -439,7 +358,8 @@ contract WrappedMTokenTests is Test {
         _wrappedMToken.setAccountOf(_alice, 999, 909, false, false);
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 999, 1_000));
-        _wrappedMToken.internalUnwrap(_alice, _alice, 1_000);
+        vm.prank(_alice);
+        _wrappedMToken.internalUnwrap(1_000);
     }
 
     function test_internalUnwrap_fromNonEarner() external {
@@ -464,7 +384,8 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 1);
 
-        _wrappedMToken.internalUnwrap(_alice, _alice, 1);
+        vm.prank(_alice);
+        _wrappedMToken.internalUnwrap(1);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 999);
@@ -477,7 +398,8 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 499);
 
-        _wrappedMToken.internalUnwrap(_alice, _alice, 499);
+        vm.prank(_alice);
+        _wrappedMToken.internalUnwrap(499);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 500);
@@ -490,7 +412,8 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 500);
 
-        _wrappedMToken.internalUnwrap(_alice, _alice, 500);
+        vm.prank(_alice);
+        _wrappedMToken.internalUnwrap(500);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 0);
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
@@ -524,7 +447,8 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 1);
 
-        _wrappedMToken.internalUnwrap(_alice, _alice, 1);
+        vm.prank(_alice);
+        _wrappedMToken.internalUnwrap(1);
 
         // Change due to principal round up on unwrap.
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 - 1);
@@ -538,7 +462,8 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 499);
 
-        _wrappedMToken.internalUnwrap(_alice, _alice, 499);
+        vm.prank(_alice);
+        _wrappedMToken.internalUnwrap(499);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 - 1 - 454);
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 - 1 - 499);
@@ -551,7 +476,8 @@ contract WrappedMTokenTests is Test {
         vm.expectEmit();
         emit IERC20.Transfer(_alice, address(0), 500);
 
-        _wrappedMToken.internalUnwrap(_alice, _alice, 500);
+        vm.prank(_alice);
+        _wrappedMToken.internalUnwrap(500);
 
         assertEq(_wrappedMToken.earningPrincipalOf(_alice), 1_000 - 1 - 454 - 455); // 0
         assertEq(_wrappedMToken.balanceOf(_alice), 1_000 - 1 - 499 - 500); // 0
@@ -563,11 +489,21 @@ contract WrappedMTokenTests is Test {
     }
 
     /* ============ unwrap ============ */
+    function test_unwrap_notSwapFacility() external {
+        vm.expectRevert(IWrappedMToken.NotSwapFacility.selector);
+
+        vm.prank(_alice);
+        _wrappedMToken.unwrap(_alice, 1_000);
+    }
+
     function test_unwrap_invalidAmount() external {
+        vm.prank(_alice);
+        _wrappedMToken.approve(address(_swapFacility), uint256(type(uint240).max) + 1);
+
         vm.expectRevert(UIntMath.InvalidUInt240.selector);
 
         vm.prank(_alice);
-        _wrappedMToken.unwrap(_alice, uint256(type(uint240).max) + 1);
+        _swapFacility.swapOutM(address(_wrappedMToken), uint256(type(uint240).max) + 1, _alice);
     }
 
     function testFuzz_unwrap(
@@ -600,6 +536,9 @@ contract WrappedMTokenTests is Test {
 
         unwrapAmount_ = uint240(bound(unwrapAmount_, 0, (11 * balance_) / 10));
 
+        vm.startPrank(_alice);
+        _wrappedMToken.approve(address(_swapFacility), unwrapAmount_);
+
         if (unwrapAmount_ == 0) {
             vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InsufficientAmount.selector, (0)));
         } else if (unwrapAmount_ > balance_) {
@@ -608,11 +547,11 @@ contract WrappedMTokenTests is Test {
             );
         } else {
             vm.expectEmit();
-            emit IERC20.Transfer(_alice, address(0), unwrapAmount_);
+            emit IERC20.Transfer(address(_swapFacility), address(0), unwrapAmount_);
         }
 
         vm.startPrank(_alice);
-        _wrappedMToken.unwrap(_alice, unwrapAmount_);
+        _swapFacility.swapOutM(address(_wrappedMToken), unwrapAmount_, _alice);
 
         if ((unwrapAmount_ == 0) || (unwrapAmount_ > balance_)) return;
 

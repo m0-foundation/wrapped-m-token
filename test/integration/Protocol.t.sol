@@ -54,7 +54,7 @@ contract ProtocolIntegrationTests is TestBase {
         assertEq(_wrappedMToken.EARNERS_LIST_NAME(), "earners");
         assertEq(_wrappedMToken.CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX(), "wm_claim_override_recipient");
         assertEq(_wrappedMToken.MIGRATOR_KEY_PREFIX(), "wm_migrator_v2");
-        assertEq(_wrappedMToken.name(), "M (Wrapped) by M^0");
+        assertEq(_wrappedMToken.name(), "M (Wrapped) by M0");
         assertEq(_wrappedMToken.symbol(), "wM");
         assertEq(_wrappedMToken.decimals(), 6);
     }
@@ -62,22 +62,6 @@ contract ProtocolIntegrationTests is TestBase {
     function test_state() external view {
         assertEq(_mToken.currentIndex(), _wrappedMToken.currentIndex());
         assertTrue(_mToken.isEarning(address(_wrappedMToken)));
-    }
-
-    function test_wrapWithPermits() external {
-        _giveM(_alice, 200_000000);
-
-        assertEq(_mToken.balanceOf(_alice), 200_000000);
-
-        _wrapWithPermitVRS(_alice, _aliceKey, _alice, 100_000000, 0, block.timestamp);
-
-        assertEq(_mToken.balanceOf(_alice), 100_000000);
-        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
-
-        _wrapWithPermitSignature(_alice, _aliceKey, _alice, 100_000000, 1, block.timestamp);
-
-        assertEq(_mToken.balanceOf(_alice), 0);
-        assertEq(_wrappedMToken.balanceOf(_alice), 200_000000);
     }
 
     function test_integration_yieldAccumulation() external {

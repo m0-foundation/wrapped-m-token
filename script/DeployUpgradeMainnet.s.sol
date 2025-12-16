@@ -22,6 +22,9 @@ contract DeployUpgradeMainnet is Script, DeployBase {
     // NOTE: Ensure this is the correct Excess Destination mainnet address.
     address internal constant _EXCESS_DESTINATION = 0xd7298f620B0F752Cf41BD818a16C756d9dCAA34f; // Vault
 
+    // TODO: Replace with the correct Swap Facility mainnet address after deployment.
+    address internal constant _SWAP_FACILITY = address(0);
+
     address internal constant _M_TOKEN = 0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b;
 
     // NOTE: Ensure this is the correct Migration Admin mainnet address.
@@ -137,6 +140,7 @@ contract DeployUpgradeMainnet is Script, DeployBase {
             _M_TOKEN,
             _REGISTRAR,
             _EXCESS_DESTINATION,
+            _SWAP_FACILITY,
             _WRAPPED_M_MIGRATION_ADMIN,
             _EARNER_MANAGER_MIGRATION_ADMIN,
             earners_
