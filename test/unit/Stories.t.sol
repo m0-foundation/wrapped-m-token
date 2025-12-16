@@ -459,7 +459,9 @@ contract StoryTests is Test {
         _wrappedMToken.transfer(_bob, aliceBalance_);
 
         assertLe(
-            int256(_wrappedMToken.balanceOf(_bob)) + int256(_wrappedMToken.excess()),
+            int256(_wrappedMToken.balanceOf(_bob)) +
+                int256(_wrappedMToken.excess()) +
+                int256(_wrappedMToken.balanceOf(_excessDestination)),
             int256(_mToken.balanceOf(address(_wrappedMToken)))
         );
 
