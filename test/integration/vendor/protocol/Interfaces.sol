@@ -27,3 +27,13 @@ interface IMTokenLike {
 
     function startEarning() external;
 }
+
+interface ISwapFacilityLike {
+    function grantRole(bytes32 role, address account) external;
+
+    function swapInM(address extensionOut, uint256 amount, address recipient) external;
+
+    function swapOutM(address extensionIn, uint256 amount, address recipient) external;
+
+    function setPermissionedMSwapper(address extension, address swapper, bool allowed) external;
+}

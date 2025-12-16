@@ -6,7 +6,7 @@ solc_version = "0.8.26"
 optimizer = true
 optimizer_runs = 999999
 verbosity = 3
-fork_block_number = 21_345_650
+fork_block_number = 23_170_985
 rpc_storage_caching = { chains = ["mainnet"], endpoints = "all" }
 evm_version = "cancun"
 
