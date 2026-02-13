@@ -12,7 +12,6 @@ You may have to install the following tools to use this repository:
 
 - [foundry](https://github.com/foundry-rs/foundry) to compile and test contracts
 - [lcov](https://github.com/linux-test-project/lcov) to generate the code coverage report
-- [yarn](https://classic.yarnpkg.com/lang/en/docs/install/) to manage node dependencies
 - [slither](https://github.com/crytic/slither) to static analyze contracts
 
 Install dependencies:
