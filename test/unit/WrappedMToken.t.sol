@@ -18,6 +18,9 @@ import { IERC20Extended } from "../../lib/common/src/interfaces/IERC20Extended.s
 
 import { Proxy } from "../../lib/common/src/Proxy.sol";
 
+import {
+    IForcedTransferable
+} from "../../lib/evm-m-extensions/src/components/forcedTransferable/IForcedTransferable.sol";
 import { IFreezable } from "../../lib/evm-m-extensions/src/components/freezable/IFreezable.sol";
 import { IPausable } from "../../lib/evm-m-extensions/src/components/pausable/IPausable.sol";
 
@@ -50,7 +53,7 @@ contract WrappedMTokenTests is BaseUnitTest {
         );
 
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
-        _wrappedMToken.initialize(_admin, _freezeManager, _pauser);
+        _wrappedMToken.initialize(_admin, _freezeManager, _pauser, _forcedTransferManager);
     }
 
     /* ============ constants ============ */
@@ -118,27 +121,37 @@ contract WrappedMTokenTests is BaseUnitTest {
         assertTrue(IAccessControl(address(_wrappedMToken)).hasRole(bytes32(0x00), _admin));
         assertTrue(IAccessControl(address(_wrappedMToken)).hasRole(_FREEZE_MANAGER_ROLE, _freezeManager));
         assertTrue(IAccessControl(address(_wrappedMToken)).hasRole(_PAUSER_ROLE, _pauser));
+        assertTrue(
+            IAccessControl(address(_wrappedMToken)).hasRole(_FORCED_TRANSFER_MANAGER_ROLE, _forcedTransferManager)
+        );
     }
 
     function test_initialize_zeroAdmin() external {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IWrappedMToken.ZeroAdmin.selector);
-        wrappedMToken_.initialize(address(0), _freezeManager, _pauser);
+        wrappedMToken_.initialize(address(0), _freezeManager, _pauser, _forcedTransferManager);
     }
 
     function test_initialize_zeroFreezeManager() external {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IFreezable.ZeroFreezeManager.selector);
-        wrappedMToken_.initialize(_admin, address(0), _pauser);
+        wrappedMToken_.initialize(_admin, address(0), _pauser, _forcedTransferManager);
     }
 
     function test_initialize_zeroPauser() external {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IPausable.ZeroPauser.selector);
-        wrappedMToken_.initialize(_admin, _freezeManager, address(0));
+        wrappedMToken_.initialize(_admin, _freezeManager, address(0), _forcedTransferManager);
+    }
+
+    function test_initialize_zeroForcedTransferManager() external {
+        WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
+
+        vm.expectRevert(IForcedTransferable.ZeroForcedTransferManager.selector);
+        wrappedMToken_.initialize(_admin, _freezeManager, _pauser, address(0));
     }
 
     /* ============ _approve ============ */
@@ -1472,14 +1485,31 @@ contract WrappedMTokenTests is BaseUnitTest {
     }
 
     function test_stopEarningFor_enforcedPause() external {
-        _wrappedMToken.setIsEarningOf(_alice, true);
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _wrappedMToken.setTotalEarningPrincipal(1_000);
+        _wrappedMToken.setTotalEarningSupply(1_000);
+
+        _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, false);
 
         vm.prank(_pauser);
         _wrappedMToken.pause();
 
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        // stopEarningFor succeeds while paused: skipTransfer=true, yield stays on account.
+        vm.expectEmit();
+        emit IWrappedMToken.Claimed(_alice, _alice, 100);
+
+        vm.expectEmit();
+        emit IERC20.Transfer(address(0), _alice, 100);
+
+        vm.expectEmit();
+        emit IWrappedMToken.StoppedEarning(_alice);
 
         _wrappedMToken.stopEarningFor(_alice);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1_100);
+        assertEq(_wrappedMToken.isEarning(_alice), false);
     }
 
     function test_stopEarningFor_frozenAccount() external {
@@ -1508,6 +1538,7 @@ contract WrappedMTokenTests is BaseUnitTest {
         vm.prank(_freezeManager);
         _wrappedMToken.freeze(_bob);
 
+        // Not paused, so skipTransfer=false: _claim tries to transfer yield to frozen _bob → reverts.
         vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _bob));
 
         _wrappedMToken.stopEarningFor(_alice);
@@ -1655,6 +1686,293 @@ contract WrappedMTokenTests is BaseUnitTest {
         emit IWrappedMToken.StoppedEarning(_bob);
 
         _wrappedMToken.stopEarningFor(accounts_);
+    }
+
+    /* ============ freeze / _beforeFreeze ============ */
+    function test_freeze_claimsAccruedYield() external {
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _wrappedMToken.setTotalEarningPrincipal(1_000);
+        _wrappedMToken.setTotalEarningSupply(1_000);
+
+        _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, false); // 1_100 balance with yield.
+
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 100);
+
+        vm.expectEmit();
+        emit IWrappedMToken.Claimed(_alice, _alice, 100);
+
+        vm.expectEmit();
+        emit IERC20.Transfer(address(0), _alice, 100);
+
+        vm.expectEmit();
+        emit IWrappedMToken.StoppedEarning(_alice);
+
+        vm.expectEmit();
+        emit IFreezable.Frozen(_alice, block.timestamp);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1_100);
+        assertEq(_wrappedMToken.isEarning(_alice), false);
+        assertTrue(_wrappedMToken.isFrozen(_alice));
+
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 1_100);
+        assertEq(_wrappedMToken.totalEarningSupply(), 0);
+        assertEq(_wrappedMToken.totalEarningPrincipal(), 0);
+    }
+
+    function test_freeze_skipsClaimRecipientRouting() external {
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _wrappedMToken.setTotalEarningPrincipal(1_000);
+        _wrappedMToken.setTotalEarningSupply(1_000);
+
+        _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, true);
+        _wrappedMToken.setInternalClaimRecipient(_alice, _bob); // has explicit claim recipient
+
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 100);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_bob);
+
+        // Pause the contract so skipTransfer=true in _beforeFreeze -> _stopEarningFor -> _claim.
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        vm.expectEmit();
+        emit IWrappedMToken.Claimed(_alice, _bob, 100);
+
+        vm.expectEmit();
+        emit IERC20.Transfer(address(0), _alice, 100);
+
+        vm.expectEmit();
+        emit IWrappedMToken.StoppedEarning(_alice);
+
+        vm.expectEmit();
+        emit IFreezable.Frozen(_alice, block.timestamp);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1_100);
+        assertEq(_wrappedMToken.balanceOf(_bob), 0); // yield not routed (paused)
+        assertEq(_wrappedMToken.isEarning(_alice), false);
+        assertTrue(_wrappedMToken.isFrozen(_alice));
+    }
+
+    function test_freeze_whilePaused() external {
+        _wrappedMToken.setAccountOf(_alice, 1_000);
+
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        vm.expectEmit();
+        emit IFreezable.Frozen(_alice, block.timestamp);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        assertTrue(_wrappedMToken.isFrozen(_alice));
+    }
+
+    function test_freeze_approvedEarner() external {
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _wrappedMToken.setTotalEarningPrincipal(1_000);
+        _wrappedMToken.setTotalEarningSupply(1_000);
+
+        _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, false);
+
+        // _alice is an approved earner — freeze still works.
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
+
+        vm.expectEmit();
+        emit IWrappedMToken.Claimed(_alice, _alice, 100);
+
+        vm.expectEmit();
+        emit IERC20.Transfer(address(0), _alice, 100);
+
+        vm.expectEmit();
+        emit IWrappedMToken.StoppedEarning(_alice);
+
+        vm.expectEmit();
+        emit IFreezable.Frozen(_alice, block.timestamp);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1_100);
+        assertEq(_wrappedMToken.isEarning(_alice), false);
+        assertTrue(_wrappedMToken.isFrozen(_alice));
+    }
+
+    /* ============ forceTransfer ============ */
+    function test_forceTransfer_unauthorized() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                _alice,
+                _FORCED_TRANSFER_MANAGER_ROLE
+            )
+        );
+
+        vm.prank(_alice);
+        _wrappedMToken.forceTransfer(_alice, _bob, 1_000);
+    }
+
+    function test_forceTransfer_notFrozen() external {
+        _wrappedMToken.setAccountOf(_alice, 1_000);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountNotFrozen.selector, _alice));
+
+        vm.prank(_forcedTransferManager);
+        _wrappedMToken.forceTransfer(_alice, _bob, 500);
+    }
+
+    function test_forceTransfer_invalidRecipient() external {
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.expectRevert(abi.encodeWithSelector(IERC20Extended.InvalidRecipient.selector, address(0)));
+
+        vm.prank(_forcedTransferManager);
+        _wrappedMToken.forceTransfer(_alice, address(0), 500);
+    }
+
+    function test_forceTransfer_frozenRecipient() external {
+        _wrappedMToken.setAccountOf(_alice, 1_000);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_bob);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _bob));
+
+        vm.prank(_forcedTransferManager);
+        _wrappedMToken.forceTransfer(_alice, _bob, 500);
+    }
+
+    function test_forceTransfer_zeroAmount() external {
+        _wrappedMToken.setAccountOf(_alice, 1_000);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.expectEmit();
+        emit IERC20.Transfer(_alice, _bob, 0);
+
+        vm.expectEmit();
+        emit IForcedTransferable.ForcedTransfer(_alice, _bob, _forcedTransferManager, 0);
+
+        vm.prank(_forcedTransferManager);
+        _wrappedMToken.forceTransfer(_alice, _bob, 0);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1_000);
+        assertEq(_wrappedMToken.balanceOf(_bob), 0);
+    }
+
+    function test_forceTransfer_insufficientBalance() external {
+        _wrappedMToken.setAccountOf(_alice, 1_000);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.InsufficientBalance.selector, _alice, 1_000, 2_000));
+
+        vm.prank(_forcedTransferManager);
+        _wrappedMToken.forceTransfer(_alice, _bob, 2_000);
+    }
+
+    function test_forceTransfer_toNonEarner() external {
+        _wrappedMToken.setTotalNonEarningSupply(1_500);
+
+        _wrappedMToken.setAccountOf(_alice, 1_000);
+        _wrappedMToken.setAccountOf(_bob, 500);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 1_500);
+
+        vm.expectEmit();
+        emit IERC20.Transfer(_alice, _bob, 500);
+
+        vm.expectEmit();
+        emit IForcedTransferable.ForcedTransfer(_alice, _bob, _forcedTransferManager, 500);
+
+        vm.prank(_forcedTransferManager);
+        _wrappedMToken.forceTransfer(_alice, _bob, 500);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 500);
+        assertEq(_wrappedMToken.balanceOf(_bob), 1_000);
+
+        // Net totalNonEarningSupply unchanged (moved within non-earning).
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 1_500);
+    }
+
+    function test_forceTransfer_toEarner() external {
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _wrappedMToken.setTotalNonEarningSupply(1_000);
+
+        _wrappedMToken.setTotalEarningPrincipal(500);
+        _wrappedMToken.setTotalEarningSupply(500);
+
+        _wrappedMToken.setAccountOf(_alice, 1_000);
+        _wrappedMToken.setAccountOf(_bob, 500, 500, false);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 1_000);
+
+        vm.expectEmit();
+        emit IERC20.Transfer(_alice, _bob, 500);
+
+        vm.expectEmit();
+        emit IForcedTransferable.ForcedTransfer(_alice, _bob, _forcedTransferManager, 500);
+
+        vm.prank(_forcedTransferManager);
+        _wrappedMToken.forceTransfer(_alice, _bob, 500);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 500);
+        assertEq(_wrappedMToken.balanceOf(_bob), 1_000);
+
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 500); // decreased by 500
+        assertEq(_wrappedMToken.totalEarningSupply(), 1_000); // increased by 500
+    }
+
+    function test_forceTransfer_whilePaused() external {
+        _wrappedMToken.setTotalNonEarningSupply(1_500);
+
+        _wrappedMToken.setAccountOf(_alice, 1_000);
+        _wrappedMToken.setAccountOf(_bob, 500);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        vm.expectEmit();
+        emit IERC20.Transfer(_alice, _bob, 500);
+
+        vm.expectEmit();
+        emit IForcedTransferable.ForcedTransfer(_alice, _bob, _forcedTransferManager, 500);
+
+        vm.prank(_forcedTransferManager);
+        _wrappedMToken.forceTransfer(_alice, _bob, 500);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 500);
+        assertEq(_wrappedMToken.balanceOf(_bob), 1_000);
     }
 
     /* ============ enableEarning ============ */
