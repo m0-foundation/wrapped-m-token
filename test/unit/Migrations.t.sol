@@ -16,15 +16,17 @@ contract Foo {
     address public admin;
     address public freezeManager;
     address public pauser;
+    address public forcedTransferManager;
 
     function bar() external pure returns (uint256) {
         return 1;
     }
 
-    function initialize(address admin_, address freezeManager_, address pauser_) public {
+    function initialize(address admin_, address freezeManager_, address pauser_, address forcedTransferManager_) public {
         admin = admin_;
         freezeManager = freezeManager_;
         pauser = pauser_;
+        forcedTransferManager = forcedTransferManager_;
     }
 }
 
@@ -43,6 +45,7 @@ contract MigrationTests is Test {
     address internal _admin = makeAddr("admin");
     address internal _excessDestination = makeAddr("excessDestination");
     address internal _freezeManager = makeAddr("freezeManager");
+    address internal _forcedTransferManager = makeAddr("forcedTransferManager");
     address internal _migrationAdmin = makeAddr("migrationAdmin");
     address internal _pauser = makeAddr("pauser");
 
@@ -56,7 +59,14 @@ contract MigrationTests is Test {
 
         address proxy_ = address(new Proxy(address(implementation_)));
         address migrator_ = address(
-            new WrappedMTokenMigrator(address(new Foo()), new address[](0), _admin, _freezeManager, _pauser)
+            new WrappedMTokenMigrator(
+                address(new Foo()),
+                new address[](0),
+                _admin,
+                _freezeManager,
+                _pauser,
+                _forcedTransferManager
+            )
         );
 
         registrar_.set(keccak256(abi.encode(_WM_MIGRATOR_KEY_PREFIX, proxy_)), bytes32(uint256(uint160(migrator_))));
@@ -70,6 +80,7 @@ contract MigrationTests is Test {
         assertEq(Foo(proxy_).admin(), _admin);
         assertEq(Foo(proxy_).freezeManager(), _freezeManager);
         assertEq(Foo(proxy_).pauser(), _pauser);
+        assertEq(Foo(proxy_).forcedTransferManager(), _forcedTransferManager);
     }
 
     function test_wrappedMToken_migration_fromAdmin() external {
@@ -82,7 +93,14 @@ contract MigrationTests is Test {
 
         address proxy_ = address(new Proxy(address(implementation_)));
         address migrator_ = address(
-            new WrappedMTokenMigrator(address(new Foo()), new address[](0), _admin, _freezeManager, _pauser)
+            new WrappedMTokenMigrator(
+                address(new Foo()),
+                new address[](0),
+                _admin,
+                _freezeManager,
+                _pauser,
+                _forcedTransferManager
+            )
         );
 
         vm.expectRevert();
@@ -95,5 +113,6 @@ contract MigrationTests is Test {
         assertEq(Foo(proxy_).admin(), _admin);
         assertEq(Foo(proxy_).freezeManager(), _freezeManager);
         assertEq(Foo(proxy_).pauser(), _pauser);
+        assertEq(Foo(proxy_).forcedTransferManager(), _forcedTransferManager);
     }
 }

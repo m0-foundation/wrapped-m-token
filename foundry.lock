@@ -1,17 +1,17 @@
 {
   "lib/common": {
     "branch": {
-      "name": "release-v1.4.0",
-      "rev": "613d2d95a476612270324ecbe92317eb5e9bc98f"
+      "name": "release-v1.5.1",
+      "rev": "20440d03de21fe62970829245872e9adae6cd822"
     }
   },
   "lib/evm-m-extensions": {
-    "rev": "f85daca886802be8e170f84dbb45cede6f460a20"
+    "rev": "87a2f42ab55b5e10771f48fa0d5994bfaa3dca09"
   },
   "lib/forge-std": {
     "branch": {
       "name": "v1",
-      "rev": "7117c90c8cf6c68e5acce4f09a6b24715cea4de6"
+      "rev": "620536fa5277db4e3fd46772d5cbc1ea0696fb43"
     }
   }
 }

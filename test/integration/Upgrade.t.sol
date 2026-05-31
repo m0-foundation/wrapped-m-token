@@ -32,6 +32,7 @@ contract UpgradeTests is Test, DeployBase {
     address internal constant _ADMIN = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
     address internal constant _FREEZE_MANAGER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
     address internal constant _PAUSER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+    address internal constant _FORCED_TRANSFER_MANAGER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
     address[] internal _earners = [
         0x4Cbc25559DbBD1272EC5B64c7b5F48a2405e6470,
@@ -88,7 +89,8 @@ contract UpgradeTests is Test, DeployBase {
             earners_,
             _ADMIN,
             _FREEZE_MANAGER,
-            _PAUSER
+            _PAUSER,
+            _FORCED_TRANSFER_MANAGER
         );
         vm.stopPrank();
 
@@ -126,10 +128,16 @@ contract UpgradeTests is Test, DeployBase {
         assertTrue(
             IAccessControl(address(_WRAPPED_M_TOKEN)).hasRole(keccak256("FREEZE_MANAGER_ROLE"), _FREEZE_MANAGER)
         );
+        assertTrue(
+            IAccessControl(address(_WRAPPED_M_TOKEN)).hasRole(
+                keccak256("FORCED_TRANSFER_MANAGER_ROLE"),
+                _FORCED_TRANSFER_MANAGER
+            )
+        );
 
         // Should not be able to call initialize again.
         vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
-        _WRAPPED_M_TOKEN.initialize(_ADMIN, _FREEZE_MANAGER, _PAUSER);
+        _WRAPPED_M_TOKEN.initialize(_ADMIN, _FREEZE_MANAGER, _PAUSER, _FORCED_TRANSFER_MANAGER);
 
         // Relevant storage slots.
         assertEq(_WRAPPED_M_TOKEN.totalEarningSupply(), totalEarningSupply_);

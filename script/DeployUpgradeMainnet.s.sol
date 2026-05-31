@@ -44,6 +44,9 @@ contract DeployUpgradeMainnet is Script, DeployBase {
     // NOTE: Ensure this is the correct pauser to use.
     address internal constant _PAUSER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
+    // NOTE: Ensure this is the correct forced transfer manager to use.
+    address internal constant _FORCED_TRANSFER_MANAGER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+
     // NOTE: Ensure this is the correct mainnet deployer to use.
     address internal constant _EXPECTED_DEPLOYER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
@@ -112,7 +115,8 @@ contract DeployUpgradeMainnet is Script, DeployBase {
             earners_,
             _ADMIN,
             _FREEZE_MANAGER,
-            _PAUSER
+            _PAUSER,
+            _FORCED_TRANSFER_MANAGER
         );
 
         vm.stopBroadcast();

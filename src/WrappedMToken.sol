@@ -5,6 +5,7 @@ pragma solidity 0.8.26;
 import { IndexingMath } from "../lib/common/src/libs/IndexingMath.sol";
 import { UIntMath } from "../lib/common/src/libs/UIntMath.sol";
 
+import { ForcedTransferable } from "../lib/evm-m-extensions/src/components/forcedTransferable/ForcedTransferable.sol";
 import { Freezable } from "../lib/evm-m-extensions/src/components/freezable/Freezable.sol";
 import { Pausable } from "../lib/evm-m-extensions/src/components/pausable/Pausable.sol";
 
@@ -33,7 +34,7 @@ import { IWrappedMToken } from "./interfaces/IWrappedMToken.sol";
  * @title  ERC20 Token contract for wrapping M into a non-rebasing token with claimable yields.
  * @author M0 Labs
  */
-contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, Pausable {
+contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, Pausable, ForcedTransferable {
     /* ============ Structs ============ */
 
     /**
@@ -141,16 +142,23 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
 
     /**
      * @dev   Initializes the WrappedM token.
-     * @param admin_         The address of an admin.
-     * @param freezeManager_ The address of a freeze manager.
-     * @param pauser_        The address of a pauser.
+     * @param admin_                  The address of an admin.
+     * @param freezeManager_          The address of a freeze manager.
+     * @param pauser_                 The address of a pauser.
+     * @param forcedTransferManager_  The address of a forced transfer manager.
      */
-    function initialize(address admin_, address freezeManager_, address pauser_) public initializer {
+    function initialize(
+        address admin_,
+        address freezeManager_,
+        address pauser_,
+        address forcedTransferManager_
+    ) public initializer {
         if (admin_ == address(0)) revert ZeroAdmin();
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
 
         __Freezable_init(freezeManager_);
         __Pausable_init(pauser_);
+        __ForcedTransferable_init(forcedTransferManager_);
     }
 
     /* ============ Interactive Functions ============ */
@@ -172,7 +180,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
 
     /// @inheritdoc IWrappedMToken
     function claimFor(address account_) external returns (uint240 yield_) {
-        return _claim(account_, currentIndex());
+        _requireNotPaused();
+        _revertIfFrozen(account_);
+
+        return _claim(account_, currentIndex(), false);
     }
 
     /// @inheritdoc IWrappedMToken
@@ -230,15 +241,22 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
 
     /// @inheritdoc IWrappedMToken
     function stopEarningFor(address account_) external {
+        _revertIfFrozen(account_);
+        _revertIfApprovedEarner(account_);
+
         _stopEarningFor(account_, currentIndex());
     }
 
     /// @inheritdoc IWrappedMToken
     function stopEarningFor(address[] calldata accounts_) external {
         uint128 currentIndex_ = currentIndex();
+        FreezableStorageStruct storage $ = _getFreezableStorageLocation();
 
-        for (uint256 index_; index_ < accounts_.length; ++index_) {
-            _stopEarningFor(accounts_[index_], currentIndex_);
+        for (uint256 i; i < accounts_.length; ++i) {
+            _revertIfFrozen($, accounts_[i]);
+            _revertIfApprovedEarner(accounts_[i]);
+
+            _stopEarningFor(accounts_[i], currentIndex_);
         }
     }
 
@@ -488,12 +506,10 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
      * @dev    Claims accrued yield for `account_` given a `currentIndex_`.
      * @param  account_      The address to claim accrued yield for.
      * @param  currentIndex_ The current index to accrue until.
+     * @param  skipTransfer_ Whether to skip transferring yield to a non-self claim recipient.
      * @return yield_        The accrued yield that was claimed.
      */
-    function _claim(address account_, uint128 currentIndex_) internal returns (uint240 yield_) {
-        _requireNotPaused();
-        _revertIfFrozen(account_);
-
+    function _claim(address account_, uint128 currentIndex_, bool skipTransfer_) internal returns (uint240 yield_) {
         Account storage accountInfo_ = _accounts[account_];
 
         if (!accountInfo_.isEarning) return 0;
@@ -516,7 +532,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
         emit Claimed(account_, claimRecipient_, yield_);
         emit Transfer(address(0), account_, yield_);
 
-        if ((claimRecipient_ == account_) || (yield_ == 0)) return yield_;
+        if (skipTransfer_ || claimRecipient_ == account_) return yield_;
 
         _transfer(account_, claimRecipient_, yield_, currentIndex_);
     }
@@ -732,18 +748,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
     }
 
     /**
-     * @dev   Stops earning for `account` if disallowed by the Registrar.
+     * @dev   Stops earning for `account` given some current index.
      * @param account_      The account to stop earning for.
      * @param currentIndex_ The current index.
      */
     function _stopEarningFor(address account_, uint128 currentIndex_) internal {
-        _revertIfApprovedEarner(account_);
-
         Account storage accountInfo_ = _accounts[account_];
 
         if (!accountInfo_.isEarning) return;
 
-        _claim(account_, currentIndex_);
+        _claim(account_, currentIndex_, paused());
 
         uint240 balance_ = accountInfo_.balance;
         uint112 earningPrincipal_ = accountInfo_.earningPrincipal;
@@ -758,6 +772,43 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
         }
 
         emit StoppedEarning(account_);
+    }
+
+    /**
+     * @dev   Hook called before freezing an account. Claims accrued yield and stops earning.
+     * @param account_ The account about to be frozen.
+     */
+    function _beforeFreeze(address account_) internal override {
+        _stopEarningFor(account_, currentIndex());
+
+        super._beforeFreeze(account_);
+    }
+
+    /**
+     * @dev   Forcefully transfers `amount_` tokens from `frozenAccount_` to `recipient_`.
+     *        Bypasses pause (compliance > pause). Frozen account is guaranteed non-earning
+     *        thanks to `_beforeFreeze`.
+     * @param frozenAccount_ The frozen account from which tokens are seized.
+     * @param recipient_     The recipient's address.
+     * @param amount_        The amount to be transferred.
+     */
+    function _forceTransfer(address frozenAccount_, address recipient_, uint256 amount_) internal override {
+        _revertIfInvalidRecipient(recipient_);
+        _revertIfNotFrozen(frozenAccount_);
+        _revertIfFrozen(recipient_);
+
+        uint240 amount240_ = UIntMath.safe240(amount_);
+
+        emit Transfer(frozenAccount_, recipient_, amount240_);
+        emit ForcedTransfer(frozenAccount_, recipient_, msg.sender, amount240_);
+
+        if (amount240_ == 0) return;
+
+        _subtractNonEarningAmount(frozenAccount_, amount240_);
+
+        _accounts[recipient_].isEarning
+            ? _addEarningAmount(recipient_, amount240_, currentIndex())
+            : _addNonEarningAmount(recipient_, amount240_);
     }
 
     /* ============ Internal View/Pure Functions ============ */

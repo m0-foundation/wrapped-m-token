@@ -56,14 +56,22 @@ contract DeployBase {
         address[] memory earners_,
         address admin_,
         address freezeManager_,
-        address pauser_
+        address pauser_,
+        address forcedTransferManager_
     ) public virtual returns (address wrappedMTokenImplementation_, address wrappedMTokenMigrator_) {
         wrappedMTokenImplementation_ = address(
             new WrappedMToken(mToken_, registrar_, excessDestination_, swapFacility_, wrappedMMigrationAdmin_)
         );
 
         wrappedMTokenMigrator_ = address(
-            new WrappedMTokenMigratorV1(wrappedMTokenImplementation_, earners_, admin_, freezeManager_, pauser_)
+            new WrappedMTokenMigratorV1(
+                wrappedMTokenImplementation_,
+                earners_,
+                admin_,
+                freezeManager_,
+                pauser_,
+                forcedTransferManager_
+            )
         );
     }
 
