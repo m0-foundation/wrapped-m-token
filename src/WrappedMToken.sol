@@ -722,6 +722,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
      */
     function _startEarningFor(address account_, uint128 currentIndex_) internal {
         _requireNotPaused();
+        _revertIfFrozen(account_);
         _revertIfNotApprovedEarner(account_);
 
         Account storage accountInfo_ = _accounts[account_];
