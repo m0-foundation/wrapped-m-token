@@ -1756,6 +1756,10 @@ contract WrappedMTokenTests is BaseUnitTest {
     }
 
     function test_freeze_skipsClaimRecipientRouting() external {
+        // `_beforeFreeze` claims with skipTransfer=true, so the freeze keeps the yield on the
+        // account being frozen instead of routing it to the claim recipient. This both keeps
+        // the full balance seizable via `forceTransfer` and ensures freezing is never blocked
+        // by a frozen claim recipient (which would otherwise revert the routing transfer).
         _mToken.setCurrentIndex(1_210000000000);
         _wrappedMToken.setEnableMIndex(1_100000000000);
 
@@ -1769,10 +1773,6 @@ contract WrappedMTokenTests is BaseUnitTest {
 
         vm.prank(_freezeManager);
         _wrappedMToken.freeze(_bob);
-
-        // Pause the contract so skipTransfer=true in _beforeFreeze -> _stopEarningFor -> _claim.
-        vm.prank(_pauser);
-        _wrappedMToken.pause();
 
         vm.expectEmit();
         emit IWrappedMToken.Claimed(_alice, _bob, 100);
@@ -1789,8 +1789,8 @@ contract WrappedMTokenTests is BaseUnitTest {
         vm.prank(_freezeManager);
         _wrappedMToken.freeze(_alice);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), 1_100);
-        assertEq(_wrappedMToken.balanceOf(_bob), 0); // yield not routed (paused)
+        assertEq(_wrappedMToken.balanceOf(_alice), 1_100); // yield retained on frozen account
+        assertEq(_wrappedMToken.balanceOf(_bob), 0); // not routed to claim recipient
         assertEq(_wrappedMToken.isEarning(_alice), false);
         assertTrue(_wrappedMToken.isFrozen(_alice));
     }

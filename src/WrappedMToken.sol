@@ -244,19 +244,20 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
         _revertIfFrozen(account_);
         _revertIfApprovedEarner(account_);
 
-        _stopEarningFor(account_, currentIndex());
+        _stopEarningFor(account_, currentIndex(), paused());
     }
 
     /// @inheritdoc IWrappedMToken
     function stopEarningFor(address[] calldata accounts_) external {
         uint128 currentIndex_ = currentIndex();
+        bool skipTransfer_ = paused();
         FreezableStorageStruct storage $ = _getFreezableStorageLocation();
 
         for (uint256 i; i < accounts_.length; ++i) {
             _revertIfFrozen($, accounts_[i]);
             _revertIfApprovedEarner(accounts_[i]);
 
-            _stopEarningFor(accounts_[i], currentIndex_);
+            _stopEarningFor(accounts_[i], currentIndex_, skipTransfer_);
         }
     }
 
@@ -752,13 +753,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
      * @dev   Stops earning for `account` given some current index.
      * @param account_      The account to stop earning for.
      * @param currentIndex_ The current index.
+     * @param skipTransfer_ Whether to skip routing the claimed yield to a non-self claim recipient.
      */
-    function _stopEarningFor(address account_, uint128 currentIndex_) internal {
+    function _stopEarningFor(address account_, uint128 currentIndex_, bool skipTransfer_) internal {
         Account storage accountInfo_ = _accounts[account_];
 
         if (!accountInfo_.isEarning) return;
 
-        _claim(account_, currentIndex_, paused());
+        _claim(account_, currentIndex_, skipTransfer_);
 
         uint240 balance_ = accountInfo_.balance;
         uint112 earningPrincipal_ = accountInfo_.earningPrincipal;
@@ -777,10 +779,12 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
 
     /**
      * @dev   Hook called before freezing an account. Claims accrued yield and stops earning.
+     *        Routing to a claim recipient is skipped so freezing never reverts on a frozen
+     *        recipient and the yield stays on the frozen account, seizable via `forceTransfer`.
      * @param account_ The account about to be frozen.
      */
     function _beforeFreeze(address account_) internal override {
-        _stopEarningFor(account_, currentIndex());
+        _stopEarningFor(account_, currentIndex(), true);
 
         super._beforeFreeze(account_);
     }
