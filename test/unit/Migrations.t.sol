@@ -17,16 +17,27 @@ contract Foo {
     address public freezeManager;
     address public pauser;
     address public forcedTransferManager;
+    address public excessManager;
+    address public excessDestination;
 
     function bar() external pure returns (uint256) {
         return 1;
     }
 
-    function initialize(address admin_, address freezeManager_, address pauser_, address forcedTransferManager_) public {
+    function initialize(
+        address admin_,
+        address freezeManager_,
+        address pauser_,
+        address forcedTransferManager_,
+        address excessManager_,
+        address excessDestination_
+    ) public {
         admin = admin_;
         freezeManager = freezeManager_;
         pauser = pauser_;
         forcedTransferManager = forcedTransferManager_;
+        excessManager = excessManager_;
+        excessDestination = excessDestination_;
     }
 }
 
@@ -43,6 +54,7 @@ contract MigrationTests is Test {
     address internal _swapFacility = makeAddr("swapFacility");
 
     address internal _admin = makeAddr("admin");
+    address internal _excessManager = makeAddr("excessManager");
     address internal _excessDestination = makeAddr("excessDestination");
     address internal _freezeManager = makeAddr("freezeManager");
     address internal _forcedTransferManager = makeAddr("forcedTransferManager");
@@ -54,7 +66,7 @@ contract MigrationTests is Test {
         address mToken_ = makeAddr("mToken");
 
         address implementation_ = address(
-            new WrappedMToken(address(mToken_), address(registrar_), _excessDestination, _swapFacility, _migrationAdmin)
+            new WrappedMToken(address(mToken_), address(registrar_), _swapFacility, _migrationAdmin)
         );
 
         address proxy_ = address(new Proxy(address(implementation_)));
@@ -65,7 +77,9 @@ contract MigrationTests is Test {
                 _admin,
                 _freezeManager,
                 _pauser,
-                _forcedTransferManager
+                _forcedTransferManager,
+                _excessManager,
+                _excessDestination
             )
         );
 
@@ -81,6 +95,8 @@ contract MigrationTests is Test {
         assertEq(Foo(proxy_).freezeManager(), _freezeManager);
         assertEq(Foo(proxy_).pauser(), _pauser);
         assertEq(Foo(proxy_).forcedTransferManager(), _forcedTransferManager);
+        assertEq(Foo(proxy_).excessManager(), _excessManager);
+        assertEq(Foo(proxy_).excessDestination(), _excessDestination);
     }
 
     function test_wrappedMToken_migration_fromAdmin() external {
@@ -88,7 +104,7 @@ contract MigrationTests is Test {
         address mToken_ = makeAddr("mToken");
 
         address implementation_ = address(
-            new WrappedMToken(address(mToken_), address(registrar_), _excessDestination, _swapFacility, _migrationAdmin)
+            new WrappedMToken(address(mToken_), address(registrar_), _swapFacility, _migrationAdmin)
         );
 
         address proxy_ = address(new Proxy(address(implementation_)));
@@ -99,7 +115,9 @@ contract MigrationTests is Test {
                 _admin,
                 _freezeManager,
                 _pauser,
-                _forcedTransferManager
+                _forcedTransferManager,
+                _excessManager,
+                _excessDestination
             )
         );
 
@@ -114,5 +132,7 @@ contract MigrationTests is Test {
         assertEq(Foo(proxy_).freezeManager(), _freezeManager);
         assertEq(Foo(proxy_).pauser(), _pauser);
         assertEq(Foo(proxy_).forcedTransferManager(), _forcedTransferManager);
+        assertEq(Foo(proxy_).excessManager(), _excessManager);
+        assertEq(Foo(proxy_).excessDestination(), _excessDestination);
     }
 }

@@ -30,9 +30,6 @@ contract DeployUpgradeMainnet is Script, DeployBase {
     // NOTE: Ensure this is the correct Migration Admin mainnet address.
     address internal constant _WRAPPED_M_MIGRATION_ADMIN = 0x431169728D75bd02f4053435b87D15c8d1FB2C72;
 
-    // NOTE: Ensure this is the correct Migration Admin mainnet address.
-    address internal constant _EARNER_MANAGER_MIGRATION_ADMIN = 0x431169728D75bd02f4053435b87D15c8d1FB2C72;
-
     address internal constant _WRAPPED_M_PROXY = 0x437cc33344a0B27A429f795ff6B469C72698B291; // Mainnet address for the Proxy.
 
     // NOTE: Ensure this is the correct admin to use.
@@ -46,6 +43,9 @@ contract DeployUpgradeMainnet is Script, DeployBase {
 
     // NOTE: Ensure this is the correct forced transfer manager to use.
     address internal constant _FORCED_TRANSFER_MANAGER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+
+    // NOTE: Ensure this is the correct excess manager to use.
+    address internal constant _EXCESS_MANAGER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
     // NOTE: Ensure this is the correct mainnet deployer to use.
     address internal constant _EXPECTED_DEPLOYER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
@@ -113,10 +113,13 @@ contract DeployUpgradeMainnet is Script, DeployBase {
             _SWAP_FACILITY,
             _WRAPPED_M_MIGRATION_ADMIN,
             earners_,
-            _ADMIN,
-            _FREEZE_MANAGER,
-            _PAUSER,
-            _FORCED_TRANSFER_MANAGER
+            UpgradeRoles({
+                admin: _ADMIN,
+                freezeManager: _FREEZE_MANAGER,
+                pauser: _PAUSER,
+                forcedTransferManager: _FORCED_TRANSFER_MANAGER,
+                excessManager: _EXCESS_MANAGER
+            })
         );
 
         vm.stopBroadcast();

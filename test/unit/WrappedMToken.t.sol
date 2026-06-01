@@ -47,13 +47,19 @@ contract WrappedMTokenTests is BaseUnitTest {
         _implementation = new WrappedMTokenHarness(
             address(_mToken),
             address(_registrar),
-            _excessDestination,
             address(_swapFacility),
             _migrationAdmin
         );
 
         _wrappedMToken = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
-        _wrappedMToken.initialize(_admin, _freezeManager, _pauser, _forcedTransferManager);
+        _wrappedMToken.initialize(
+            _admin,
+            _freezeManager,
+            _pauser,
+            _forcedTransferManager,
+            _excessManager,
+            _excessDestination
+        );
     }
 
     /* ============ constants ============ */
@@ -81,33 +87,22 @@ contract WrappedMTokenTests is BaseUnitTest {
 
     function test_constructor_zeroMToken() external {
         vm.expectRevert(IWrappedMToken.ZeroMToken.selector);
-        new WrappedMTokenHarness(address(0), address(0), address(0), address(0), address(0));
+        new WrappedMTokenHarness(address(0), address(0), address(0), address(0));
     }
 
     function test_constructor_zeroRegistrar() external {
         vm.expectRevert(IWrappedMToken.ZeroRegistrar.selector);
-        new WrappedMTokenHarness(address(_mToken), address(0), address(0), address(0), address(0));
-    }
-
-    function test_constructor_zeroExcessDestination() external {
-        vm.expectRevert(IWrappedMToken.ZeroExcessDestination.selector);
-        new WrappedMTokenHarness(address(_mToken), address(_registrar), address(0), address(0), address(0));
+        new WrappedMTokenHarness(address(_mToken), address(0), address(0), address(0));
     }
 
     function test_constructor_zeroSwapFacility() external {
         vm.expectRevert(IWrappedMToken.ZeroSwapFacility.selector);
-        new WrappedMTokenHarness(address(_mToken), address(_registrar), _excessDestination, address(0), address(0));
+        new WrappedMTokenHarness(address(_mToken), address(_registrar), address(0), address(0));
     }
 
     function test_constructor_zeroMigrationAdmin() external {
         vm.expectRevert(IWrappedMToken.ZeroMigrationAdmin.selector);
-        new WrappedMTokenHarness(
-            address(_mToken),
-            address(_registrar),
-            _excessDestination,
-            address(_swapFacility),
-            address(0)
-        );
+        new WrappedMTokenHarness(address(_mToken), address(_registrar), address(_swapFacility), address(0));
     }
 
     function test_constructor_zeroImplementation() external {
@@ -124,34 +119,124 @@ contract WrappedMTokenTests is BaseUnitTest {
         assertTrue(
             IAccessControl(address(_wrappedMToken)).hasRole(_FORCED_TRANSFER_MANAGER_ROLE, _forcedTransferManager)
         );
+        assertTrue(IAccessControl(address(_wrappedMToken)).hasRole(_EXCESS_MANAGER_ROLE, _excessManager));
+        assertEq(_wrappedMToken.excessDestination(), _excessDestination);
     }
 
     function test_initialize_zeroAdmin() external {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IWrappedMToken.ZeroAdmin.selector);
-        wrappedMToken_.initialize(address(0), _freezeManager, _pauser, _forcedTransferManager);
+        wrappedMToken_.initialize(
+            address(0),
+            _freezeManager,
+            _pauser,
+            _forcedTransferManager,
+            _excessManager,
+            _excessDestination
+        );
     }
 
     function test_initialize_zeroFreezeManager() external {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IFreezable.ZeroFreezeManager.selector);
-        wrappedMToken_.initialize(_admin, address(0), _pauser, _forcedTransferManager);
+        wrappedMToken_.initialize(
+            _admin,
+            address(0),
+            _pauser,
+            _forcedTransferManager,
+            _excessManager,
+            _excessDestination
+        );
     }
 
     function test_initialize_zeroPauser() external {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IPausable.ZeroPauser.selector);
-        wrappedMToken_.initialize(_admin, _freezeManager, address(0), _forcedTransferManager);
+        wrappedMToken_.initialize(
+            _admin,
+            _freezeManager,
+            address(0),
+            _forcedTransferManager,
+            _excessManager,
+            _excessDestination
+        );
     }
 
     function test_initialize_zeroForcedTransferManager() external {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IForcedTransferable.ZeroForcedTransferManager.selector);
-        wrappedMToken_.initialize(_admin, _freezeManager, _pauser, address(0));
+        wrappedMToken_.initialize(
+            _admin,
+            _freezeManager,
+            _pauser,
+            address(0),
+            _excessManager,
+            _excessDestination
+        );
+    }
+
+    function test_initialize_zeroExcessManager() external {
+        WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
+
+        vm.expectRevert(IWrappedMToken.ZeroExcessManager.selector);
+        wrappedMToken_.initialize(
+            _admin,
+            _freezeManager,
+            _pauser,
+            _forcedTransferManager,
+            address(0),
+            _excessDestination
+        );
+    }
+
+    function test_initialize_zeroExcessDestination() external {
+        WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
+
+        vm.expectRevert(IWrappedMToken.ZeroExcessDestination.selector);
+        wrappedMToken_.initialize(
+            _admin,
+            _freezeManager,
+            _pauser,
+            _forcedTransferManager,
+            _excessManager,
+            address(0)
+        );
+    }
+
+    /* ============ setExcessDestination ============ */
+
+    function test_setExcessDestination_notExcessManager() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                _alice,
+                _EXCESS_MANAGER_ROLE
+            )
+        );
+
+        vm.prank(_alice);
+        _wrappedMToken.setExcessDestination(_bob);
+    }
+
+    function test_setExcessDestination_zero() external {
+        vm.expectRevert(IWrappedMToken.ZeroExcessDestination.selector);
+
+        vm.prank(_excessManager);
+        _wrappedMToken.setExcessDestination(address(0));
+    }
+
+    function test_setExcessDestination() external {
+        vm.expectEmit();
+        emit IWrappedMToken.ExcessDestinationSet(_bob);
+
+        vm.prank(_excessManager);
+        _wrappedMToken.setExcessDestination(_bob);
+
+        assertEq(_wrappedMToken.excessDestination(), _bob);
     }
 
     /* ============ _approve ============ */

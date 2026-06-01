@@ -56,6 +56,7 @@ contract TestBase is Test {
     address internal _freezeManager = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
     address internal _pauser = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
     address internal _forcedTransferManager = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+    address internal _excessManager = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
@@ -193,7 +194,7 @@ contract TestBase is Test {
 
     function _deployV2Components() internal {
         _wrappedMTokenImplementationV2 = address(
-            new WrappedMToken(address(_mToken), _registrar, _excessDestination, _swapFacility, _migrationAdmin)
+            new WrappedMToken(address(_mToken), _registrar, _swapFacility, _migrationAdmin)
         );
 
         address[] memory earners_ = new address[](_earners.length);
@@ -209,7 +210,9 @@ contract TestBase is Test {
                 _admin,
                 _freezeManager,
                 _pauser,
-                _forcedTransferManager
+                _forcedTransferManager,
+                _excessManager,
+                _excessDestination
             )
         );
     }

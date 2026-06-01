@@ -19,6 +19,7 @@ contract BaseUnitTest is Test {
     bytes32 internal constant _FREEZE_MANAGER_ROLE = keccak256("FREEZE_MANAGER_ROLE");
     bytes32 internal constant _FORCED_TRANSFER_MANAGER_ROLE = keccak256("FORCED_TRANSFER_MANAGER_ROLE");
     bytes32 internal constant _PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 internal constant _EXCESS_MANAGER_ROLE = keccak256("EXCESS_MANAGER_ROLE");
 
     bytes32 internal constant _EARNERS_LIST_NAME = "earners";
 
@@ -28,6 +29,7 @@ contract BaseUnitTest is Test {
     address internal _david = makeAddr("david");
 
     address internal _admin = makeAddr("admin");
+    address internal _excessManager = makeAddr("excessManager");
     address internal _excessDestination = makeAddr("excessDestination");
     address internal _freezeManager = makeAddr("freezeManager");
     address internal _forcedTransferManager = makeAddr("forcedTransferManager");

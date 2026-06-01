@@ -34,7 +34,6 @@ contract DeployTests is Test, DeployBase {
         (address wrappedMTokenImplementation_, address wrappedMTokenProxy_) = deploy(
             _M_TOKEN,
             _REGISTRAR,
-            _EXCESS_DESTINATION,
             _SWAP_FACILITY,
             _WRAPPED_M_MIGRATION_ADMIN
         );
@@ -45,7 +44,6 @@ contract DeployTests is Test, DeployBase {
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).migrationAdmin(), _WRAPPED_M_MIGRATION_ADMIN);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).mToken(), _M_TOKEN);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).registrar(), _REGISTRAR);
-        assertEq(IWrappedMToken(wrappedMTokenImplementation_).excessDestination(), _EXCESS_DESTINATION);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).swapFacility(), _SWAP_FACILITY);
 
         // Wrapped M Token Proxy assertions
@@ -53,7 +51,6 @@ contract DeployTests is Test, DeployBase {
         assertEq(IWrappedMToken(wrappedMTokenProxy_).migrationAdmin(), _WRAPPED_M_MIGRATION_ADMIN);
         assertEq(IWrappedMToken(wrappedMTokenProxy_).mToken(), _M_TOKEN);
         assertEq(IWrappedMToken(wrappedMTokenProxy_).registrar(), _REGISTRAR);
-        assertEq(IWrappedMToken(wrappedMTokenProxy_).excessDestination(), _EXCESS_DESTINATION);
         assertEq(IWrappedMToken(wrappedMTokenProxy_).swapFacility(), _SWAP_FACILITY);
         assertEq(IWrappedMToken(wrappedMTokenProxy_).implementation(), wrappedMTokenImplementation_);
     }
