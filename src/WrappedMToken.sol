@@ -703,6 +703,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
      */
     function _unwrap(address account_, uint240 amount_) internal {
         _requireNotPaused();
+
+        // NOTE: No recipient frozen check here. The final recipient receives $M (not Wrapped $M)
+        //       directly from SwapFacility, so a Wrapped $M frozen guard would have no effect.
         _revertIfFrozen(account_);
 
         // NOTE: Always burn from SwapFacility as it is the only contract that can call this function.
