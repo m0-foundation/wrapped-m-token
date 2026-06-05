@@ -46,6 +46,12 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     event ExcessClaimed(uint240 excess);
 
     /**
+     * @notice Emitted when the excess destination is set.
+     * @param  excessDestination The address of the new excess destination.
+     */
+    event ExcessDestinationSet(address indexed excessDestination);
+
+    /**
      * @notice Emitted when `account` starts being an wM earner.
      * @param  account The account that started earning.
      */
@@ -91,7 +97,10 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted in constructor if default admin is 0x0.
     error ZeroAdmin();
 
-    /// @notice Emitted in constructor if Excess Destination is 0x0.
+    /// @notice Emitted in `initialize` if Earner Manager is 0x0.
+    error ZeroExcessManager();
+
+    /// @notice Emitted in `initialize` and `setExcessDestination` if Excess Destination is 0x0.
     error ZeroExcessDestination();
 
     /// @notice Emitted in constructor if M Token is 0x0.
@@ -176,6 +185,13 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     function setClaimRecipient(address claimRecipient) external;
 
+    /**
+     * @notice Sets the destination where excess M is claimed to.
+     * @dev    Can only be called by an account with the `EXCESS_MANAGER_ROLE`.
+     * @param  excessDestination The address of the new excess destination.
+     */
+    function setExcessDestination(address excessDestination) external;
+
     /* ============ Temporary Admin Migration ============ */
 
     /**
@@ -188,6 +204,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /// @notice 100% in basis points.
     function HUNDRED_PERCENT() external pure returns (uint16 hundredPercent);
+
+    /// @notice The role that can set the excess destination and manage approved earners.
+    function EXCESS_MANAGER_ROLE() external pure returns (bytes32 excessManagerRole);
 
     /// @notice Registrar key holding value of whether the earners list can be ignored or not.
     function EARNERS_LIST_IGNORED_KEY() external pure returns (bytes32 earnersListIgnoredKey);

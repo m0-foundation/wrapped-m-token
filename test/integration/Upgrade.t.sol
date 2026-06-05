@@ -33,6 +33,7 @@ contract UpgradeTests is Test, DeployBase {
     address internal constant _FREEZE_MANAGER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
     address internal constant _PAUSER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
     address internal constant _FORCED_TRANSFER_MANAGER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
+    address internal constant _EXCESS_MANAGER = 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB;
 
     address[] internal _earners = [
         0x4Cbc25559DbBD1272EC5B64c7b5F48a2405e6470,
@@ -87,10 +88,13 @@ contract UpgradeTests is Test, DeployBase {
             _SWAP_FACILITY,
             _WRAPPED_M_MIGRATION_ADMIN,
             earners_,
-            _ADMIN,
-            _FREEZE_MANAGER,
-            _PAUSER,
-            _FORCED_TRANSFER_MANAGER
+            UpgradeRoles({
+                admin: _ADMIN,
+                freezeManager: _FREEZE_MANAGER,
+                pauser: _PAUSER,
+                forcedTransferManager: _FORCED_TRANSFER_MANAGER,
+                excessManager: _EXCESS_MANAGER
+            })
         );
         vm.stopPrank();
 
@@ -99,7 +103,6 @@ contract UpgradeTests is Test, DeployBase {
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).migrationAdmin(), _WRAPPED_M_MIGRATION_ADMIN);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).mToken(), _M_TOKEN);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).registrar(), _REGISTRAR);
-        assertEq(IWrappedMToken(wrappedMTokenImplementation_).excessDestination(), _EXCESS_DESTINATION);
         assertEq(IWrappedMToken(wrappedMTokenImplementation_).swapFacility(), _SWAP_FACILITY);
 
         // Migrator assertions
@@ -134,10 +137,20 @@ contract UpgradeTests is Test, DeployBase {
                 _FORCED_TRANSFER_MANAGER
             )
         );
+        assertTrue(
+            IAccessControl(address(_WRAPPED_M_TOKEN)).hasRole(keccak256("EXCESS_MANAGER_ROLE"), _EXCESS_MANAGER)
+        );
 
         // Should not be able to call initialize again.
         vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
-        _WRAPPED_M_TOKEN.initialize(_ADMIN, _FREEZE_MANAGER, _PAUSER, _FORCED_TRANSFER_MANAGER);
+        _WRAPPED_M_TOKEN.initialize(
+            _ADMIN,
+            _FREEZE_MANAGER,
+            _PAUSER,
+            _FORCED_TRANSFER_MANAGER,
+            _EXCESS_MANAGER,
+            _EXCESS_DESTINATION
+        );
 
         // Relevant storage slots.
         assertEq(_WRAPPED_M_TOKEN.totalEarningSupply(), totalEarningSupply_);

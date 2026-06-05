@@ -65,6 +65,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
     bytes32 public constant EARNERS_LIST_NAME = "earners";
 
     /// @inheritdoc IWrappedMToken
+    bytes32 public constant EXCESS_MANAGER_ROLE = keccak256("EXCESS_MANAGER_ROLE");
+
+    /// @inheritdoc IWrappedMToken
     bytes32 public constant CLAIM_OVERRIDE_RECIPIENT_KEY_PREFIX = "wm_claim_override_recipient";
 
     /// @inheritdoc IWrappedMToken
@@ -78,9 +81,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
 
     /// @inheritdoc IWrappedMToken
     address public immutable registrar;
-
-    /// @inheritdoc IWrappedMToken
-    address public immutable excessDestination;
 
     /// @inheritdoc IWrappedMToken
     address public immutable swapFacility;
@@ -105,6 +105,9 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
 
     mapping(address account => address claimRecipient) internal _claimRecipients;
 
+    /// @inheritdoc IWrappedMToken
+    address public excessDestination;
+
     /* ============ Modifiers ============ */
 
     /// @dev Modifier to check if caller is SwapFacility.
@@ -118,22 +121,19 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
     /**
      * @dev   Constructs the contract given an M Token address and migration admin.
      *        Note that a proxy will not need to initialize since there are no mutable storage values affected.
-     * @param mToken_            The address of an M Token.
-     * @param registrar_         The address of a Registrar.
-     * @param excessDestination_ The address of an excess destination.
-     * @param swapFacility_      The address of a Swap Facility.
-     * @param migrationAdmin_    The address of a migration admin.
+     * @param mToken_         The address of an M Token.
+     * @param registrar_      The address of a Registrar.
+     * @param swapFacility_   The address of a Swap Facility.
+     * @param migrationAdmin_ The address of a migration admin.
      */
     constructor(
         address mToken_,
         address registrar_,
-        address excessDestination_,
         address swapFacility_,
         address migrationAdmin_
     ) ERC20Extended("M (Wrapped) by M0", "wM", 6) {
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
-        if ((excessDestination = excessDestination_) == address(0)) revert ZeroExcessDestination();
         if ((swapFacility = swapFacility_) == address(0)) revert ZeroSwapFacility();
         if ((migrationAdmin = migrationAdmin_) == address(0)) revert ZeroMigrationAdmin();
     }
@@ -142,19 +142,28 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
 
     /**
      * @dev   Initializes the WrappedM token.
-     * @param admin_                  The address of an admin.
-     * @param freezeManager_          The address of a freeze manager.
-     * @param pauser_                 The address of a pauser.
-     * @param forcedTransferManager_  The address of a forced transfer manager.
+     * @param admin_                 The address of an admin.
+     * @param freezeManager_         The address of a freeze manager.
+     * @param pauser_                The address of a pauser.
+     * @param forcedTransferManager_ The address of a forced transfer manager.
+     * @param excessManager_         The address of an excess manager.
+     * @param excessDestination_     The address of an excess destination.
      */
     function initialize(
         address admin_,
         address freezeManager_,
         address pauser_,
-        address forcedTransferManager_
+        address forcedTransferManager_,
+        address excessManager_,
+        address excessDestination_
     ) public initializer {
         if (admin_ == address(0)) revert ZeroAdmin();
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
+
+        if (excessManager_ == address(0)) revert ZeroExcessManager();
+        _grantRole(EXCESS_MANAGER_ROLE, excessManager_);
+
+        _setExcessDestination(excessDestination_);
 
         __Freezable_init(freezeManager_);
         __Pausable_init(pauser_);
@@ -268,6 +277,11 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
         emit ClaimRecipientSet(msg.sender, claimRecipient_);
     }
 
+    /// @inheritdoc IWrappedMToken
+    function setExcessDestination(address excessDestination_) external onlyRole(EXCESS_MANAGER_ROLE) {
+        _setExcessDestination(excessDestination_);
+    }
+
     /* ============ Temporary Admin Migration ============ */
 
     /// @inheritdoc IWrappedMToken
@@ -375,6 +389,16 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
     }
 
     /* ============ Internal Interactive Functions ============ */
+
+    /**
+     * @dev   Sets the excess destination to `excessDestination_`.
+     * @param excessDestination_ The address of the excess destination.
+     */
+    function _setExcessDestination(address excessDestination_) internal {
+        if (excessDestination_ == address(0)) revert ZeroExcessDestination();
+
+        emit ExcessDestinationSet(excessDestination = excessDestination_);
+    }
 
     /**
      * @dev Approve `spender_` to spend `amount_` of tokens from `account_`.

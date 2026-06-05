@@ -55,6 +55,8 @@ contract WrappedMTokenMigratorV1 {
     address public immutable freezeManager;
     address public immutable pauser;
     address public immutable forcedTransferManager;
+    address public immutable excessManager;
+    address public immutable excessDestination;
 
     constructor(
         address newImplementation_,
@@ -62,7 +64,9 @@ contract WrappedMTokenMigratorV1 {
         address admin_,
         address freezeManager_,
         address pauser_,
-        address forcedTransferManager_
+        address forcedTransferManager_,
+        address excessManager_,
+        address excessDestination_
     ) {
         newImplementation = newImplementation_;
 
@@ -72,6 +76,8 @@ contract WrappedMTokenMigratorV1 {
         freezeManager = freezeManager_;
         pauser = pauser_;
         forcedTransferManager = forcedTransferManager_;
+        excessManager = excessManager_;
+        excessDestination = excessDestination_;
     }
 
     fallback() external virtual {
@@ -93,11 +99,13 @@ contract WrappedMTokenMigratorV1 {
 
         (bool success_, ) = address(this).call(
             abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address,address,address)")),
+                bytes4(keccak256("initialize(address,address,address,address,address,address)")),
                 admin,
                 freezeManager,
                 pauser,
-                forcedTransferManager
+                forcedTransferManager,
+                excessManager,
+                excessDestination
             )
         );
 

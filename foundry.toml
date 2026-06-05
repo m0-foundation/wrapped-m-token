@@ -4,7 +4,7 @@ gas_reports_ignore = []
 ignored_error_codes = []
 solc_version = "0.8.26"
 optimizer = true
-optimizer_runs = 21883
+optimizer_runs = 4150
 verbosity = 3
 fork_block_number = 23_170_985
 rpc_storage_caching = { chains = ["mainnet"], endpoints = "all" }

@@ -62,7 +62,6 @@ contract DeployProduction is Script, DeployBase {
         (wrappedMTokenImplementation_, wrappedMTokenProxy_) = deploy(
             vm.envAddress("M_TOKEN"),
             vm.envAddress("REGISTRAR"),
-            vm.envAddress("EXCESS_DESTINATION"),
             vm.envAddress("SWAP_FACILITY"),
             vm.envAddress("WRAPPED_M_MIGRATION_ADMIN")
         );

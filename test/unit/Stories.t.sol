@@ -24,8 +24,13 @@ contract StoryTests is Test {
     address internal _carol = makeAddr("carol");
     address internal _dave = makeAddr("dave");
 
+    address internal _admin = makeAddr("admin");
+    address internal _excessManager = makeAddr("excessManager");
     address internal _excessDestination = makeAddr("excessDestination");
+    address internal _forcedTransferManager = makeAddr("forcedTransferManager");
+    address internal _freezeManager = makeAddr("freezeManager");
     address internal _migrationAdmin = makeAddr("migrationAdmin");
+    address internal _pauser = makeAddr("pauser");
 
     MockM internal _mToken;
     MockRegistrar internal _registrar;
@@ -43,12 +48,19 @@ contract StoryTests is Test {
         _implementation = new WrappedMToken(
             address(_mToken),
             address(_registrar),
-            _excessDestination,
             address(_swapFacility),
             _migrationAdmin
         );
 
         _wrappedMToken = IWrappedMToken(address(new Proxy(address(_implementation))));
+        WrappedMToken(address(_wrappedMToken)).initialize(
+            _admin,
+            _freezeManager,
+            _pauser,
+            _forcedTransferManager,
+            _excessManager,
+            _excessDestination
+        );
     }
 
     function test_story() external {
