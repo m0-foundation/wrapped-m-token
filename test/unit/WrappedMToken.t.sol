@@ -1343,6 +1343,19 @@ contract WrappedMTokenTests is BaseUnitTest {
         _wrappedMToken.startEarningFor(_alice);
     }
 
+    function test_startEarningFor_frozenAccount() external {
+        _mToken.setCurrentIndex(1_100000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _alice));
+        _wrappedMToken.startEarningFor(_alice);
+    }
+
     function test_startEarning_overflow() external {
         _mToken.setCurrentIndex(1_100000000000);
         _wrappedMToken.setEnableMIndex(1_100000000000);
@@ -1453,6 +1466,24 @@ contract WrappedMTokenTests is BaseUnitTest {
         accounts_[1] = _bob;
 
         vm.expectRevert(abi.encodeWithSelector(IWrappedMToken.NotApprovedEarner.selector, _bob));
+        _wrappedMToken.startEarningFor(accounts_);
+    }
+
+    function test_startEarningFor_batch_frozenAccount() external {
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _bob, true);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_bob);
+
+        address[] memory accounts_ = new address[](2);
+        accounts_[0] = _alice;
+        accounts_[1] = _bob;
+
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _bob));
         _wrappedMToken.startEarningFor(accounts_);
     }
 
@@ -1725,6 +1756,10 @@ contract WrappedMTokenTests is BaseUnitTest {
     }
 
     function test_freeze_skipsClaimRecipientRouting() external {
+        // `_beforeFreeze` claims with skipTransfer=true, so the freeze keeps the yield on the
+        // account being frozen instead of routing it to the claim recipient. This both keeps
+        // the full balance seizable via `forceTransfer` and ensures freezing is never blocked
+        // by a frozen claim recipient (which would otherwise revert the routing transfer).
         _mToken.setCurrentIndex(1_210000000000);
         _wrappedMToken.setEnableMIndex(1_100000000000);
 
@@ -1738,10 +1773,6 @@ contract WrappedMTokenTests is BaseUnitTest {
 
         vm.prank(_freezeManager);
         _wrappedMToken.freeze(_bob);
-
-        // Pause the contract so skipTransfer=true in _beforeFreeze -> _stopEarningFor -> _claim.
-        vm.prank(_pauser);
-        _wrappedMToken.pause();
 
         vm.expectEmit();
         emit IWrappedMToken.Claimed(_alice, _bob, 100);
@@ -1758,8 +1789,8 @@ contract WrappedMTokenTests is BaseUnitTest {
         vm.prank(_freezeManager);
         _wrappedMToken.freeze(_alice);
 
-        assertEq(_wrappedMToken.balanceOf(_alice), 1_100);
-        assertEq(_wrappedMToken.balanceOf(_bob), 0); // yield not routed (paused)
+        assertEq(_wrappedMToken.balanceOf(_alice), 1_100); // yield retained on frozen account
+        assertEq(_wrappedMToken.balanceOf(_bob), 0); // not routed to claim recipient
         assertEq(_wrappedMToken.isEarning(_alice), false);
         assertTrue(_wrappedMToken.isFrozen(_alice));
     }
@@ -1832,6 +1863,43 @@ contract WrappedMTokenTests is BaseUnitTest {
 
         vm.prank(_forcedTransferManager);
         _wrappedMToken.forceTransfer(_alice, _bob, 500);
+    }
+
+    function test_forceTransfer_frozenEarnerCannotBeReEnabled() external {
+        // Regression: a frozen account must not be re-enabled as an earner, otherwise
+        // `forceTransfer` would run `_subtractNonEarningAmount` on an earning account and
+        // corrupt supply accounting.
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _wrappedMToken.setTotalEarningPrincipal(1_000);
+        _wrappedMToken.setTotalEarningSupply(1_000);
+
+        _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, false);
+
+        // `_alice` remains an approved earner even after being frozen.
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_alice);
+
+        // Freezing claimed yield (100) and stopped earning, moving the balance to non-earning.
+        assertEq(_wrappedMToken.isEarning(_alice), false);
+        assertEq(_wrappedMToken.totalEarningSupply(), 0);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 1_100);
+
+        // Re-enabling earning on the still-frozen account must revert.
+        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _alice));
+        _wrappedMToken.startEarningFor(_alice);
+
+        // The account stays non-earning, so `forceTransfer` keeps accounting correct.
+        vm.prank(_forcedTransferManager);
+        _wrappedMToken.forceTransfer(_alice, _bob, 500);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 600);
+        assertEq(_wrappedMToken.balanceOf(_bob), 500);
+        assertEq(_wrappedMToken.totalEarningSupply(), 0);
+        assertEq(_wrappedMToken.totalNonEarningSupply(), 1_100);
     }
 
     function test_forceTransfer_invalidRecipient() external {
