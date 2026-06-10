@@ -5,7 +5,7 @@
 [submodule "lib/common"]
 	path = lib/common
 	url = https://github.com/m0-foundation/common
-	branch = release-v1.5.1
+	branch = release-v1.5.2
 [submodule "lib/evm-m-extensions"]
 	path = lib/evm-m-extensions
 	url = https://github.com/m0-foundation/evm-m-extensions

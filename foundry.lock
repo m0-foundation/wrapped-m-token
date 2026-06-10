@@ -1,8 +1,8 @@
 {
   "lib/common": {
     "branch": {
-      "name": "release-v1.5.1",
-      "rev": "20440d03de21fe62970829245872e9adae6cd822"
+      "name": "release-v1.5.2",
+      "rev": "489fae6daecd227616155e4f8cacfd17aeb3e2a1"
     }
   },
   "lib/evm-m-extensions": {
