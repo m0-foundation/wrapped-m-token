@@ -97,7 +97,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     /// @notice Emitted in constructor if default admin is 0x0.
     error ZeroAdmin();
 
-    /// @notice Emitted in `initialize` if Earner Manager is 0x0.
+    /// @notice Emitted in `initialize` if Excess Manager is 0x0.
     error ZeroExcessManager();
 
     /// @notice Emitted in `initialize` and `setExcessDestination` if Excess Destination is 0x0.
@@ -156,25 +156,25 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function disableEarning() external;
 
     /**
-     * @notice Starts earning for `account` if allowed by the Earner Manager.
+     * @notice Starts earning for `account` if allowed by the Registrar.
      * @param  account The account to start earning for.
      */
     function startEarningFor(address account) external;
 
     /**
-     * @notice Starts earning for multiple accounts if individually allowed by the Earner Manager.
+     * @notice Starts earning for multiple accounts if individually allowed by the Registrar.
      * @param  accounts The accounts to start earning for.
      */
     function startEarningFor(address[] calldata accounts) external;
 
     /**
-     * @notice Stops earning for `account` if disallowed by the Earner Manager.
+     * @notice Stops earning for `account` if disallowed by the Registrar.
      * @param  account The account to stop earning for.
      */
     function stopEarningFor(address account) external;
 
     /**
-     * @notice Stops earning for multiple accounts if individually disallowed by the Earner Manager.
+     * @notice Stops earning for multiple accounts if individually disallowed by the Registrar.
      * @param  accounts The accounts to stop earning for.
      */
     function stopEarningFor(address[] calldata accounts) external;
@@ -202,10 +202,7 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
 
     /* ============ View/Pure Functions ============ */
 
-    /// @notice 100% in basis points.
-    function HUNDRED_PERCENT() external pure returns (uint16 hundredPercent);
-
-    /// @notice The role that can set the excess destination and manage approved earners.
+    /// @notice The role that can set the excess destination.
     function EXCESS_MANAGER_ROLE() external pure returns (bytes32 excessManagerRole);
 
     /// @notice Registrar key holding value of whether the earners list can be ignored or not.
