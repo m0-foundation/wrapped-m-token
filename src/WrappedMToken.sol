@@ -56,9 +56,6 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
     /* ============ Variables ============ */
 
     /// @inheritdoc IWrappedMToken
-    uint16 public constant HUNDRED_PERCENT = 10_000;
-
-    /// @inheritdoc IWrappedMToken
     bytes32 public constant EARNERS_LIST_IGNORED_KEY = "earners_list_ignored";
 
     /// @inheritdoc IWrappedMToken
@@ -119,6 +116,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
     /* ============ Constructor ============ */
 
     /**
+     * @custom:oz-upgrades-unsafe-allow constructor
      * @dev   Constructs the contract given an M Token address and migration admin.
      *        Note that a proxy will not need to initialize since there are no mutable storage values affected.
      * @param mToken_         The address of an M Token.
@@ -132,6 +130,8 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
         address swapFacility_,
         address migrationAdmin_
     ) ERC20Extended("M (Wrapped) by M0", "wM", 6) {
+        _disableInitializers();
+
         if ((mToken = mToken_) == address(0)) revert ZeroMToken();
         if ((registrar = registrar_) == address(0)) revert ZeroRegistrar();
         if ((swapFacility = swapFacility_) == address(0)) revert ZeroSwapFacility();
