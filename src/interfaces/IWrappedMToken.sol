@@ -129,9 +129,9 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
     function wrap(address recipient, uint256 amount) external;
 
     /**
-     * @notice Unwraps `amount` wM from the caller into M for `recipient`.
+     * @notice Unwraps `amount` wM from the caller into M, sending the M to the SwapFacility.
      * @dev    Can only be called by the SwapFacility.
-     * @param  recipient The account receiving the withdrawn M.
+     * @param  recipient Unused. The M is always sent to the SwapFacility, which routes it to the final recipient.
      * @param  amount    The amount of wM burned.
      */
     function unwrap(address recipient, uint256 amount) external;
@@ -149,10 +149,10 @@ interface IWrappedMToken is IMigratable, IERC20Extended {
      */
     function claimExcess() external returns (uint240 claimed);
 
-    /// @notice Enables earning of Wrapped M if allowed by the Registrar and if it has never been done.
+    /// @notice Enables earning of Wrapped M if allowed by the Registrar and not already enabled.
     function enableEarning() external;
 
-    /// @notice Disables earning of Wrapped M if disallowed by the Registrar and if it has never been done.
+    /// @notice Disables earning of Wrapped M if disallowed by the Registrar and not already disabled.
     function disableEarning() external;
 
     /**
