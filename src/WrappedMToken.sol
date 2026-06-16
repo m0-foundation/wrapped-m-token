@@ -551,13 +551,14 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
             totalEarningSupply += yield_;
         }
 
-        address claimRecipient_ = claimRecipientFor(account_);
+        // When transferring is skipped, the yield stays on `account_`, so it is the effective recipient.
+        address claimRecipient_ = skipTransfer_ ? account_ : claimRecipientFor(account_);
 
         // Emit the appropriate `Claimed` and `Transfer` events, depending on the claim override recipient
         emit Claimed(account_, claimRecipient_, yield_);
         emit Transfer(address(0), account_, yield_);
 
-        if (skipTransfer_ || claimRecipient_ == account_) return yield_;
+        if (claimRecipient_ == account_) return yield_;
 
         _transfer(account_, claimRecipient_, yield_, currentIndex_);
     }

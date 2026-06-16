@@ -169,14 +169,7 @@ contract WrappedMTokenTests is BaseUnitTest {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IForcedTransferable.ZeroForcedTransferManager.selector);
-        wrappedMToken_.initialize(
-            _admin,
-            _freezeManager,
-            _pauser,
-            address(0),
-            _excessManager,
-            _excessDestination
-        );
+        wrappedMToken_.initialize(_admin, _freezeManager, _pauser, address(0), _excessManager, _excessDestination);
     }
 
     function test_initialize_zeroExcessManager() external {
@@ -197,14 +190,7 @@ contract WrappedMTokenTests is BaseUnitTest {
         WrappedMTokenHarness wrappedMToken_ = WrappedMTokenHarness(address(new Proxy(address(_implementation))));
 
         vm.expectRevert(IWrappedMToken.ZeroExcessDestination.selector);
-        wrappedMToken_.initialize(
-            _admin,
-            _freezeManager,
-            _pauser,
-            _forcedTransferManager,
-            _excessManager,
-            address(0)
-        );
+        wrappedMToken_.initialize(_admin, _freezeManager, _pauser, _forcedTransferManager, _excessManager, address(0));
     }
 
     /* ============ setExcessDestination ============ */
@@ -1628,6 +1614,38 @@ contract WrappedMTokenTests is BaseUnitTest {
         assertEq(_wrappedMToken.isEarning(_alice), false);
     }
 
+    function test_stopEarningFor_enforcedPause_withClaimRecipient() external {
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _wrappedMToken.setTotalEarningPrincipal(1_000);
+        _wrappedMToken.setTotalEarningSupply(1_000);
+
+        _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, true);
+        _wrappedMToken.setInternalClaimRecipient(_alice, _bob);
+
+        assertEq(_wrappedMToken.claimRecipientFor(_alice), _bob);
+
+        vm.prank(_pauser);
+        _wrappedMToken.pause();
+
+        // skipTransfer=true: yield stays on `_alice`, so `Claimed` must report `_alice` not `_bob`.
+        vm.expectEmit();
+        emit IWrappedMToken.Claimed(_alice, _alice, 100);
+
+        vm.expectEmit();
+        emit IERC20.Transfer(address(0), _alice, 100);
+
+        vm.expectEmit();
+        emit IWrappedMToken.StoppedEarning(_alice);
+
+        _wrappedMToken.stopEarningFor(_alice);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1_100);
+        assertEq(_wrappedMToken.balanceOf(_bob), 0);
+        assertEq(_wrappedMToken.isEarning(_alice), false);
+    }
+
     function test_stopEarningFor_frozenAccount() external {
         _wrappedMToken.setIsEarningOf(_alice, true);
 
@@ -1860,7 +1878,7 @@ contract WrappedMTokenTests is BaseUnitTest {
         _wrappedMToken.freeze(_bob);
 
         vm.expectEmit();
-        emit IWrappedMToken.Claimed(_alice, _bob, 100);
+        emit IWrappedMToken.Claimed(_alice, _alice, 100);
 
         vm.expectEmit();
         emit IERC20.Transfer(address(0), _alice, 100);
