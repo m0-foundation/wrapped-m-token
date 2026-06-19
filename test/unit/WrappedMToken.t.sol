@@ -1658,8 +1658,6 @@ contract WrappedMTokenTests is BaseUnitTest {
     }
 
     function test_stopEarningFor_frozenClaimRecipient() external {
-        _wrappedMToken.setIsEarningOf(_alice, true);
-
         _mToken.setCurrentIndex(1_210000000000);
         _wrappedMToken.setEnableMIndex(1_100000000000);
 
@@ -1669,13 +1667,28 @@ contract WrappedMTokenTests is BaseUnitTest {
         _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, true); // 1_100 balance with yield.
         _wrappedMToken.setInternalClaimRecipient(_alice, _bob);
 
+        assertEq(_wrappedMToken.claimRecipientFor(_alice), _bob);
+
         vm.prank(_freezeManager);
         _wrappedMToken.freeze(_bob);
 
-        // Not paused, so skipTransfer=false: _claim tries to transfer yield to frozen _bob → reverts.
-        vm.expectRevert(abi.encodeWithSelector(IFreezable.AccountFrozen.selector, _bob));
+        // Not paused, but the claim recipient _bob is frozen: skipTransfer falls back to true so an
+        // earner cannot block their own deauthorization by pointing yield at a frozen recipient.
+        // The yield stays on _alice, so `Claimed` reports _alice not _bob.
+        vm.expectEmit();
+        emit IWrappedMToken.Claimed(_alice, _alice, 100);
+
+        vm.expectEmit();
+        emit IERC20.Transfer(address(0), _alice, 100);
+
+        vm.expectEmit();
+        emit IWrappedMToken.StoppedEarning(_alice);
 
         _wrappedMToken.stopEarningFor(_alice);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1_100);
+        assertEq(_wrappedMToken.balanceOf(_bob), 0);
+        assertEq(_wrappedMToken.isEarning(_alice), false);
     }
 
     function test_stopEarningFor() external {
@@ -1820,6 +1833,51 @@ contract WrappedMTokenTests is BaseUnitTest {
         emit IWrappedMToken.StoppedEarning(_bob);
 
         _wrappedMToken.stopEarningFor(accounts_);
+    }
+
+    function test_stopEarningFor_batch_frozenClaimRecipient() external {
+        _mToken.setCurrentIndex(1_210000000000);
+        _wrappedMToken.setEnableMIndex(1_100000000000);
+
+        _wrappedMToken.setTotalEarningPrincipal(2_000);
+        _wrappedMToken.setTotalEarningSupply(2_000);
+
+        // _alice routes yield to a frozen recipient, _bob to an unfrozen one.
+        _wrappedMToken.setAccountOf(_alice, 1_000, 1_000, true); // 1_100 balance with yield.
+        _wrappedMToken.setInternalClaimRecipient(_alice, _charlie);
+
+        _wrappedMToken.setAccountOf(_bob, 1_000, 1_000, true); // 1_100 balance with yield.
+        _wrappedMToken.setInternalClaimRecipient(_bob, _david);
+
+        vm.prank(_freezeManager);
+        _wrappedMToken.freeze(_charlie);
+
+        address[] memory accounts_ = new address[](2);
+        accounts_[0] = _alice;
+        accounts_[1] = _bob;
+
+        // The frozen recipient decision is per account: _alice falls back to skipTransfer so her yield
+        // stays on her (Claimed reports _alice), while _bob's yield still routes to the unfrozen _david.
+        vm.expectEmit();
+        emit IWrappedMToken.Claimed(_alice, _alice, 100);
+
+        vm.expectEmit();
+        emit IWrappedMToken.StoppedEarning(_alice);
+
+        vm.expectEmit();
+        emit IWrappedMToken.Claimed(_bob, _david, 100);
+
+        vm.expectEmit();
+        emit IWrappedMToken.StoppedEarning(_bob);
+
+        _wrappedMToken.stopEarningFor(accounts_);
+
+        assertEq(_wrappedMToken.balanceOf(_alice), 1_100); // yield retained, frozen recipient got nothing
+        assertEq(_wrappedMToken.balanceOf(_charlie), 0);
+        assertEq(_wrappedMToken.balanceOf(_bob), 1_000); // yield routed out to _david
+        assertEq(_wrappedMToken.balanceOf(_david), 100);
+        assertEq(_wrappedMToken.isEarning(_alice), false);
+        assertEq(_wrappedMToken.isEarning(_bob), false);
     }
 
     /* ============ freeze / _beforeFreeze ============ */

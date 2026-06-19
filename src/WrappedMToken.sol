@@ -257,20 +257,23 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
         _revertIfFrozen(account_);
         _revertIfApprovedEarner(account_);
 
-        _stopEarningFor(account_, currentIndex(), paused());
+        // NOTE: Skip routing yield to the claim recipient when paused or when that recipient is frozen, so an
+        //       earner cannot block their own deauthorization by pointing yield at a frozen recipient.
+        //       The yield stays on `account_` as balance, mirroring the freeze path in `_beforeFreeze`.
+        _stopEarningFor(account_, currentIndex(), paused() || isFrozen(claimRecipientFor(account_)));
     }
 
     /// @inheritdoc IWrappedMToken
     function stopEarningFor(address[] calldata accounts_) external {
         uint128 currentIndex_ = currentIndex();
-        bool skipTransfer_ = paused();
+        bool paused_ = paused();
         FreezableStorageStruct storage $ = _getFreezableStorageLocation();
 
         for (uint256 i; i < accounts_.length; ++i) {
             _revertIfFrozen($, accounts_[i]);
             _revertIfApprovedEarner(accounts_[i]);
 
-            _stopEarningFor(accounts_[i], currentIndex_, skipTransfer_);
+            _stopEarningFor(accounts_[i], currentIndex_, paused_ || isFrozen(claimRecipientFor(accounts_[i])));
         }
     }
 
