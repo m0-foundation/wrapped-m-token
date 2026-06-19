@@ -192,6 +192,22 @@ contract TestBase is Test {
         _set(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)), bytes32(uint256(uint160(recipient_))));
     }
 
+    function _sortAddresses(address[] memory addresses_) internal pure returns (address[] memory) {
+        for (uint256 i_ = 1; i_ < addresses_.length; ++i_) {
+            address key_ = addresses_[i_];
+            uint256 j_ = i_;
+
+            while (j_ > 0 && uint160(addresses_[j_ - 1]) > uint160(key_)) {
+                addresses_[j_] = addresses_[j_ - 1];
+                --j_;
+            }
+
+            addresses_[j_] = key_;
+        }
+
+        return addresses_;
+    }
+
     function _deployV2Components() internal {
         _wrappedMTokenImplementationV2 = address(
             new WrappedMToken(address(_mToken), _registrar, _swapFacility, _migrationAdmin)
@@ -202,6 +218,9 @@ contract TestBase is Test {
         for (uint256 index_; index_ < _earners.length; ++index_) {
             earners_[index_] = _earners[index_];
         }
+
+        // NOTE: `ListOfEarnersToMigrate` requires strictly ascending addresses, as the production script emits.
+        earners_ = _sortAddresses(earners_);
 
         _wrappedMTokenMigratorV1 = address(
             new WrappedMTokenMigratorV1(
