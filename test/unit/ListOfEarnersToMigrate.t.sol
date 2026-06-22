@@ -6,6 +6,8 @@ import { Test } from "../../lib/forge-std/src/Test.sol";
 
 import { ListOfEarnersToMigrate } from "../../src/ListOfEarnersToMigrate.sol";
 
+import { EarnersAddresses } from "../../script/EarnersAddresses.sol";
+
 contract ListOfEarnersToMigrateTests is Test {
     function test_constructor_empty() external {
         ListOfEarnersToMigrate list_ = new ListOfEarnersToMigrate(new address[](0));
@@ -68,5 +70,21 @@ contract ListOfEarnersToMigrateTests is Test {
 
         vm.expectRevert(ListOfEarnersToMigrate.EarnersNotSortedOrUnique.selector);
         new ListOfEarnersToMigrate(earners_);
+    }
+
+    function test_constructor_committedEarnersAreDeployable() external {
+        _assertDeployable(EarnersAddresses.getEthereumEarners());
+        _assertDeployable(EarnersAddresses.getArbitrumEarners());
+        _assertDeployable(EarnersAddresses.getPlumeEarners());
+    }
+
+    function _assertDeployable(address[] memory earners_) internal {
+        address[] memory stored_ = new ListOfEarnersToMigrate(earners_).getEarners();
+
+        assertEq(stored_.length, earners_.length);
+
+        for (uint256 i_ = 1; i_ < stored_.length; ++i_) {
+            assertTrue(uint160(stored_[i_ - 1]) < uint160(stored_[i_]));
+        }
     }
 }

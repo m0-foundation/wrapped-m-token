@@ -66,22 +66,6 @@ contract UpgradeTests is Test, DeployBase {
         vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), 23_170_985);
     }
 
-    function _sortAddresses(address[] memory addresses_) internal pure returns (address[] memory) {
-        for (uint256 i_ = 1; i_ < addresses_.length; ++i_) {
-            address key_ = addresses_[i_];
-            uint256 j_ = i_;
-
-            while (j_ > 0 && uint160(addresses_[j_ - 1]) > uint160(key_)) {
-                addresses_[j_] = addresses_[j_ - 1];
-                --j_;
-            }
-
-            addresses_[j_] = key_;
-        }
-
-        return addresses_;
-    }
-
     function test_upgrade() external {
         vm.setNonce(_DEPLOYER, _DEPLOYER_NONCE);
 
@@ -90,15 +74,6 @@ contract UpgradeTests is Test, DeployBase {
             _DEPLOYER_NONCE
         );
 
-        address[] memory earners_ = new address[](_earners.length);
-
-        for (uint256 index_; index_ < _earners.length; ++index_) {
-            earners_[index_] = _earners[index_];
-        }
-
-        // NOTE: `ListOfEarnersToMigrate` requires strictly ascending addresses, as the production script emits.
-        earners_ = _sortAddresses(earners_);
-
         vm.startPrank(_DEPLOYER);
         (address wrappedMTokenImplementation_, address wrappedMTokenMigrator_) = deployUpgrade(
             _M_TOKEN,
@@ -106,7 +81,7 @@ contract UpgradeTests is Test, DeployBase {
             _EXCESS_DESTINATION,
             _SWAP_FACILITY,
             _WRAPPED_M_MIGRATION_ADMIN,
-            earners_,
+            _earners,
             UpgradeRoles({
                 admin: _ADMIN,
                 freezeManager: _FREEZE_MANAGER,

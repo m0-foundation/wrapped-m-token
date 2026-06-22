@@ -12,13 +12,14 @@ import { Proxy } from "../../lib/common/src/Proxy.sol";
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
-import { WrappedMTokenMigratorV1 } from "../../src/WrappedMTokenMigratorV1.sol";
+
+import { DeployBase } from "../../script/DeployBase.sol";
 
 import { IMTokenLike, IRegistrarLike, ISwapFacilityLike } from "./vendor/protocol/Interfaces.sol";
 
 import { MockSwapFacility } from "../utils/Mocks.sol";
 
-contract TestBase is Test {
+contract TestBase is Test, DeployBase {
     uint256 public mainnetFork;
 
     IMTokenLike internal constant _mToken = IMTokenLike(0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b);
@@ -192,47 +193,22 @@ contract TestBase is Test {
         _set(keccak256(abi.encode(_CLAIM_OVERRIDE_RECIPIENT_PREFIX, account_)), bytes32(uint256(uint160(recipient_))));
     }
 
-    function _sortAddresses(address[] memory addresses_) internal pure returns (address[] memory) {
-        for (uint256 i_ = 1; i_ < addresses_.length; ++i_) {
-            address key_ = addresses_[i_];
-            uint256 j_ = i_;
-
-            while (j_ > 0 && uint160(addresses_[j_ - 1]) > uint160(key_)) {
-                addresses_[j_] = addresses_[j_ - 1];
-                --j_;
-            }
-
-            addresses_[j_] = key_;
-        }
-
-        return addresses_;
-    }
-
     function _deployV2Components() internal {
         _wrappedMTokenImplementationV2 = address(
             new WrappedMToken(address(_mToken), _registrar, _swapFacility, _migrationAdmin)
         );
 
-        address[] memory earners_ = new address[](_earners.length);
-
-        for (uint256 index_; index_ < _earners.length; ++index_) {
-            earners_[index_] = _earners[index_];
-        }
-
-        // NOTE: `ListOfEarnersToMigrate` requires strictly ascending addresses, as the production script emits.
-        earners_ = _sortAddresses(earners_);
-
-        _wrappedMTokenMigratorV1 = address(
-            new WrappedMTokenMigratorV1(
-                _wrappedMTokenImplementationV2,
-                earners_,
-                _admin,
-                _freezeManager,
-                _pauser,
-                _forcedTransferManager,
-                _excessManager,
-                _excessDestination
-            )
+        _wrappedMTokenMigratorV1 = _deployMigrator(
+            _wrappedMTokenImplementationV2,
+            _earners,
+            _excessDestination,
+            UpgradeRoles({
+                admin: _admin,
+                freezeManager: _freezeManager,
+                pauser: _pauser,
+                forcedTransferManager: _forcedTransferManager,
+                excessManager: _excessManager
+            })
         );
     }
 
