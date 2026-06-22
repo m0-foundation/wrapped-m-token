@@ -198,15 +198,9 @@ contract TestBase is Test, DeployBase {
             new WrappedMToken(address(_mToken), _registrar, _swapFacility, _migrationAdmin)
         );
 
-        address[] memory earners_ = new address[](_earners.length);
-
-        for (uint256 index_; index_ < _earners.length; ++index_) {
-            earners_[index_] = _earners[index_];
-        }
-
         _wrappedMTokenMigratorV1 = _deployMigrator(
             _wrappedMTokenImplementationV2,
-            earners_,
+            _earners,
             _excessDestination,
             UpgradeRoles({
                 admin: _admin,
