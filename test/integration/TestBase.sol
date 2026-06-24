@@ -12,13 +12,14 @@ import { Proxy } from "../../lib/common/src/Proxy.sol";
 import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
 import { WrappedMToken } from "../../src/WrappedMToken.sol";
-import { WrappedMTokenMigratorV1 } from "../../src/WrappedMTokenMigratorV1.sol";
+
+import { DeployBase } from "../../script/DeployBase.sol";
 
 import { IMTokenLike, IRegistrarLike, ISwapFacilityLike } from "./vendor/protocol/Interfaces.sol";
 
 import { MockSwapFacility } from "../utils/Mocks.sol";
 
-contract TestBase is Test {
+contract TestBase is Test, DeployBase {
     uint256 public mainnetFork;
 
     IMTokenLike internal constant _mToken = IMTokenLike(0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b);
@@ -197,23 +198,17 @@ contract TestBase is Test {
             new WrappedMToken(address(_mToken), _registrar, _swapFacility, _migrationAdmin)
         );
 
-        address[] memory earners_ = new address[](_earners.length);
-
-        for (uint256 index_; index_ < _earners.length; ++index_) {
-            earners_[index_] = _earners[index_];
-        }
-
-        _wrappedMTokenMigratorV1 = address(
-            new WrappedMTokenMigratorV1(
-                _wrappedMTokenImplementationV2,
-                earners_,
-                _admin,
-                _freezeManager,
-                _pauser,
-                _forcedTransferManager,
-                _excessManager,
-                _excessDestination
-            )
+        _wrappedMTokenMigratorV1 = _deployMigrator(
+            _wrappedMTokenImplementationV2,
+            _earners,
+            _excessDestination,
+            UpgradeRoles({
+                admin: _admin,
+                freezeManager: _freezeManager,
+                pauser: _pauser,
+                forcedTransferManager: _forcedTransferManager,
+                excessManager: _excessManager
+            })
         );
     }
 

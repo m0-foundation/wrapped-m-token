@@ -74,12 +74,6 @@ contract UpgradeTests is Test, DeployBase {
             _DEPLOYER_NONCE
         );
 
-        address[] memory earners_ = new address[](_earners.length);
-
-        for (uint256 index_; index_ < _earners.length; ++index_) {
-            earners_[index_] = _earners[index_];
-        }
-
         vm.startPrank(_DEPLOYER);
         (address wrappedMTokenImplementation_, address wrappedMTokenMigrator_) = deployUpgrade(
             _M_TOKEN,
@@ -87,7 +81,7 @@ contract UpgradeTests is Test, DeployBase {
             _EXCESS_DESTINATION,
             _SWAP_FACILITY,
             _WRAPPED_M_MIGRATION_ADMIN,
-            earners_,
+            _earners,
             UpgradeRoles({
                 admin: _ADMIN,
                 freezeManager: _FREEZE_MANAGER,

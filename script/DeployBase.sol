@@ -82,6 +82,8 @@ contract DeployBase {
         address excessDestination_,
         UpgradeRoles memory roles_
     ) internal returns (address migrator_) {
+        earners_ = _sortAddresses(earners_);
+
         return
             address(
                 new WrappedMTokenMigratorV1(
@@ -95,6 +97,22 @@ contract DeployBase {
                     excessDestination_
                 )
             );
+    }
+
+    function _sortAddresses(address[] memory addresses_) internal pure returns (address[] memory) {
+        for (uint256 i_ = 1; i_ < addresses_.length; ++i_) {
+            address key_ = addresses_[i_];
+            uint256 j_ = i_;
+
+            while (j_ > 0 && uint160(addresses_[j_ - 1]) > uint160(key_)) {
+                addresses_[j_] = addresses_[j_ - 1];
+                --j_;
+            }
+
+            addresses_[j_] = key_;
+        }
+
+        return addresses_;
     }
 
     /**
