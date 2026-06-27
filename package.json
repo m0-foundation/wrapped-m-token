@@ -18,6 +18,7 @@
     "deploy": "make -B deploy",
     "deploy-local": "make -B deploy-local",
     "doc": "forge doc --serve --port 4000",
+    "get-earners": "tsx earners/get-earners.ts",
     "lint-staged": "lint-staged",
     "prepack": "npm run clean && npm run build",
     "prettier": "prettier --write 'src/**/*.sol' 'test/**/*.sol'",
@@ -36,7 +37,8 @@
     "prettier": "^3.3.2",
     "prettier-plugin-solidity": "^1.3.1",
     "solhint": "^4.5.2",
-    "solhint-plugin-prettier": "^0.1.0"
+    "solhint-plugin-prettier": "^0.1.0",
+    "tsx": "^4.21.0"
   },
   "engines": {
     "node": ">=18"
