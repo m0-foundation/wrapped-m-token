@@ -160,6 +160,7 @@ contract WrappedMToken is IWrappedMToken, Migratable, ERC20Extended, Freezable, 
         __Context_init();
         __ERC165_init();
         __AccessControl_init();
+        __Pausable_init();
 
         if (admin_ == address(0)) revert ZeroAdmin();
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
