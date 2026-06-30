@@ -21,7 +21,8 @@
  *   ZERO_INDEXER_GRAPHQL_SECRET  optional x-hasura-admin-secret (public read needs none)
  *   ALCHEMY_API_KEY              optional — enables balanceOf on Alchemy networks (others use public RPCs)
  *
- * Run: ./earners/get-earners.ts   (or: npx tsx earners/get-earners.ts)
+ * Run: npm run get-earners               export every network
+ *      npm run get-earners -- ethereum   export a single network
  */
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
@@ -191,7 +192,11 @@ async function fetchEarnerAddresses(chainId: number): Promise<string[]> {
       }
     }`;
 
-  const out: string[] = [];
+  // `wm_earner` is a reducer/anchor-seed table, so a single account can surface in
+  // more than one row — de-duplicate by account here. A repeated address would
+  // otherwise break the downstream strictly-ascending invariant in
+  // generate-earners-array and ListOfEarnersToMigrate.
+  const seen = new Set<string>();
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const data = await graphql<Record<string, Array<{ account: string }>>>(query, {
       chainId,
@@ -199,10 +204,10 @@ async function fetchEarnerAddresses(chainId: number): Promise<string[]> {
       offset,
     });
     const page = data[field] ?? [];
-    out.push(...page.map((r) => r.account.toLowerCase()));
+    for (const { account } of page) seen.add(account.toLowerCase());
     if (page.length < PAGE_SIZE) break;
   }
-  return out;
+  return [...seen];
 }
 
 /** On-chain balanceOf per earner, bounded concurrency. Empty map when no RPC. */
@@ -251,10 +256,25 @@ function toCsv(rows: Array<Row>): string {
   return ["address,balance", ...rows.map((r) => `${r.address},${r.balance}`)].join("\n");
 }
 
+/**
+ * Resolve which networks to export. With no argument, every network in
+ * `NETWORKS` is exported; with `<network>` only that one is. An unknown name is
+ * a hard error rather than a silent empty run.
+ */
+function selectNetworks(arg: string | undefined): string[] {
+  if (arg === undefined) return NETWORKS;
+  if (!NETWORKS.includes(arg)) {
+    throw new Error(`unknown network "${arg}" — known: ${NETWORKS.join(", ")}`);
+  }
+  return [arg];
+}
+
 async function main() {
   mkdirSync("earners", { recursive: true });
 
-  for (const network of NETWORKS) {
+  const networks = selectNetworks(process.argv[2]);
+
+  for (const network of networks) {
     const chainId = CHAIN_IDS[network];
     if (chainId === undefined) {
       console.warn(`\nSkipping ${network} — not indexed by zero-indexer.`);
@@ -265,14 +285,23 @@ async function main() {
       console.log(`\nFetching wM earners for ${network} (chain ${chainId})...`);
       const accounts = await fetchEarnerAddresses(chainId);
       console.log(`Found ${accounts.length} earner(s)`);
-      if (accounts.length === 0) continue;
+
+      const csvPath = join("earners", `${network}.csv`);
+
+      // Always write the CSV, even with zero earners: an empty (header-only) file
+      // is the source of truth that tells generate-earners-array.ts to emit an
+      // empty-array migration function for this network, rather than omitting it.
+      if (accounts.length === 0) {
+        writeFileSync(csvPath, toCsv([]));
+        console.log(`Exported 0 earners to ${csvPath} (header only)`);
+        continue;
+      }
 
       const balances = await fetchBalances(network, accounts);
       const rows = accounts
         .map((address) => ({ address, balance: balances.get(address) ?? "" }))
         .sort(byBalanceDesc);
 
-      const csvPath = join("earners", `${network}.csv`);
       writeFileSync(csvPath, toCsv(rows));
       console.log(`Exported ${rows.length} earners to ${csvPath}`);
     } catch (error) {

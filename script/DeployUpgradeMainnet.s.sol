@@ -56,17 +56,10 @@ contract DeployUpgradeMainnet is Script, DeployBase {
     // NOTE: Ensure this is the correct expected mainnet address for the Migrator.
     address internal constant _EXPECTED_WRAPPED_M_MIGRATOR = address(0);
 
-    // NOTE: Earners are loaded dynamically from EarnersAddresses.sol library
+    // NOTE: Earners are loaded dynamically from the generated EarnersAddresses.sol library,
+    //       which maps the current chain id to its earner set (reverts on an unsupported chain).
     function getEarners() internal view returns (address[] memory) {
-        if (block.chainid == 1) {
-            return EarnersAddresses.getEthereumEarners();
-        } else if (block.chainid == 42161) {
-            return EarnersAddresses.getArbitrumEarners();
-        } else if (block.chainid == 98866) {
-            return EarnersAddresses.getPlumeEarners();
-        } else {
-            revert("Unsupported chain ID");
-        }
+        return EarnersAddresses.getEarners(block.chainid);
     }
 
     function run() external {

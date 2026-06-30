@@ -3,6 +3,9 @@
 pragma solidity ^0.8.26;
 
 library EarnersAddresses {
+    function get0gEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
     function getArbitrumEarners() internal pure returns (address[] memory) {
         address[3] memory earners = [
             0x0A1a1A107E45b7Ced86833863f482BC5f4ed82EF,
@@ -15,8 +18,17 @@ library EarnersAddresses {
         }
         return result;
     }
+    function getBaseEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
+    function getBscEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
+    function getCitreaEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
     function getEthereumEarners() internal pure returns (address[] memory) {
-        address[24] memory earners = [
+        address[25] memory earners = [
             0x0502d65f26f45d17503E4d34441F5e73Ea143033,
             0x13Ccb6E28F22E2f6783BaDedCe32cc74583A3647,
             0x48Afe17cB6363fD1aaeA50a8CB652C5978972c96,
@@ -34,6 +46,7 @@ library EarnersAddresses {
             0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb,
             0xcAD001c30E96765aC90307669d578219D4fb1DCe,
             0xCF3166181848eEC4Fd3b9046aE7CB582F34d2e6c,
+            0xD48e565561416dE59DA1050ED70b8d75e8eF28f9,
             0xdd82875f0840AAD58a455A70B88eEd9F59ceC7c7,
             0xDeD796De6a14E255487191963dEe436c45995813,
             0xE0663f2372cAa1459b7ade90812Dc737CE587FA6,
@@ -42,11 +55,32 @@ library EarnersAddresses {
             0xfE940BFE535013a52e8e2DF9644f95E3C94fa14B,
             0xfF95c5f35F4ffB9d5f596F898ac1ae38D62749c2
         ];
-        address[] memory result = new address[](24);
-        for (uint256 i = 0; i < 24; ++i) {
+        address[] memory result = new address[](25);
+        for (uint256 i = 0; i < 25; ++i) {
             result[i] = earners[i];
         }
         return result;
+    }
+    function getFluentEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
+    function getHyperevmEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
+    function getLineaEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
+    function getMantraEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
+    function getMocaEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
+    function getOptimismEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
+    function getPlasmaEarners() internal pure returns (address[] memory) {
+        return new address[](0);
     }
     function getPlumeEarners() internal pure returns (address[] memory) {
         address[1] memory earners = [0xE72Fe64840F4EF80E3Ec73a1c749491b5c938CB9];
@@ -55,5 +89,30 @@ library EarnersAddresses {
             result[i] = earners[i];
         }
         return result;
+    }
+    function getRiseEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
+    function getSoneiumEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
+    function getEarners(uint256 chainId_) internal pure returns (address[] memory) {
+        if (chainId_ == 16661) return get0gEarners();
+        if (chainId_ == 42161) return getArbitrumEarners();
+        if (chainId_ == 8453) return getBaseEarners();
+        if (chainId_ == 56) return getBscEarners();
+        if (chainId_ == 4114) return getCitreaEarners();
+        if (chainId_ == 1) return getEthereumEarners();
+        if (chainId_ == 25363) return getFluentEarners();
+        if (chainId_ == 999) return getHyperevmEarners();
+        if (chainId_ == 59144) return getLineaEarners();
+        if (chainId_ == 5888) return getMantraEarners();
+        if (chainId_ == 2288) return getMocaEarners();
+        if (chainId_ == 10) return getOptimismEarners();
+        if (chainId_ == 9745) return getPlasmaEarners();
+        if (chainId_ == 98866) return getPlumeEarners();
+        if (chainId_ == 4153) return getRiseEarners();
+        if (chainId_ == 1868) return getSoneiumEarners();
+        revert("Unsupported chain ID");
     }
 }
