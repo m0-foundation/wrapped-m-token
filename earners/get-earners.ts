@@ -46,15 +46,13 @@ const WM_ADDRESS = "0x437cc33344a0b27a429f795ff6b469c72698b291";
 const PAGE_SIZE = 1000;
 const BALANCE_CONCURRENCY = 10;
 
-// Network name -> zero-indexer chain_id. Monad is the only M0 platform EVM chain
-// zero-indexer doesn't index yet, so it's omitted here and skipped. A chain may
-// be indexed at the chain level while its wM earner set stays empty until the wM
-// earning reducer + backfill land in zero-indexer (the missing piece these tools
-// depend on).
+// Network name -> zero-indexer chain_id. A chain may be indexed at the chain level
+// while its wM earner set stays empty until the wM earning reducer + backfill land
+// in zero-indexer (the missing piece these tools depend on).
 const CHAIN_IDS: Record<string, number> = {
   ethereum: 1,
-  optimism: 10,
   bsc: 56,
+  monad: 143,
   hyperevm: 999,
   soneium: 1868,
   moca: 2288,
@@ -70,8 +68,7 @@ const CHAIN_IDS: Record<string, number> = {
   plume: 98866,
 };
 
-// All 17 EVM chains where WrappedM is deployed (per the M0 platform addresses).
-// Monad has no zero-indexer coverage yet and is skipped with a warning.
+// All 16 EVM chains where WrappedM is deployed (per the M0 platform addresses).
 const NETWORKS = [
   "0g",
   "arbitrum",
@@ -85,7 +82,6 @@ const NETWORKS = [
   "mantra",
   "moca",
   "monad",
-  "optimism",
   "plasma",
   "plume",
   "rise",
@@ -98,7 +94,6 @@ const NETWORKS = [
 // public RPC from PUBLIC_RPCS instead.
 const ALCHEMY_NETWORKS: Record<string, string> = {
   ethereum: "eth-mainnet",
-  optimism: "opt-mainnet",
   bsc: "bnb-mainnet",
   hyperevm: "hyperliquid-mainnet",
   soneium: "soneium-mainnet",
@@ -131,14 +126,19 @@ function rpcUrlFor(network: string): string | undefined {
   return PUBLIC_RPCS[network];
 }
 
-const ERC20_ABI = ["function balanceOf(address account) view returns (uint256)"];
+const ERC20_ABI = [
+  "function balanceOf(address account) view returns (uint256)",
+];
 
 type GraphQLResponse<T> = {
   data?: T;
   errors?: Array<{ message: string }>;
 };
 
-async function graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+async function graphql<T>(
+  query: string,
+  variables: Record<string, unknown>,
+): Promise<T> {
   const res = await fetch(GRAPHQL_URL, {
     method: "POST",
     headers: {
@@ -198,11 +198,14 @@ async function fetchEarnerAddresses(chainId: number): Promise<string[]> {
   // generate-earners-array and ListOfEarnersToMigrate.
   const seen = new Set<string>();
   for (let offset = 0; ; offset += PAGE_SIZE) {
-    const data = await graphql<Record<string, Array<{ account: string }>>>(query, {
-      chainId,
-      limit: PAGE_SIZE,
-      offset,
-    });
+    const data = await graphql<Record<string, Array<{ account: string }>>>(
+      query,
+      {
+        chainId,
+        limit: PAGE_SIZE,
+        offset,
+      },
+    );
     const page = data[field] ?? [];
     for (const { account } of page) seen.add(account.toLowerCase());
     if (page.length < PAGE_SIZE) break;
@@ -211,7 +214,10 @@ async function fetchEarnerAddresses(chainId: number): Promise<string[]> {
 }
 
 /** On-chain balanceOf per earner, bounded concurrency. Empty map when no RPC. */
-async function fetchBalances(network: string, accounts: string[]): Promise<Map<string, string>> {
+async function fetchBalances(
+  network: string,
+  accounts: string[],
+): Promise<Map<string, string>> {
   const rpcUrl = rpcUrlFor(network);
   const balances = new Map<string, string>();
   if (!rpcUrl) {
@@ -227,7 +233,9 @@ async function fetchBalances(network: string, accounts: string[]): Promise<Map<s
           const bal = (await wm.balanceOf(account)) as bigint;
           return [account, bal.toString()] as const;
         } catch (err) {
-          console.warn(`  balanceOf failed for ${account}: ${(err as Error).message}`);
+          console.warn(
+            `  balanceOf failed for ${account}: ${(err as Error).message}`,
+          );
           return [account, ""] as const;
         }
       }),
@@ -253,7 +261,10 @@ function byBalanceDesc(a: Row, b: Row): number {
 }
 
 function toCsv(rows: Array<Row>): string {
-  return ["address,balance", ...rows.map((r) => `${r.address},${r.balance}`)].join("\n");
+  return [
+    "address,balance",
+    ...rows.map((r) => `${r.address},${r.balance}`),
+  ].join("\n");
 }
 
 /**
@@ -305,7 +316,10 @@ async function main() {
       writeFileSync(csvPath, toCsv(rows));
       console.log(`Exported ${rows.length} earners to ${csvPath}`);
     } catch (error) {
-      console.error(`Error processing ${network}:`, error instanceof Error ? error.message : error);
+      console.error(
+        `Error processing ${network}:`,
+        error instanceof Error ? error.message : error,
+      );
     }
   }
 }

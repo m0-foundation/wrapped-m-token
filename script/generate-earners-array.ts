@@ -35,8 +35,8 @@ const CSV_HEADER = "address,balance";
 // earner set without hand-maintained branches.
 const CHAIN_IDS: Record<string, number> = {
   ethereum: 1,
-  optimism: 10,
   bsc: 56,
+  monad: 143,
   hyperevm: 999,
   soneium: 1868,
   moca: 2288,
