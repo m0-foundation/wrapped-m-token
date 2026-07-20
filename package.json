@@ -20,6 +20,7 @@
     "doc": "forge doc --serve --port 4000",
     "generate-earners-array": "tsx script/generate-earners-array.ts && prettier --write 'script/EarnersAddresses.sol'",
     "get-earners": "tsx earners/get-earners.ts",
+    "get-holders": "tsx holders/get-holders.ts",
     "lint-staged": "lint-staged",
     "prepack": "npm run clean && npm run build",
     "prettier": "prettier --write 'src/**/*.sol' 'test/**/*.sol' 'script/**/*.sol'",
