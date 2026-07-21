@@ -14,7 +14,7 @@
  *   ZERO_INDEXER_GRAPHQL_SECRET  optional x-hasura-admin-secret (public read needs none)
  *   ALCHEMY_API_KEY              optional — enables balanceOf on Alchemy networks (others use public RPCs)
  */
-import { Contract, JsonRpcProvider } from "ethers";
+import { Contract, id, JsonRpcProvider, Log } from "ethers";
 
 // Load `.env` so ALCHEMY_API_KEY / ZERO_INDEXER_* don't have to be exported by
 // hand. Shell-provided values win over the file; a missing `.env` is fine.
@@ -186,6 +186,70 @@ export async function fetchBalances(
       for (const [account, bal] of results) balances.set(account, bal);
     }
     return balances;
+  } finally {
+    provider.destroy();
+  }
+}
+
+// Topic0 of the wM earning events. `account` is the single indexed arg, so it
+// lands in topics[1]; there is no non-indexed data to decode.
+const STARTED_EARNING_TOPIC = id("StartedEarning(address)");
+const STOPPED_EARNING_TOPIC = id("StoppedEarning(address)");
+
+/** Lowercased account address from an earning event's indexed topics[1]. */
+function earningAccountOf(log: Log): string {
+  return `0x${log.topics[1].slice(-40)}`.toLowerCase();
+}
+
+/**
+ * The wM earner set for a chain, derived straight from the contract's
+ * StartedEarning / StoppedEarning logs — the same events zero-indexer's reducer
+ * consumes, replayed here in (block, logIndex) order; the accounts left in the
+ * earning state are the earners. Verified to reproduce the indexer's set exactly
+ * on ethereum and arbitrum.
+ *
+ * `toBlock` pins the scan to a block so a snapshot is reproducible and lines up
+ * with state reads at the same height (default "latest"). One full-range
+ * getLogs, no chunking: fine for the Alchemy-backed chains this is used on
+ * (base, arbitrum, ethereum, and the sepolia testnet); a rate-limited public RPC
+ * could reject the range, which is acceptable given none of those use one.
+ *
+ * A missing RPC is a hard error: unlike balances (which degrade to empty), the
+ * earner address set is the whole point, so an empty result must never be
+ * mistaken for "no earners".
+ */
+export async function fetchOnChainEarners(
+  network: string,
+  toBlock: number | "latest" = "latest",
+): Promise<string[]> {
+  const rpcUrl = rpcUrlFor(network);
+  if (!rpcUrl) {
+    throw new Error(
+      `no RPC for ${network} — cannot derive its earner set on-chain (set ALCHEMY_API_KEY or add a public RPC)`,
+    );
+  }
+
+  const provider = new JsonRpcProvider(rpcUrl);
+  try {
+    const logs = await provider.getLogs({
+      address: WM_ADDRESS,
+      topics: [[STARTED_EARNING_TOPIC, STOPPED_EARNING_TOPIC]],
+      fromBlock: 0,
+      toBlock,
+    });
+    logs.sort((a, b) =>
+      a.blockNumber !== b.blockNumber
+        ? a.blockNumber - b.blockNumber
+        : a.index - b.index,
+    );
+    const earning = new Map<string, boolean>();
+    for (const log of logs) {
+      earning.set(
+        earningAccountOf(log),
+        log.topics[0] === STARTED_EARNING_TOPIC,
+      );
+    }
+    return [...earning].filter(([, isEarning]) => isEarning).map(([a]) => a);
   } finally {
     provider.destroy();
   }
