@@ -93,6 +93,19 @@ library EarnersAddresses {
     function getRiseEarners() internal pure returns (address[] memory) {
         return new address[](0);
     }
+    function getSepoliaEarners() internal pure returns (address[] memory) {
+        address[4] memory earners = [
+            0x1897Bc1717d4AD5AbCfa2EE47EDb3265E9F4fd7c,
+            0x4697a1CA9EC1446818605fC171d01f61C7Fb5575,
+            0xeb29FbaA2d509E43313C196A82F4ad75Fa251285,
+            0xFcd9828Bd4552f015865f4C1f8B5E0116DD997d1
+        ];
+        address[] memory result = new address[](4);
+        for (uint256 i = 0; i < 4; ++i) {
+            result[i] = earners[i];
+        }
+        return result;
+    }
     function getSoneiumEarners() internal pure returns (address[] memory) {
         return new address[](0);
     }
@@ -112,6 +125,7 @@ library EarnersAddresses {
         if (chainId_ == 9745) return getPlasmaEarners();
         if (chainId_ == 98866) return getPlumeEarners();
         if (chainId_ == 4153) return getRiseEarners();
+        if (chainId_ == 11155111) return getSepoliaEarners();
         if (chainId_ == 1868) return getSoneiumEarners();
         revert("Unsupported chain ID");
     }

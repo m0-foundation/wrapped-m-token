@@ -35,9 +35,11 @@ export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const PAGE_SIZE = 1000;
 export const BALANCE_CONCURRENCY = 10;
 
-// Network name -> zero-indexer chain_id. A chain may be indexed at the chain level
-// while its wM earner set stays empty until the wM earning reducer + backfill land
-// in zero-indexer (the missing piece these tools depend on).
+// Network name -> chain_id. Most chains are sourced from zero-indexer's
+// `wm_earner`; a chain may be indexed at the chain level while its wM earner set
+// stays empty until the wM earning reducer + backfill land in zero-indexer.
+// Sepolia is NOT indexed by zero-indexer at all, so `get-earners` derives its
+// earner set directly from on-chain events (see ONCHAIN_EARNER_NETWORKS).
 export const CHAIN_IDS: Record<string, number> = {
   ethereum: 1,
   bsc: 56,
@@ -55,9 +57,11 @@ export const CHAIN_IDS: Record<string, number> = {
   arbitrum: 42161,
   linea: 59144,
   plume: 98866,
+  sepolia: 11155111,
 };
 
-// All 16 EVM chains where WrappedM is deployed (per the M0 platform addresses).
+// The 16 mainnet EVM chains where WrappedM is deployed (per the M0 platform
+// addresses), plus Sepolia — the testnet used to rehearse the v2 upgrade.
 export const NETWORKS = [
   "0g",
   "arbitrum",
@@ -74,6 +78,7 @@ export const NETWORKS = [
   "plasma",
   "plume",
   "rise",
+  "sepolia",
   "soneium",
 ];
 
@@ -92,6 +97,7 @@ const ALCHEMY_NETWORKS: Record<string, string> = {
   linea: "linea-mainnet",
   rise: "rise-mainnet",
   monad: "monad-mainnet",
+  sepolia: "eth-sepolia",
 };
 
 // Public RPC per network Alchemy doesn't support, so these get balanceOf reads

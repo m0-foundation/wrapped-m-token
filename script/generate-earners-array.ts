@@ -50,6 +50,7 @@ const CHAIN_IDS: Record<string, number> = {
   arbitrum: 42161,
   linea: 59144,
   plume: 98866,
+  sepolia: 11155111,
 };
 
 /** Networks present as `earners/<network>.csv`, sorted for deterministic output. */

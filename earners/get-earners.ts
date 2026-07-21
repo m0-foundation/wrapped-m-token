@@ -16,6 +16,12 @@
  * `ALCHEMY_API_KEY` unset has no RPC and is written with an empty balance. The
  * address list — the thing the migration needs — is always produced.
  *
+ * Sepolia is the exception: zero-indexer doesn't index it, so its earner set is
+ * derived directly from the wM contract's StartedEarning / StoppedEarning logs
+ * over RPC (see ONCHAIN_EARNER_NETWORKS), then enriched with `balanceOf` like the
+ * rest. This needs an RPC for Sepolia — `ALCHEMY_API_KEY` (eth-sepolia) or a
+ * public one — and errors out rather than emitting an empty set without it.
+ *
  * Chain tables, RPC routing, the GraphQL client and CSV formatting are shared
  * with `holders/get-holders.ts` via `script/wm-common.ts`.
  *
@@ -29,15 +35,29 @@
  */
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
+import { id, JsonRpcProvider, Log } from "ethers";
 import {
   byBalanceDesc,
   CHAIN_IDS,
   fetchBalances,
   graphql,
   PAGE_SIZE,
+  rpcUrlFor,
   selectNetworks,
   toCsv,
+  WM_ADDRESS,
 } from "../script/wm-common";
+
+// Chains zero-indexer doesn't cover, so their earner set can't come from
+// `wm_earner`. Sepolia (the v2 upgrade testnet) is one: zero-indexer explicitly
+// skips it, so its earners are derived on-chain from the wM contract's own
+// StartedEarning / StoppedEarning events instead (see fetchEarnerAddressesOnChain).
+const ONCHAIN_EARNER_NETWORKS = new Set(["sepolia"]);
+
+// Topic0 of the wM earning events. `account` is the single indexed arg, so it
+// lands in topics[1]; there is no non-indexed data to decode.
+const STARTED_EARNING_TOPIC = id("StartedEarning(address)");
+const STOPPED_EARNING_TOPIC = id("StoppedEarning(address)");
 
 /**
  * A table tracked in the `indexer` schema may surface as `wm_earner` or
@@ -96,6 +116,55 @@ async function fetchEarnerAddresses(chainId: number): Promise<string[]> {
   return [...seen];
 }
 
+/** Lowercased account address from an earning event's indexed topics[1]. */
+function accountOf(log: Log): string {
+  return `0x${log.topics[1].slice(-40)}`.toLowerCase();
+}
+
+/**
+ * Derive the earner set for a chain zero-indexer doesn't cover, straight from
+ * the wM contract's StartedEarning / StoppedEarning logs — the same events
+ * zero-indexer's reducer consumes, replayed here in order.
+ *
+ * Unlike balances (which degrade to empty when a network has no RPC), the earner
+ * ADDRESS set is the whole point of this export, so a missing RPC is a hard error
+ * rather than a silent empty result.
+ */
+async function fetchEarnerAddressesOnChain(network: string): Promise<string[]> {
+  const rpcUrl = rpcUrlFor(network);
+  if (!rpcUrl) {
+    throw new Error(
+      `no RPC for ${network} — cannot derive its earner set on-chain (set ALCHEMY_API_KEY or add a public RPC)`,
+    );
+  }
+
+  const provider = new JsonRpcProvider(rpcUrl);
+  try {
+    const logs = await provider.getLogs({
+      address: WM_ADDRESS,
+      topics: [[STARTED_EARNING_TOPIC, STOPPED_EARNING_TOPIC]],
+      fromBlock: 0,
+      toBlock: "latest",
+    });
+
+    // Replay in event order: a later Started/Stopped for an account supersedes an
+    // earlier one, so sort by (blockNumber, logIndex) before folding. The final
+    // set is the accounts left in the earning state.
+    logs.sort((a, b) =>
+      a.blockNumber !== b.blockNumber
+        ? a.blockNumber - b.blockNumber
+        : a.index - b.index,
+    );
+    const earning = new Map<string, boolean>();
+    for (const log of logs) {
+      earning.set(accountOf(log), log.topics[0] === STARTED_EARNING_TOPIC);
+    }
+    return [...earning].filter(([, isEarning]) => isEarning).map(([a]) => a);
+  } finally {
+    provider.destroy();
+  }
+}
+
 async function main() {
   mkdirSync("earners", { recursive: true });
 
@@ -110,7 +179,9 @@ async function main() {
 
     try {
       console.log(`\nFetching wM earners for ${network} (chain ${chainId})...`);
-      const accounts = await fetchEarnerAddresses(chainId);
+      const accounts = ONCHAIN_EARNER_NETWORKS.has(network)
+        ? await fetchEarnerAddressesOnChain(network)
+        : await fetchEarnerAddresses(chainId);
       console.log(`Found ${accounts.length} earner(s)`);
 
       const csvPath = join("earners", `${network}.csv`);
