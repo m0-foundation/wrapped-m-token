@@ -14,6 +14,10 @@
  * fleet: `dyn_wrapped_m_token_transfer` (L2s) and
  * `dyn_stateful_wrapped_m_token_transfer` (Ethereum).
  *
+ * Chains the indexer doesn't cover (`NON_INDEXED_NETWORKS`: sepolia, nexus) have
+ * no dyn table, so their candidate set is scanned from the Transfer logs on-chain
+ * instead (`fetchOnChainHolderCandidates`). Same balance filter applies after.
+ *
  * Transfer participants include addresses that have since gone to zero, so the
  * candidates are enriched with on-chain `balanceOf` and filtered to > 0.
  * Alchemy-supported networks use `https://<slug>.g.alchemy.com/v2/<ALCHEMY_API_KEY>`
@@ -48,7 +52,9 @@ import {
   byBalanceDesc,
   CHAIN_IDS,
   fetchBalances,
+  fetchOnChainHolderCandidates,
   graphql,
+  NON_INDEXED_NETWORKS,
   PAGE_SIZE,
   Row,
   selectNetworks,
@@ -190,7 +196,9 @@ async function main() {
 
     try {
       console.log(`\nFetching wM holders for ${network} (chain ${chainId})...`);
-      const candidates = await fetchHolderCandidates(chainId);
+      const candidates = NON_INDEXED_NETWORKS.has(network)
+        ? await fetchOnChainHolderCandidates(network)
+        : await fetchHolderCandidates(chainId);
       console.log(`Found ${candidates.length} transfer participant(s)`);
 
       const csvPath = join("holders", `${network}.csv`);

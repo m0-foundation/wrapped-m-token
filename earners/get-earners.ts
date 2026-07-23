@@ -16,11 +16,11 @@
  * `ALCHEMY_API_KEY` unset has no RPC and is written with an empty balance. The
  * address list — the thing the migration needs — is always produced.
  *
- * Sepolia is the exception: zero-indexer doesn't index it, so its earner set is
- * derived directly from the wM contract's StartedEarning / StoppedEarning logs
- * over RPC (see ONCHAIN_EARNER_NETWORKS), then enriched with `balanceOf` like the
- * rest. This needs an RPC for Sepolia — `ALCHEMY_API_KEY` (eth-sepolia) or a
- * public one — and errors out rather than emitting an empty set without it.
+ * Sepolia and Nexus are the exceptions: zero-indexer doesn't index them, so their
+ * earner set is derived directly from the wM contract's StartedEarning /
+ * StoppedEarning logs over RPC (see `NON_INDEXED_NETWORKS`), then enriched with
+ * `balanceOf` like the rest. This needs an RPC for those chains — `ALCHEMY_API_KEY`
+ * (eth-sepolia) or a public one — and errors out rather than emitting an empty set.
  *
  * Chain tables, RPC routing, the GraphQL client and CSV formatting are shared
  * with `holders/get-holders.ts` via `script/wm-common.ts`.
@@ -41,16 +41,11 @@ import {
   fetchBalances,
   fetchOnChainEarners,
   graphql,
+  NON_INDEXED_NETWORKS,
   PAGE_SIZE,
   selectNetworks,
   toCsv,
 } from "../script/wm-common";
-
-// Chains zero-indexer doesn't cover, so their earner set can't come from
-// `wm_earner`. Sepolia (the v2 upgrade testnet) is one: zero-indexer explicitly
-// skips it, so its earners are derived on-chain from the wM contract's own
-// StartedEarning / StoppedEarning events instead (fetchOnChainEarners).
-const ONCHAIN_EARNER_NETWORKS = new Set(["sepolia"]);
 
 /**
  * A table tracked in the `indexer` schema may surface as `wm_earner` or
@@ -123,7 +118,7 @@ async function main() {
 
     try {
       console.log(`\nFetching wM earners for ${network} (chain ${chainId})...`);
-      const accounts = ONCHAIN_EARNER_NETWORKS.has(network)
+      const accounts = NON_INDEXED_NETWORKS.has(network)
         ? await fetchOnChainEarners(network)
         : await fetchEarnerAddresses(chainId);
       console.log(`Found ${accounts.length} earner(s)`);

@@ -79,6 +79,9 @@ library EarnersAddresses {
     function getMonadEarners() internal pure returns (address[] memory) {
         return new address[](0);
     }
+    function getNexusEarners() internal pure returns (address[] memory) {
+        return new address[](0);
+    }
     function getPlasmaEarners() internal pure returns (address[] memory) {
         return new address[](0);
     }
@@ -122,6 +125,7 @@ library EarnersAddresses {
         if (chainId_ == 5888) return getMantraEarners();
         if (chainId_ == 2288) return getMocaEarners();
         if (chainId_ == 143) return getMonadEarners();
+        if (chainId_ == 3946) return getNexusEarners();
         if (chainId_ == 9745) return getPlasmaEarners();
         if (chainId_ == 98866) return getPlumeEarners();
         if (chainId_ == 4153) return getRiseEarners();

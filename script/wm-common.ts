@@ -38,8 +38,9 @@ export const BALANCE_CONCURRENCY = 10;
 // Network name -> chain_id. Most chains are sourced from zero-indexer's
 // `wm_earner`; a chain may be indexed at the chain level while its wM earner set
 // stays empty until the wM earning reducer + backfill land in zero-indexer.
-// Sepolia is NOT indexed by zero-indexer at all, so `get-earners` derives its
-// earner set directly from on-chain events (see ONCHAIN_EARNER_NETWORKS).
+// Sepolia and Nexus are NOT indexed by zero-indexer at all, so `get-earners`
+// derives their earner set directly from on-chain events (see
+// ONCHAIN_EARNER_NETWORKS).
 export const CHAIN_IDS: Record<string, number> = {
   ethereum: 1,
   bsc: 56,
@@ -47,6 +48,7 @@ export const CHAIN_IDS: Record<string, number> = {
   hyperevm: 999,
   soneium: 1868,
   moca: 2288,
+  nexus: 3946,
   citrea: 4114,
   rise: 4153,
   mantra: 5888,
@@ -60,7 +62,7 @@ export const CHAIN_IDS: Record<string, number> = {
   sepolia: 11155111,
 };
 
-// The 16 mainnet EVM chains where WrappedM is deployed (per the M0 platform
+// The 17 mainnet EVM chains where WrappedM is deployed (per the M0 platform
 // addresses), plus Sepolia — the testnet used to rehearse the v2 upgrade.
 export const NETWORKS = [
   "0g",
@@ -75,12 +77,20 @@ export const NETWORKS = [
   "mantra",
   "moca",
   "monad",
+  "nexus",
   "plasma",
   "plume",
   "rise",
   "sepolia",
   "soneium",
 ];
+
+// Chains zero-indexer does not cover at all, so neither the earner set nor the
+// holder candidate set can come from Hasura for them. `get-earners` and
+// `get-holders` derive both directly from on-chain logs for these networks
+// instead. Sepolia is the v2 upgrade testnet; Nexus is a mainnet the indexer
+// never onboarded.
+export const NON_INDEXED_NETWORKS = new Set(["sepolia", "nexus"]);
 
 // Alchemy network slug per network, used to build the balanceOf RPC URL at
 // runtime from ALCHEMY_API_KEY. Networks without a verified Alchemy mainnet
@@ -110,6 +120,7 @@ const PUBLIC_RPCS: Record<string, string> = {
   fluent: "https://rpc.fluent.xyz",
   moca: "https://rpc.mocachain.org",
   plume: "https://rpc.plume.org",
+  nexus: "https://mainnet.rpc.nexus.xyz",
 };
 
 export function rpcUrlFor(network: string): string | undefined {
@@ -119,6 +130,24 @@ export function rpcUrlFor(network: string): string | undefined {
   }
   // Networks Alchemy doesn't support fall back to a public RPC.
   return PUBLIC_RPCS[network];
+}
+
+// Networks whose RPC mishandles ethers' JSON-RPC request batching: it returns
+// EMPTY results for batched eth_getLogs / eth_call instead of erroring, so a scan
+// comes back silently wrong (0 rows) rather than failing loudly. Nexus's public
+// RPC does this — a batched full scan returns 0 logs where an unbatched one
+// returns the real 4 — so it must send one request per call.
+const NO_BATCH_NETWORKS = new Set(["nexus"]);
+
+/**
+ * A provider for `network`, with ethers request batching disabled where the node
+ * mishandles it (`NO_BATCH_NETWORKS`). Everywhere else batching stays on, so the
+ * Alchemy chains keep making one combined request instead of many.
+ */
+function wmProvider(network: string, rpcUrl: string): JsonRpcProvider {
+  return NO_BATCH_NETWORKS.has(network)
+    ? new JsonRpcProvider(rpcUrl, undefined, { batchMaxCount: 1 })
+    : new JsonRpcProvider(rpcUrl);
 }
 
 const ERC20_ABI = [
@@ -165,7 +194,7 @@ export async function fetchBalances(
   // Destroyed in `finally`: an unreachable RPC leaves ethers retrying network
   // detection on a timer forever, which keeps the event loop alive and stops the
   // script from ever exiting — even once every CSV has been written.
-  const provider = new JsonRpcProvider(rpcUrl);
+  const provider = wmProvider(network, rpcUrl);
   try {
     const wm = new Contract(WM_ADDRESS, ERC20_ABI, provider);
     for (let i = 0; i < accounts.length; i += BALANCE_CONCURRENCY) {
@@ -196,9 +225,59 @@ export async function fetchBalances(
 const STARTED_EARNING_TOPIC = id("StartedEarning(address)");
 const STOPPED_EARNING_TOPIC = id("StoppedEarning(address)");
 
-/** Lowercased account address from an earning event's indexed topics[1]. */
-function earningAccountOf(log: Log): string {
-  return `0x${log.topics[1].slice(-40)}`.toLowerCase();
+// Topic0 of the ERC20 Transfer event. `from` and `to` are both indexed, landing
+// in topics[1] and topics[2]; `value` is non-indexed data we don't need.
+const TRANSFER_TOPIC = id("Transfer(address,address,uint256)");
+
+// Networks whose RPC caps `eth_getLogs` to a block span, so a log scan must page
+// instead of asking for the full history in one call. Only listed where a cap is
+// known: the Alchemy-backed chains (base, arbitrum, ethereum, sepolia) serve the
+// whole range in one request and are deliberately left out so they keep the
+// single-call path. Nexus's public RPC rejects spans above ~100k blocks with
+// "could not coalesce error", so it pages at 100k.
+const LOG_SCAN_MAX_RANGE: Record<string, number> = {
+  nexus: 100_000,
+};
+
+/** Lowercased address from a 32-byte indexed-address event topic. */
+function topicAddress(topic: string): string {
+  return `0x${topic.slice(-40)}`.toLowerCase();
+}
+
+/**
+ * All wM logs matching `topics` from genesis up to `toBlock`. Uses one
+ * full-range `getLogs` where the RPC allows it, and pages at the network's
+ * `LOG_SCAN_MAX_RANGE` cap where it does not — the result is identical either way.
+ */
+async function fetchWmLogs(
+  provider: JsonRpcProvider,
+  network: string,
+  topics: (string | string[])[],
+  toBlock: number | "latest",
+): Promise<Log[]> {
+  const cap = LOG_SCAN_MAX_RANGE[network];
+  if (cap === undefined) {
+    return provider.getLogs({
+      address: WM_ADDRESS,
+      topics,
+      fromBlock: 0,
+      toBlock,
+    });
+  }
+
+  const head = toBlock === "latest" ? await provider.getBlockNumber() : toBlock;
+  const logs: Log[] = [];
+  for (let from = 0; from <= head; from += cap) {
+    const to = Math.min(from + cap - 1, head);
+    const page = await provider.getLogs({
+      address: WM_ADDRESS,
+      topics,
+      fromBlock: from,
+      toBlock: to,
+    });
+    logs.push(...page);
+  }
+  return logs;
 }
 
 /**
@@ -209,10 +288,9 @@ function earningAccountOf(log: Log): string {
  * on ethereum and arbitrum.
  *
  * `toBlock` pins the scan to a block so a snapshot is reproducible and lines up
- * with state reads at the same height (default "latest"). One full-range
- * getLogs, no chunking: fine for the Alchemy-backed chains this is used on
- * (base, arbitrum, ethereum, and the sepolia testnet); a rate-limited public RPC
- * could reject the range, which is acceptable given none of those use one.
+ * with state reads at the same height (default "latest"). The scan is one
+ * full-range getLogs, except on networks in `LOG_SCAN_MAX_RANGE` whose RPC caps
+ * the block span (e.g. nexus), where it pages.
  *
  * A missing RPC is a hard error: unlike balances (which degrade to empty), the
  * earner address set is the whole point, so an empty result must never be
@@ -229,14 +307,10 @@ export async function fetchOnChainEarners(
     );
   }
 
-  const provider = new JsonRpcProvider(rpcUrl);
+  const provider = wmProvider(network, rpcUrl);
   try {
-    const logs = await provider.getLogs({
-      address: WM_ADDRESS,
-      topics: [[STARTED_EARNING_TOPIC, STOPPED_EARNING_TOPIC]],
-      fromBlock: 0,
-      toBlock,
-    });
+    const topics = [[STARTED_EARNING_TOPIC, STOPPED_EARNING_TOPIC]];
+    const logs = await fetchWmLogs(provider, network, topics, toBlock);
     logs.sort((a, b) =>
       a.blockNumber !== b.blockNumber
         ? a.blockNumber - b.blockNumber
@@ -245,11 +319,56 @@ export async function fetchOnChainEarners(
     const earning = new Map<string, boolean>();
     for (const log of logs) {
       earning.set(
-        earningAccountOf(log),
+        topicAddress(log.topics[1]),
         log.topics[0] === STARTED_EARNING_TOPIC,
       );
     }
     return [...earning].filter(([, isEarning]) => isEarning).map(([a]) => a);
+  } finally {
+    provider.destroy();
+  }
+}
+
+/**
+ * The wM holder candidates for a chain the indexer doesn't cover — every distinct
+ * address that has ever sent or received wM, from the contract's Transfer logs.
+ * The counterpart to `get-holders`' indexer query, for `NON_INDEXED_NETWORKS`.
+ *
+ * Both indexed participants (from = topics[1], to = topics[2]) are collected,
+ * lowercased and de-duplicated; the zero address (mint/burn counterparty) is
+ * dropped. This is only the candidate set — the caller still reads `balanceOf`
+ * and keeps the addresses with a positive balance. Pages on capped RPCs exactly
+ * like the earner scan.
+ *
+ * A missing RPC is a hard error for the same reason as the earner scan: an empty
+ * result must not be mistaken for "no holders".
+ */
+export async function fetchOnChainHolderCandidates(
+  network: string,
+  toBlock: number | "latest" = "latest",
+): Promise<string[]> {
+  const rpcUrl = rpcUrlFor(network);
+  if (!rpcUrl) {
+    throw new Error(
+      `no RPC for ${network} — cannot derive its holder set on-chain (set ALCHEMY_API_KEY or add a public RPC)`,
+    );
+  }
+
+  const provider = wmProvider(network, rpcUrl);
+  try {
+    const logs = await fetchWmLogs(
+      provider,
+      network,
+      [TRANSFER_TOPIC],
+      toBlock,
+    );
+    const participants = new Set<string>();
+    for (const log of logs) {
+      participants.add(topicAddress(log.topics[1]));
+      participants.add(topicAddress(log.topics[2]));
+    }
+    participants.delete(ZERO_ADDRESS);
+    return [...participants];
   } finally {
     provider.destroy();
   }

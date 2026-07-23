@@ -40,6 +40,7 @@ const CHAIN_IDS: Record<string, number> = {
   hyperevm: 999,
   soneium: 1868,
   moca: 2288,
+  nexus: 3946,
   citrea: 4114,
   rise: 4153,
   mantra: 5888,
