@@ -55,6 +55,19 @@ library DeployConfig {
                 });
         }
 
+        if (chainId_ == 11155111) {
+            return
+                NetworkConfig({
+                    migrationAdmin: 0x12b1A4226ba7D9Ad492779c924b0fC00BDCb6217,
+                    excessDestination: 0x12b1A4226ba7D9Ad492779c924b0fC00BDCb6217,
+                    admin: 0x12b1A4226ba7D9Ad492779c924b0fC00BDCb6217,
+                    freezeManager: 0x12b1A4226ba7D9Ad492779c924b0fC00BDCb6217,
+                    pauser: 0x12b1A4226ba7D9Ad492779c924b0fC00BDCb6217,
+                    forcedTransferManager: 0x12b1A4226ba7D9Ad492779c924b0fC00BDCb6217,
+                    excessManager: 0x12b1A4226ba7D9Ad492779c924b0fC00BDCb6217
+                });
+        }
+
         // NOTE: Add further networks here as their config is decided, e.g.:
         //
         // if (chainId_ == 8453) { // Base

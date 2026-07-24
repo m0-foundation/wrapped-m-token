@@ -230,13 +230,10 @@ const STOPPED_EARNING_TOPIC = id("StoppedEarning(address)");
 const TRANSFER_TOPIC = id("Transfer(address,address,uint256)");
 
 // Networks whose RPC caps `eth_getLogs` to a block span, so a log scan must page
-// instead of asking for the full history in one call. Only listed where a cap is
-// known: the Alchemy-backed chains (base, arbitrum, ethereum, sepolia) serve the
-// whole range in one request and are deliberately left out so they keep the
-// single-call path. Nexus's public RPC rejects spans above ~100k blocks with
-// "could not coalesce error", so it pages at 100k.
+// instead of asking for the full history in one call.
 const LOG_SCAN_MAX_RANGE: Record<string, number> = {
   nexus: 100_000,
+  plasma: 10_000,
 };
 
 /** Lowercased address from a 32-byte indexed-address event topic. */

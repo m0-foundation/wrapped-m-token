@@ -76,9 +76,12 @@ import {
 } from "../script/wm-common";
 
 // The chains the v2 upgrade touches: sepolia (the testnet rehearsal, run first)
-// then the mainnets base, arbitrum, ethereum. Every other wM chain is being
-// deprecated, so there is nothing to verify there.
-const UPGRADE_NETWORKS = ["sepolia", "base", "arbitrum", "ethereum"];
+// then the mainnets base, arbitrum, plasma, ethereum. Every other wM chain is
+// being deprecated, so there is nothing to verify there. (Plasma has no earners,
+// so its earner-migration checks are trivial — its substantive post-upgrade
+// checks are the implementation-slot spot-check and the sizeable claimable
+// excess, both covered in the runbook.)
+const UPGRADE_NETWORKS = ["sepolia", "base", "arbitrum", "plasma", "ethereum"];
 
 const SNAPSHOT_DIR = join("earners", "snapshots");
 
