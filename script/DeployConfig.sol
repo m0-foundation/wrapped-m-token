@@ -7,7 +7,7 @@ pragma solidity 0.8.26;
  * @author M0 Labs
  * @dev    Only the values that genuinely differ per chain live here (migration admin, excess
  *         destination and the governance roles). Chain-agnostic addresses — the wM proxy, M Token,
- *         Registrar and Swap Facility — are constants in DeployUpgrade. The deployer is not pinned:
+ *         Registrar and Swap Facility — are constants in the upgrade scripts. The deployer is not pinned:
  *         the migration admin performs the migration by passing the deployed migrator address to
  *         `WrappedMToken.migrate`, so who deploys the migrator does not matter.
  *
