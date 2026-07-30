@@ -39,22 +39,6 @@ library DeployConfig {
     }
 
     function get(uint256 chainId_) internal pure returns (NetworkConfig memory config_) {
-        // Ethereum mainnet.
-        // NOTE: Confirm every address below before the upgrade — the roles and deployer are
-        //       currently placeholders carried over from the original mainnet script.
-        if (chainId_ == 1) {
-            return
-                NetworkConfig({
-                    migrationAdmin: 0x431169728D75bd02f4053435b87D15c8d1FB2C72,
-                    excessDestination: 0xd7298f620B0F752Cf41BD818a16C756d9dCAA34f, // Vault
-                    admin: 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB,
-                    freezeManager: 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB,
-                    pauser: 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB,
-                    forcedTransferManager: 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB,
-                    excessManager: 0xF2f1ACbe0BA726fEE8d75f3E32900526874740BB
-                });
-        }
-
         if (chainId_ == 11155111) {
             return
                 NetworkConfig({
@@ -68,13 +52,18 @@ library DeployConfig {
                 });
         }
 
-        // NOTE: Add further networks here as their config is decided, e.g.:
-        //
-        // if (chainId_ == 8453) { // Base
-        //     return NetworkConfig({ migrationAdmin: 0x..., excessDestination: 0x...,
-        //         admin: 0x..., freezeManager: 0x..., pauser: 0x..., forcedTransferManager: 0x...,
-        //         excessManager: 0x... });
-        // }
+        if (chainId_ == 1 || chainId_ == 8453 || chainId_ == 42161) {
+            return
+                NetworkConfig({
+                    migrationAdmin: 0xf7298F047F92d0Eb21231478Ef6ba9FE1eCD4c73, // MXON Safe
+                    excessDestination: 0x235D1149E99f88E6fe8E190FfAeb8d091bcF49eF,
+                    admin: 0xf7298F047F92d0Eb21231478Ef6ba9FE1eCD4c73, // MXON Safe
+                    freezeManager: 0x4F1cf2449B4D07bD86Fd57709B1695C11D8314F2, // MXON
+                    pauser: 0x4F1cf2449B4D07bD86Fd57709B1695C11D8314F2, // MXON
+                    forcedTransferManager: 0x4F1cf2449B4D07bD86Fd57709B1695C11D8314F2, // MXON
+                    excessManager: 0x235D1149E99f88E6fe8E190FfAeb8d091bcF49eF
+                });
+        }
 
         revert UnsupportedChainId(chainId_);
     }
