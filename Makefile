@@ -25,7 +25,8 @@ deploy-upgrade:
 # Deploys the implementation + migrator AND proposes migrate() to the migration-admin
 # Safe (via the Safe Transaction Service). Used for every mainnet wM v2 upgrades on
 # (mainnet/base/arbitrum) — all have a Safe as their migration admin. `--ffi` lets
-# safe-utils post the proposal.
+# safe-utils post the proposal. Set SAFE_NONCE to queue behind transactions the Safe
+# already has pending, since its on-chain nonce only advances on execution.
 # NOTE: running this posts a REAL Safe proposal; PRIVATE_KEY must be a Safe proposer.
 propose-upgrade:
 	FOUNDRY_PROFILE=production forge script script/ProposeUpgrade.s.sol --skip src --skip test \

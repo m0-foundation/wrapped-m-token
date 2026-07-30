@@ -10,14 +10,14 @@ verbosity = 3
 # to post the migrate() proposal to the Safe Transaction Service. It is off by
 # default in Foundry; nothing else in this repo uses it.
 ffi = true
-# `MultiSigBatchBase` comes from `common`, so safe-utils is resolved through
-# `common`'s own submodule. Its nested libs live under a `contracts/` / `src/`
-# subdir that Foundry's auto-detection misses (it ignores the lib's own
-# remappings.txt), so pin them.
+# safe-utils is vendored at the top level rather than reused from `common`, which
+# pins v0.0.19 — too old for the `SAFE_NONCE` override in `MultiSigBatchBase`, whose
+# `proposeTransactionsWithSignature` gained its `nonce` argument in v0.0.22.
+# Its nested libs live under a `contracts/` / `src/` subdir that Foundry's
+# auto-detection misses (it ignores the lib's own remappings.txt), so pin them.
 remappings = [
-  "safe-smart-account/=lib/common/lib/safe-utils/lib/safe-smart-account/contracts/",
-  "solidity-http/=lib/common/lib/safe-utils/lib/solidity-http/src/",
-  "solidity-stringutils/=lib/common/lib/safe-utils/lib/solidity-stringutils/src/",
+  "safe-smart-account/=lib/safe-utils/lib/safe-smart-account/contracts/",
+  "solidity-stringutils/=lib/safe-utils/lib/solidity-stringutils/src/",
 ]
 rpc_storage_caching = { chains = ["mainnet"], endpoints = "all" }
 evm_version = "cancun"

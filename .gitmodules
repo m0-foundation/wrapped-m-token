@@ -9,3 +9,6 @@
 [submodule "lib/evm-m-extensions"]
 	path = lib/evm-m-extensions
 	url = https://github.com/m0-foundation/evm-m-extensions
+[submodule "lib/safe-utils"]
+	path = lib/safe-utils
+	url = https://github.com/Recon-Fuzz/safe-utils

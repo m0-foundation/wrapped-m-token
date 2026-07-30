@@ -4,13 +4,12 @@ pragma solidity 0.8.26;
 
 import { console2 } from "../lib/forge-std/src/Script.sol";
 
-import { MultiSigBatchBase } from "../lib/common/script/MultiSigBatchBase.sol";
-
 import { IWrappedMToken } from "../src/interfaces/IWrappedMToken.sol";
 
 import { DeployBase } from "./DeployBase.sol";
 import { DeployConfig } from "./DeployConfig.sol";
 import { EarnersAddresses } from "./EarnersAddresses.sol";
+import { MultiSigBatchBase } from "./MultiSigBatchBase.sol";
 
 /**
  * @title  Proposes the WrappedMToken v1->v2 upgrade to the migration-admin Safe.
@@ -27,6 +26,8 @@ import { EarnersAddresses } from "./EarnersAddresses.sol";
  *
  *         Run with `--broadcast --ffi`: `--broadcast` sends the two deployments and
  *         `--ffi` lets safe-utils post the proposal. Running it posts a REAL proposal.
+ *         Set `SAFE_NONCE` when the Safe already has queued transactions, so this one
+ *         queues behind them rather than colliding with them.
  */
 contract ProposeUpgrade is DeployBase, MultiSigBatchBase {
     // Same address on every chain wM is deployed on.
