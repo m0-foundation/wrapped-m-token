@@ -1,126 +1,149 @@
 #!/usr/bin/env tsx
 
-import { writeFileSync, mkdirSync } from "fs";
+/**
+ * Export the WrappedM earner set per chain to `earners/<network>.csv`.
+ *
+ * Source: zero-indexer's `wm_earner` table (per-(chain, account) `isEarning`),
+ * served over its Hasura GraphQL endpoint. This replaces the degraded
+ * protocol-api `WMHolders` / `WMHoldersL2` resolvers.
+ *
+ * `wm_earner` stores `account` + `is_earning` only — NOT balance (zero-indexer
+ * has no wM balance reducer). So the earner ADDRESS set comes from the indexer,
+ * and the `balance` column is enriched on-chain via `balanceOf`. Alchemy-supported
+ * networks use `https://<slug>.g.alchemy.com/v2/<ALCHEMY_API_KEY>` (env
+ * `ALCHEMY_API_KEY`); networks Alchemy doesn't support use a verified public RPC,
+ * so they get balances even without an Alchemy key. Only an Alchemy network with
+ * `ALCHEMY_API_KEY` unset has no RPC and is written with an empty balance. The
+ * address list — the thing the migration needs — is always produced.
+ *
+ * Sepolia and Nexus are the exceptions: zero-indexer doesn't index them, so their
+ * earner set is derived directly from the wM contract's StartedEarning /
+ * StoppedEarning logs over RPC (see `NON_INDEXED_NETWORKS`), then enriched with
+ * `balanceOf` like the rest. This needs an RPC for those chains — `ALCHEMY_API_KEY`
+ * (eth-sepolia) or a public one — and errors out rather than emitting an empty set.
+ *
+ * Chain tables, RPC routing, the GraphQL client and CSV formatting are shared
+ * with `holders/get-holders.ts` via `script/wm-common.ts`.
+ *
+ * Env (auto-loaded from `.env` if present; shell-exported values take precedence):
+ *   ZERO_INDEXER_GRAPHQL_URL     Hasura endpoint (default http://localhost:8080/v1/graphql)
+ *   ZERO_INDEXER_GRAPHQL_SECRET  optional x-hasura-admin-secret (public read needs none)
+ *   ALCHEMY_API_KEY              optional — enables balanceOf on Alchemy networks (others use public RPCs)
+ *
+ * Run: npm run get-earners               export every network
+ *      npm run get-earners -- ethereum   export a single network
+ */
+import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
+import {
+  byBalanceDesc,
+  CHAIN_IDS,
+  fetchBalances,
+  fetchOnChainEarners,
+  graphql,
+  NON_INDEXED_NETWORKS,
+  PAGE_SIZE,
+  selectNetworks,
+  toCsv,
+} from "../script/wm-common";
 
-interface WMHolder {
-  address: string;
-  balance: string;
-  isEarning: boolean;
-}
-
-interface GraphQLResponse {
-  data?: {
-    WMHolders?: WMHolder[];
-    WMHoldersArbitrum?: WMHolder[];
-  };
-  errors?: Array<{ message: string }>;
-}
-
-const PROTOCOL_API_URL = "https://protocol-api.m0.org/graphql";
-
-async function fetchWMHolders(network: string): Promise<WMHolder[]> {
-  const fieldName = network === "ethereum" ? "WMHolders" : "WMHoldersL2";
-  const chainArg =
-    network === "ethereum" ? "" : `chain: ${network.toUpperCase()}`;
-
-  const query = `
-    query GetWMHolders {
-      ${fieldName}(first: 1000, ${chainArg}) {
-        address
-        balance
-        isEarning
-      }
+/**
+ * A table tracked in the `indexer` schema may surface as `wm_earner` or
+ * `indexer_wm_earner` depending on Hasura naming config — resolve it once by
+ * probing both, so the script works regardless.
+ */
+let resolvedField: string | undefined;
+async function earnerField(): Promise<string> {
+  if (resolvedField) return resolvedField;
+  for (const field of ["wm_earner", "indexer_wm_earner"]) {
+    try {
+      await graphql(`query Probe { ${field}(limit: 0) { account } }`, {});
+      resolvedField = field;
+      return field;
+    } catch {
+      // try the next candidate
     }
-  `;
-
-  const response = await fetch(PROTOCOL_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
   }
-
-  const result: GraphQLResponse = await response.json();
-
-  if (result.errors) {
-    throw new Error(
-      `GraphQL errors: ${result.errors.map((e) => e.message).join(", ")}`,
-    );
-  }
-
-  return result.data?.[fieldName as keyof GraphQLResponse["data"]] || [];
+  throw new Error(
+    "could not resolve the wm_earner GraphQL field (tried wm_earner, indexer_wm_earner) — check the Hasura schema",
+  );
 }
 
-function convertToCSV(holders: WMHolder[]): string {
-  const headers = ["address", "balance"];
-  const rows = holders.map((holder) => [holder.address, holder.balance]);
+async function fetchEarnerAddresses(chainId: number): Promise<string[]> {
+  const field = await earnerField();
+  const query = `
+    query Earners($chainId: Int!, $limit: Int!, $offset: Int!) {
+      ${field}(
+        where: { chain_id: { _eq: $chainId }, is_earning: { _eq: true } }
+        order_by: { account: asc }
+        limit: $limit
+        offset: $offset
+      ) {
+        account
+      }
+    }`;
 
-  return [headers, ...rows].map((row) => row.join(",")).join("\n");
+  // `wm_earner` is a reducer/anchor-seed table, so a single account can surface in
+  // more than one row — de-duplicate by account here. A repeated address would
+  // otherwise break the downstream strictly-ascending invariant in
+  // generate-earners-array and ListOfEarnersToMigrate.
+  const seen = new Set<string>();
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const data = await graphql<Record<string, Array<{ account: string }>>>(
+      query,
+      {
+        chainId,
+        limit: PAGE_SIZE,
+        offset,
+      },
+    );
+    const page = data[field] ?? [];
+    for (const { account } of page) seen.add(account.toLowerCase());
+    if (page.length < PAGE_SIZE) break;
+  }
+  return [...seen];
 }
 
 async function main() {
-  const networks = [
-    "arbitrum",
-    "base",
-    "bsc",
-    "ethereum",
-    "hyperevm",
-    "linea",
-    "mantra",
-    "optimism",
-    "plasma",
-    "plume",
-    "soneium",
-  ];
-
   mkdirSync("earners", { recursive: true });
 
+  const networks = selectNetworks(process.argv[2]);
+
   for (const network of networks) {
-    const networkName = network.charAt(0).toUpperCase() + network.slice(1);
+    const chainId = CHAIN_IDS[network];
+    if (chainId === undefined) {
+      console.warn(`\nSkipping ${network} — not indexed by zero-indexer.`);
+      continue;
+    }
 
     try {
-      console.log(`\nFetching WrappedM holders from ${networkName}...`);
-
-      const holders = await fetchWMHolders(network);
-      console.log(`Found ${holders.length} WrappedM holders on ${networkName}`);
-
-      if (holders.length === 0) {
-        console.log("No holders found");
-        continue;
-      }
-
-      const earners = holders.filter((holder) => holder.isEarning);
-      console.log(
-        `Found ${earners.length} WrappedM earners (isEarning = true)`,
-      );
-
-      if (earners.length === 0) {
-        console.log("No earners found");
-        continue;
-      }
+      console.log(`\nFetching wM earners for ${network} (chain ${chainId})...`);
+      const accounts = NON_INDEXED_NETWORKS.has(network)
+        ? await fetchOnChainEarners(network)
+        : await fetchEarnerAddresses(chainId);
+      console.log(`Found ${accounts.length} earner(s)`);
 
       const csvPath = join("earners", `${network}.csv`);
-      const csvContent = convertToCSV(earners);
 
-      writeFileSync(csvPath, csvContent);
-      console.log(`Exported ${earners.length} earners to ${csvPath}`);
+      // Always write the CSV, even with zero earners: an empty (header-only) file
+      // is the source of truth that tells generate-earners-array.ts to emit an
+      // empty-array migration function for this network, rather than omitting it.
+      if (accounts.length === 0) {
+        writeFileSync(csvPath, toCsv([]));
+        console.log(`Exported 0 earners to ${csvPath} (header only)`);
+        continue;
+      }
 
-      const totalBalance = earners.reduce(
-        (sum, h) => sum + parseFloat(h.balance || "0"),
-        0,
-      );
+      const balances = await fetchBalances(network, accounts);
+      const rows = accounts
+        .map((address) => ({ address, balance: balances.get(address) ?? "" }))
+        .sort(byBalanceDesc);
 
-      console.log(`Total balance: ${totalBalance}`);
-      console.log(`Total earners: ${earners.length}`);
+      writeFileSync(csvPath, toCsv(rows));
+      console.log(`Exported ${rows.length} earners to ${csvPath}`);
     } catch (error) {
       console.error(
-        `Error processing ${networkName}:`,
+        `Error processing ${network}:`,
         error instanceof Error ? error.message : error,
       );
     }
