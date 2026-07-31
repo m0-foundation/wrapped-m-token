@@ -1,0 +1,23 @@
+{
+  "lib/common": {
+    "branch": {
+      "name": "release-v1.5.2",
+      "rev": "489fae6daecd227616155e4f8cacfd17aeb3e2a1"
+    }
+  },
+  "lib/evm-m-extensions": {
+    "rev": "87a2f42ab55b5e10771f48fa0d5994bfaa3dca09"
+  },
+  "lib/forge-std": {
+    "branch": {
+      "name": "v1",
+      "rev": "620536fa5277db4e3fd46772d5cbc1ea0696fb43"
+    }
+  },
+  "lib/safe-utils": {
+    "tag": {
+      "name": "v0.0.22",
+      "rev": "273945a35ade03a78648a350140aace72707d5a7"
+    }
+  }
+}

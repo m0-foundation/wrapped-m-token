@@ -1,14 +1,33 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
+
+import { IERC20 } from "../../lib/common/src/interfaces/IERC20.sol";
 
 contract MockM {
-    address public ttgRegistrar;
-
     uint128 public currentIndex;
 
     mapping(address account => uint256 balance) public balanceOf;
     mapping(address account => bool isEarning) public isEarning;
+    mapping(address account => uint240 principal) public principalBalanceOf;
+
+    function permit(
+        address owner_,
+        address spender_,
+        uint256 value_,
+        uint256 deadline_,
+        uint8 v_,
+        bytes32 r_,
+        bytes32 s_
+    ) external {}
+
+    function permit(
+        address owner_,
+        address spender_,
+        uint256 value_,
+        uint256 deadline_,
+        bytes memory signature_
+    ) external {}
 
     function transfer(address recipient_, uint256 amount_) external returns (bool success_) {
         balanceOf[msg.sender] -= amount_;
@@ -28,12 +47,16 @@ contract MockM {
         balanceOf[account_] = balance_;
     }
 
+    function setPrincipalBalanceOf(address account_, uint240 principal_) external {
+        principalBalanceOf[account_] = principal_;
+    }
+
     function setCurrentIndex(uint128 currentIndex_) external {
         currentIndex = currentIndex_;
     }
 
-    function setTtgRegistrar(address ttgRegistrar_) external {
-        ttgRegistrar = ttgRegistrar_;
+    function setIsEarning(address account_, bool isEarning_) external {
+        isEarning[account_] = isEarning_;
     }
 
     function startEarning() external {
@@ -43,11 +66,13 @@ contract MockM {
     function stopEarning() external {
         isEarning[msg.sender] = false;
     }
+
+    function approve(address /* spender_ */, uint256 /* amount_ */) external pure returns (bool success_) {
+        return true;
+    }
 }
 
 contract MockRegistrar {
-    address public vault;
-
     mapping(bytes32 key => bytes32 value) public get;
 
     mapping(bytes32 list => mapping(address account => bool contains)) public listContains;
@@ -59,8 +84,33 @@ contract MockRegistrar {
     function setListContains(bytes32 list_, address account_, bool contains_) external {
         listContains[list_][account_] = contains_;
     }
+}
 
-    function setVault(address vault_) external {
-        vault = vault_;
+interface IMExtension {
+    function wrap(address recipient, uint256 amount) external;
+    function unwrap(address recipient, uint256 amount) external;
+}
+
+contract MockSwapFacility {
+    address public immutable mToken;
+
+    constructor(address mToken_) {
+        mToken = mToken_;
+    }
+
+    function swapInM(address extensionOut, uint256 amount, address recipient) external {
+        IERC20(mToken).transferFrom(msg.sender, address(this), amount);
+        IERC20(mToken).approve(extensionOut, amount);
+        IMExtension(extensionOut).wrap(recipient, amount);
+    }
+
+    function swapOutM(address extensionIn, uint256 amount, address recipient) external {
+        IERC20(extensionIn).transferFrom(msg.sender, address(this), amount);
+
+        uint256 balanceBefore = IERC20(mToken).balanceOf(address(this));
+        IMExtension(extensionIn).unwrap(address(this), amount);
+
+        amount = IERC20(mToken).balanceOf(address(this)) - balanceBefore;
+        IERC20(mToken).transfer(recipient, amount);
     }
 }

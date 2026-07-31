@@ -1,7 +1,14 @@
 [submodule "lib/forge-std"]
 	path = lib/forge-std
-	url = git@github.com:foundry-rs/forge-std.git
+	url = https://github.com/foundry-rs/forge-std
 	branch = v1
 [submodule "lib/common"]
 	path = lib/common
-	url = git@github.com:MZero-Labs/common.git
+	url = https://github.com/m0-foundation/common
+	branch = release-v1.5.2
+[submodule "lib/evm-m-extensions"]
+	path = lib/evm-m-extensions
+	url = https://github.com/m0-foundation/evm-m-extensions
+[submodule "lib/safe-utils"]
+	path = lib/safe-utils
+	url = https://github.com/Recon-Fuzz/safe-utils

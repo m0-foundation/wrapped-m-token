@@ -1,53 +1,72 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity 0.8.23;
+pragma solidity 0.8.26;
 
-import { Test } from "../lib/forge-std/src/Test.sol";
+import { IndexingMath } from "../../lib/common/src/libs/IndexingMath.sol";
 
-import { IWrappedMToken } from "../src/interfaces/IWrappedMToken.sol";
+import { Proxy } from "../../lib/common/src/Proxy.sol";
+import { Test } from "../../lib/forge-std/src/Test.sol";
 
-import { WrappedMToken } from "../src/WrappedMToken.sol";
-import { Proxy } from "../src/Proxy.sol";
+import { ISwapFacilityLike } from "../../src/interfaces/ISwapFacilityLike.sol";
+import { IWrappedMToken } from "../../src/interfaces/IWrappedMToken.sol";
 
-import { MockM, MockRegistrar } from "./utils/Mocks.sol";
+import { WrappedMToken } from "../../src/WrappedMToken.sol";
 
-contract Tests is Test {
-    uint56 internal constant _EXP_SCALED_ONE = 1e12;
+import { MockM, MockRegistrar, MockSwapFacility } from "../utils/Mocks.sol";
 
-    bytes32 internal constant _EARNERS_LIST = "earners";
-    bytes32 internal constant _MIGRATOR_V1_PREFIX = "wm_migrator_v1";
+contract StoryTests is Test {
+    uint56 internal constant _EXP_SCALED_ONE = IndexingMath.EXP_SCALED_ONE;
+
+    bytes32 internal constant _EARNERS_LIST_NAME = "earners";
 
     address internal _alice = makeAddr("alice");
     address internal _bob = makeAddr("bob");
     address internal _carol = makeAddr("carol");
     address internal _dave = makeAddr("dave");
 
+    address internal _admin = makeAddr("admin");
+    address internal _excessManager = makeAddr("excessManager");
+    address internal _excessDestination = makeAddr("excessDestination");
+    address internal _forcedTransferManager = makeAddr("forcedTransferManager");
+    address internal _freezeManager = makeAddr("freezeManager");
     address internal _migrationAdmin = makeAddr("migrationAdmin");
-
-    address internal _vault = makeAddr("vault");
+    address internal _pauser = makeAddr("pauser");
 
     MockM internal _mToken;
     MockRegistrar internal _registrar;
+    MockSwapFacility internal _swapFacility;
     WrappedMToken internal _implementation;
     IWrappedMToken internal _wrappedMToken;
 
     function setUp() external {
         _registrar = new MockRegistrar();
-        _registrar.setVault(_vault);
 
         _mToken = new MockM();
         _mToken.setCurrentIndex(_EXP_SCALED_ONE);
-        _mToken.setTtgRegistrar(address(_registrar));
+        _swapFacility = new MockSwapFacility(address(_mToken));
 
-        _implementation = new WrappedMToken(address(_mToken), _migrationAdmin);
+        _implementation = new WrappedMToken(
+            address(_mToken),
+            address(_registrar),
+            address(_swapFacility),
+            _migrationAdmin
+        );
 
         _wrappedMToken = IWrappedMToken(address(new Proxy(address(_implementation))));
+        WrappedMToken(address(_wrappedMToken)).initialize(
+            _admin,
+            _freezeManager,
+            _pauser,
+            _forcedTransferManager,
+            _excessManager,
+            _excessDestination
+        );
     }
 
     function test_story() external {
-        _registrar.setListContains(_EARNERS_LIST, _alice, true);
-        _registrar.setListContains(_EARNERS_LIST, _bob, true);
-        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _bob, true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, address(_wrappedMToken), true);
 
         _wrappedMToken.enableEarning();
 
@@ -57,8 +76,14 @@ contract Tests is Test {
 
         _mToken.setBalanceOf(_alice, 100_000000);
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_alice)
+        );
+
         vm.prank(_alice);
-        _wrappedMToken.wrap(_alice, 100_000000);
+        _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _alice);
 
         // Assert Alice (Earner)
         assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
@@ -73,8 +98,14 @@ contract Tests is Test {
 
         _mToken.setBalanceOf(_carol, 100_000000);
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_carol)
+        );
+
         vm.prank(_carol);
-        _wrappedMToken.wrap(_carol, 100_000000);
+        _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _carol);
 
         // Assert Carol (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_carol), 100_000000);
@@ -107,8 +138,14 @@ contract Tests is Test {
 
         _mToken.setBalanceOf(_bob, 100_000000);
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_bob)
+        );
+
         vm.prank(_bob);
-        _wrappedMToken.wrap(_bob, 100_000000);
+        _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _bob);
 
         // Assert Bob (Earner)
         assertEq(_wrappedMToken.balanceOf(_bob), 100_000000);
@@ -124,8 +161,14 @@ contract Tests is Test {
 
         _mToken.setBalanceOf(_dave, 100_000000);
 
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_dave)
+        );
+
         vm.prank(_dave);
-        _wrappedMToken.wrap(_dave, 100_000000);
+        _swapFacility.swapInM(address(_wrappedMToken), 100_000000, _dave);
 
         // Assert Dave (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_dave), 100_000000);
@@ -179,54 +222,54 @@ contract Tests is Test {
         assertEq(_wrappedMToken.totalNonEarningSupply(), 200_000000);
         assertEq(_wrappedMToken.totalSupply(), 500_000000);
         assertEq(_wrappedMToken.totalAccruedYield(), 150_000000);
-        assertEq(_wrappedMToken.excess(), 249_999999);
+        assertEq(_wrappedMToken.excess(), 250_000000);
 
         vm.prank(_alice);
         _wrappedMToken.transfer(_carol, 100_000000);
 
         // Assert Alice (Earner)
-        assertEq(_wrappedMToken.balanceOf(_alice), 200_000000);
-        assertEq(_wrappedMToken.accruedYieldOf(_alice), 0);
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 99_999998);
 
         // Assert Carol (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_carol), 200_000000);
         assertEq(_wrappedMToken.accruedYieldOf(_carol), 0);
 
         // Assert Globals
-        assertEq(_wrappedMToken.totalEarningSupply(), 300_000000);
+        assertEq(_wrappedMToken.totalEarningSupply(), 200_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 300_000000);
-        assertEq(_wrappedMToken.totalSupply(), 600_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), 50_000001);
+        assertEq(_wrappedMToken.totalSupply(), 500_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 150_000001);
         assertEq(_wrappedMToken.excess(), 249_999999);
 
         vm.prank(_dave);
         _wrappedMToken.transfer(_bob, 50_000000);
 
         // Assert Bob (Earner)
-        assertEq(_wrappedMToken.balanceOf(_bob), 200_000000);
-        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+        assertEq(_wrappedMToken.balanceOf(_bob), 150_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 49_999998);
 
         // Assert Dave (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_dave), 50_000000);
         assertEq(_wrappedMToken.accruedYieldOf(_dave), 0);
 
         // Assert Globals
-        assertEq(_wrappedMToken.totalEarningSupply(), 400_000000);
+        assertEq(_wrappedMToken.totalEarningSupply(), 250_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 250_000000);
-        assertEq(_wrappedMToken.totalSupply(), 650_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), 2);
-        assertEq(_wrappedMToken.excess(), 249_999996);
+        assertEq(_wrappedMToken.totalSupply(), 500_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 150_000002);
+        assertEq(_wrappedMToken.excess(), 249_999998);
 
         _mToken.setCurrentIndex(4 * _EXP_SCALED_ONE);
         _mToken.setBalanceOf(address(_wrappedMToken), 1_200_000000); // was 900 @ 3.0, so 1200 @ 4.0
 
         // Assert Alice (Earner)
-        assertEq(_wrappedMToken.balanceOf(_alice), 200_000000);
-        assertEq(_wrappedMToken.accruedYieldOf(_alice), 66_666664);
+        assertEq(_wrappedMToken.balanceOf(_alice), 100_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_alice), 166_666664);
 
         // Assert Bob (Earner)
-        assertEq(_wrappedMToken.balanceOf(_bob), 200_000000);
-        assertEq(_wrappedMToken.accruedYieldOf(_bob), 66_666664);
+        assertEq(_wrappedMToken.balanceOf(_bob), 150_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 116_666664);
 
         // Assert Carol (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_carol), 200_000000);
@@ -237,13 +280,13 @@ contract Tests is Test {
         assertEq(_wrappedMToken.accruedYieldOf(_dave), 0);
 
         // Assert Globals
-        assertEq(_wrappedMToken.totalEarningSupply(), 400_000000);
+        assertEq(_wrappedMToken.totalEarningSupply(), 250_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 250_000000);
-        assertEq(_wrappedMToken.totalSupply(), 650_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), 133_333336);
+        assertEq(_wrappedMToken.totalSupply(), 500_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 283_333336);
         assertEq(_wrappedMToken.excess(), 416_666664);
 
-        _registrar.setListContains(_EARNERS_LIST, _alice, false);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, false);
 
         _wrappedMToken.stopEarningFor(_alice);
 
@@ -252,13 +295,13 @@ contract Tests is Test {
         assertEq(_wrappedMToken.accruedYieldOf(_alice), 0);
 
         // Assert Globals
-        assertEq(_wrappedMToken.totalEarningSupply(), 200_000000);
+        assertEq(_wrappedMToken.totalEarningSupply(), 150_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 516_666664);
-        assertEq(_wrappedMToken.totalSupply(), 716_666664);
-        assertEq(_wrappedMToken.totalAccruedYield(), 66_666672);
+        assertEq(_wrappedMToken.totalSupply(), 666_666664);
+        assertEq(_wrappedMToken.totalAccruedYield(), 116_666672);
         assertEq(_wrappedMToken.excess(), 416_666664);
 
-        _registrar.setListContains(_EARNERS_LIST, _carol, true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _carol, true);
 
         _wrappedMToken.startEarningFor(_carol);
 
@@ -267,10 +310,10 @@ contract Tests is Test {
         assertEq(_wrappedMToken.accruedYieldOf(_carol), 0);
 
         // Assert Globals
-        assertEq(_wrappedMToken.totalEarningSupply(), 400_000000);
+        assertEq(_wrappedMToken.totalEarningSupply(), 350_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 316_666664);
-        assertEq(_wrappedMToken.totalSupply(), 716_666664);
-        assertEq(_wrappedMToken.totalAccruedYield(), 66_666672);
+        assertEq(_wrappedMToken.totalSupply(), 666_666664);
+        assertEq(_wrappedMToken.totalAccruedYield(), 116_666672);
         assertEq(_wrappedMToken.excess(), 416_666664);
 
         _mToken.setCurrentIndex(5 * _EXP_SCALED_ONE);
@@ -281,8 +324,8 @@ contract Tests is Test {
         assertEq(_wrappedMToken.accruedYieldOf(_alice), 0);
 
         // Assert Bob (Earner)
-        assertEq(_wrappedMToken.balanceOf(_bob), 200_000000);
-        assertEq(_wrappedMToken.accruedYieldOf(_bob), 133_333330);
+        assertEq(_wrappedMToken.balanceOf(_bob), 150_000000);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 183_333330);
 
         // Assert Carol (Earner)
         assertEq(_wrappedMToken.balanceOf(_carol), 200_000000);
@@ -293,56 +336,92 @@ contract Tests is Test {
         assertEq(_wrappedMToken.accruedYieldOf(_dave), 0);
 
         // Assert Globals
-        assertEq(_wrappedMToken.totalEarningSupply(), 400_000000);
+        assertEq(_wrappedMToken.totalEarningSupply(), 350_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 316_666664);
-        assertEq(_wrappedMToken.totalSupply(), 716_666664);
-        assertEq(_wrappedMToken.totalAccruedYield(), 183_333340);
-        assertEq(_wrappedMToken.excess(), 599_999995);
+        assertEq(_wrappedMToken.totalSupply(), 666_666664);
+        assertEq(_wrappedMToken.totalAccruedYield(), 233_333340);
+        assertEq(_wrappedMToken.excess(), 599_999996);
 
         vm.prank(_alice);
-        _wrappedMToken.unwrap(_alice, 266_666664);
+        _wrappedMToken.approve(address(_swapFacility), 266_666664);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_alice)
+        );
+
+        vm.prank(_alice);
+        _swapFacility.swapOutM(address(_wrappedMToken), 266_666664, _alice);
 
         // Assert Alice (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_alice), 0);
         assertEq(_wrappedMToken.accruedYieldOf(_alice), 0);
 
         // Assert Globals
-        assertEq(_wrappedMToken.totalEarningSupply(), 400_000000);
+        assertEq(_wrappedMToken.totalEarningSupply(), 350_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 50_000000);
-        assertEq(_wrappedMToken.totalSupply(), 450_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), 183_333340);
-        assertEq(_wrappedMToken.excess(), 600_000000);
+        assertEq(_wrappedMToken.totalSupply(), 400_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 233_333340);
+        assertEq(_wrappedMToken.excess(), 599_999996);
 
         vm.prank(_bob);
-        _wrappedMToken.unwrap(_bob, 333_333330);
+        _wrappedMToken.approve(address(_swapFacility), 150_000000);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_bob)
+        );
+
+        vm.prank(_bob);
+        _swapFacility.swapOutM(address(_wrappedMToken), 150_000000, _bob);
 
         // Assert Bob (Earner)
         assertEq(_wrappedMToken.balanceOf(_bob), 0);
-        assertEq(_wrappedMToken.accruedYieldOf(_bob), 0);
+        assertEq(_wrappedMToken.accruedYieldOf(_bob), 183_333330);
 
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), 200_000000);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 50_000000);
         assertEq(_wrappedMToken.totalSupply(), 250_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), 50_000010);
-        assertEq(_wrappedMToken.excess(), 600_000000);
+        assertEq(_wrappedMToken.totalAccruedYield(), 233_333340);
+        assertEq(_wrappedMToken.excess(), 599_999996);
 
         vm.prank(_carol);
-        _wrappedMToken.unwrap(_carol, 250_000000);
+        _wrappedMToken.approve(address(_swapFacility), 200_000000);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_carol)
+        );
+
+        vm.prank(_carol);
+        _swapFacility.swapOutM(address(_wrappedMToken), 200_000000, _carol);
 
         // Assert Carol (Earner)
         assertEq(_wrappedMToken.balanceOf(_carol), 0);
-        assertEq(_wrappedMToken.accruedYieldOf(_carol), 0);
+        assertEq(_wrappedMToken.accruedYieldOf(_carol), 50_000000);
 
         // Assert Globals
         assertEq(_wrappedMToken.totalEarningSupply(), 0);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 50_000000);
         assertEq(_wrappedMToken.totalSupply(), 50_000000);
-        assertEq(_wrappedMToken.totalAccruedYield(), 0);
-        assertEq(_wrappedMToken.excess(), 600_000010);
+        assertEq(_wrappedMToken.totalAccruedYield(), 233_333340);
+        assertEq(_wrappedMToken.excess(), 599_999996);
 
         vm.prank(_dave);
-        _wrappedMToken.unwrap(_dave, 50_000000);
+        _wrappedMToken.approve(address(_swapFacility), 50_000000);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_dave)
+        );
+
+        vm.prank(_dave);
+        _swapFacility.swapOutM(address(_wrappedMToken), 50_000000, _dave);
 
         // Assert Dave (Non-Earner)
         assertEq(_wrappedMToken.balanceOf(_dave), 0);
@@ -352,23 +431,15 @@ contract Tests is Test {
         assertEq(_wrappedMToken.totalEarningSupply(), 0);
         assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
         assertEq(_wrappedMToken.totalSupply(), 0);
-        assertEq(_wrappedMToken.totalAccruedYield(), 0);
-        assertEq(_wrappedMToken.excess(), 600_000010);
-
-        _wrappedMToken.claimExcess();
-
-        // Assert Globals
-        assertEq(_wrappedMToken.totalEarningSupply(), 0);
-        assertEq(_wrappedMToken.totalNonEarningSupply(), 0);
-        assertEq(_wrappedMToken.totalSupply(), 0);
-        assertEq(_wrappedMToken.totalAccruedYield(), 0);
-        assertEq(_wrappedMToken.excess(), 0);
+        assertEq(_wrappedMToken.totalAccruedYield(), 233_333340);
+        assertEq(_wrappedMToken.excess(), 599_999996);
     }
 
     function test_noExcessCreep() external {
-        _registrar.setListContains(_EARNERS_LIST, _alice, true);
-        _registrar.setListContains(_EARNERS_LIST, _bob, true);
-        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _bob, true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, address(_wrappedMToken), true);
+
         _mToken.setCurrentIndex(_EXP_SCALED_ONE + 3e11 - 1);
 
         _wrappedMToken.enableEarning();
@@ -377,32 +448,55 @@ contract Tests is Test {
         _mToken.setBalanceOf(_alice, 1_000000);
 
         for (uint256 i_; i_ < 100; ++i_) {
+            vm.mockCall(
+                address(_swapFacility),
+                abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+                abi.encode(_alice)
+            );
+
             vm.prank(_alice);
-            _wrappedMToken.wrap(_alice, 9);
+            _swapFacility.swapInM(address(_wrappedMToken), 9, _alice);
 
             assertLe(
-                _wrappedMToken.balanceOf(_alice) + _wrappedMToken.excess(),
-                _mToken.balanceOf(address(_wrappedMToken))
+                int256(_wrappedMToken.balanceOf(_alice)) + int256(_wrappedMToken.excess()),
+                int256(_mToken.balanceOf(address(_wrappedMToken)))
             );
         }
 
-        _wrappedMToken.claimExcess();
+        assertEq(_wrappedMToken.excess(), 0);
 
         uint256 aliceBalance_ = _wrappedMToken.balanceOf(_alice);
 
         vm.prank(_alice);
         _wrappedMToken.transfer(_bob, aliceBalance_);
 
-        assertLe(_wrappedMToken.balanceOf(_bob) + _wrappedMToken.excess(), _mToken.balanceOf(address(_wrappedMToken)));
+        assertLe(
+            int256(_wrappedMToken.balanceOf(_bob)) +
+                int256(_wrappedMToken.excess()) +
+                int256(_wrappedMToken.balanceOf(_excessDestination)),
+            int256(_mToken.balanceOf(address(_wrappedMToken)))
+        );
+
+        uint256 bobBalance_ = _wrappedMToken.balanceOf(_bob);
 
         vm.prank(_bob);
-        _wrappedMToken.unwrap(_bob);
+        _wrappedMToken.approve(address(_swapFacility), bobBalance_);
+
+        vm.mockCall(
+            address(_swapFacility),
+            abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+            abi.encode(_bob)
+        );
+
+        vm.prank(_bob);
+        _swapFacility.swapOutM(address(_wrappedMToken), bobBalance_, _bob);
     }
 
     function test_dustWrapping() external {
-        _registrar.setListContains(_EARNERS_LIST, _alice, true);
-        _registrar.setListContains(_EARNERS_LIST, _bob, true);
-        _registrar.setListContains(_EARNERS_LIST, address(_wrappedMToken), true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _alice, true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, _bob, true);
+        _registrar.setListContains(_EARNERS_LIST_NAME, address(_wrappedMToken), true);
+
         _mToken.setCurrentIndex(_EXP_SCALED_ONE + 1);
 
         _wrappedMToken.enableEarning();
@@ -411,12 +505,18 @@ contract Tests is Test {
         _mToken.setBalanceOf(_alice, 1_000000);
 
         for (uint256 i_; i_ < 100; ++i_) {
+            vm.mockCall(
+                address(_swapFacility),
+                abi.encodeWithSelector(ISwapFacilityLike.msgSender.selector),
+                abi.encode(_alice)
+            );
+
             vm.prank(_alice);
-            _wrappedMToken.wrap(_alice, 1);
+            _swapFacility.swapInM(address(_wrappedMToken), 1, _alice);
 
             assertLe(
-                _wrappedMToken.balanceOf(_alice) + _wrappedMToken.excess(),
-                _mToken.balanceOf(address(_wrappedMToken))
+                int256(_wrappedMToken.balanceOf(_alice)) + int256(_wrappedMToken.excess()),
+                int256(_mToken.balanceOf(address(_wrappedMToken)))
             );
         }
 

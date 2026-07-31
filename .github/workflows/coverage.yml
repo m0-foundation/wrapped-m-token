@@ -32,7 +32,7 @@ jobs:
         run: make coverage
 
       - name: Report code coverage
-        uses: zgosalvez/github-actions-report-lcov@v3
+        uses: zgosalvez/github-actions-report-lcov@v4.1.22
         with:
           coverage-files: lcov.info
           artifact-name: code-coverage-report

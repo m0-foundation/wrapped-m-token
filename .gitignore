@@ -21,3 +21,9 @@ docs/
 # NPM modules
 node_modules
 gasreport.ansi
+
+#soljson
+soljson-latest.js
+
+# wM upgrade verification snapshots (regenerated at upgrade time)
+earners/snapshots/

@@ -2,15 +2,28 @@
 gas_reports = ["*"]
 gas_reports_ignore = []
 ignored_error_codes = []
-solc_version = "0.8.23"
+solc_version = "0.8.26"
 optimizer = true
-optimizer_runs = 999999
+optimizer_runs = 4150
 verbosity = 3
-block_number = 20_270_778
-block_timestamp = 1_720_550_400
-fork_block_number = 20_270_778
+# `ffi` is required by the propose-upgrade scripts: safe-utils shells out (via FFI)
+# to post the migrate() proposal to the Safe Transaction Service. It is off by
+# default in Foundry; nothing else in this repo uses it.
+ffi = true
+# safe-utils is vendored at the top level rather than reused from `common`, which
+# pins v0.0.19 — too old for the `SAFE_NONCE` override in `MultiSigBatchBase`, whose
+# `proposeTransactionsWithSignature` gained its `nonce` argument in v0.0.22.
+# Its nested libs live under a `contracts/` / `src/` subdir that Foundry's
+# auto-detection misses (it ignores the lib's own remappings.txt), so pin them.
+remappings = [
+  "safe-smart-account/=lib/safe-utils/lib/safe-smart-account/contracts/",
+  "solidity-stringutils/=lib/safe-utils/lib/solidity-stringutils/src/",
+]
 rpc_storage_caching = { chains = ["mainnet"], endpoints = "all" }
-evm_version = "shanghai"
+evm_version = "cancun"
+
+[lint]
+lint_on_build = false
 
 [profile.production]
 build_info = true
@@ -34,10 +47,32 @@ depth = 250
 [rpc_endpoints]
 localhost = "${LOCALHOST_RPC_URL}"
 mainnet = "${MAINNET_RPC_URL}"
+bsc = "${BSC_RPC_URL}"
+monad = "${MONAD_RPC_URL}"
+hyperevm = "${HYPEREVM_RPC_URL}"
+soneium = "${SONEIUM_RPC_URL}"
+moca = "${MOCA_RPC_URL}"
+citrea = "${CITREA_RPC_URL}"
+rise = "${RISE_RPC_URL}"
+mantra = "${MANTRA_RPC_URL}"
+base = "${BASE_RPC_URL}"
+plasma = "${PLASMA_RPC_URL}"
+0g = "${ZEROG_RPC_URL}"
+fluent = "${FLUENT_RPC_URL}"
+arbitrum = "${ARBITRUM_RPC_URL}"
+linea = "${LINEA_RPC_URL}"
+plume = "${PLUME_RPC_URL}"
 sepolia = "${SEPOLIA_RPC_URL}"
 
 [etherscan]
-mainnet = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/api" }
-sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api-sepolia.etherscan.io/api" }
+mainnet = { key = "${ETHERSCAN_API_KEY}", url = "${MAINNET_VERIFIER_URL}", chain = 1 }
+bsc = { key = "${ETHERSCAN_API_KEY}", url = "${BSC_VERIFIER_URL}", chain = 56 }
+monad = { key = "${ETHERSCAN_API_KEY}", url = "${MONAD_VERIFIER_URL}", chain = 143 }
+hyperevm = { key = "${ETHERSCAN_API_KEY}", url = "${HYPEREVM_VERIFIER_URL}", chain = 999 }
+base = { key = "${ETHERSCAN_API_KEY}", url = "${BASE_VERIFIER_URL}", chain = 8453 }
+plasma = { key = "${ETHERSCAN_API_KEY}", url = "${PLASMA_VERIFIER_URL}", chain = 9745 }
+arbitrum = { key = "${ETHERSCAN_API_KEY}", url = "${ARBITRUM_VERIFIER_URL}", chain = 42161 }
+linea = { key = "${ETHERSCAN_API_KEY}", url = "${LINEA_VERIFIER_URL}", chain = 59144 }
+sepolia = { key = "${ETHERSCAN_API_KEY}", url = "${SEPOLIA_VERIFIER_URL}", chain = 11155111 }
 
 # See more config options at https://github.com/foundry-rs/foundry/tree/master/crates/config
